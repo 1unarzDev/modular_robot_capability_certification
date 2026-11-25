@@ -212,6 +212,7 @@ def test_mecanum_episode_unchanged_by_type_support():
 @cuda
 def test_conventional_module_cannot_sway():
     from cfcap.gen import rho_ref as RR
+    from cfcap.t1 import plant as PL
     from cfcap.t1 import capability as cap
     asm = E.build("single", [(0, 0)], [0], ["M1"], "plated")
     out = {}
@@ -225,7 +226,16 @@ def test_conventional_module_cannot_sway():
     assert (out[0][sway] > 0.8).all()
     assert (np.abs(out[1][sway]) < 0.1).all()                  # skid module: ~zero lone sway capability
     assert (out[1][surge] > 0.5).all()
-    assert not np.allclose(out[2], out[0], atol=1e-3)           # omni-like differs from mecanum
+    np.testing.assert_allclose(out[2], out[0], atol=0.01)       # omni-like: same nominal healthy capability ...
+    br = {}
+    for t in (0, 2):                                             # ... but a braked wheel costs it more (less traction)
+        lat = RR.nominal_latents(asm, "plated", 1, types=[t] if t else None)
+        lat["mode"][0, 0] = PL.BRAKE
+        lat = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat.items()}
+        lat["dom"] = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat["dom"].items()}
+        br[t] = cap.capability([(asm, lat)], E.params("plated"), engine="graph")[0]["rho"].cpu().numpy()[0]
+    diag = [cap.LEGS.index("diag+-"), cap.LEGS.index("diag-+")]
+    assert (br[0][diag] - br[2][diag] > 0.1).all()
 
 
 @cuda

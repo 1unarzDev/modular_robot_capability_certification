@@ -131,7 +131,11 @@ stream):
 **Module types** (`cfcap/t1/plant.py`, additive optional latent `wtype`; absent = capxfer behaviour):
 `MECANUM 0`; `CONVENTIONAL 1` (skid: both contact channels are friction channels along the rolling and lateral
 directions, capxfer's roller_locked geometry, independent of the fault mode); `OMNI 2` (mecanum geometry, roller-axis
-traction μ × `OMNI_MU = 0.5`). The firmware IK is the same mecanum IK for every type. Faults (weak/coast/brake) apply
+traction μ × `OMNI_MU = 0.2`). Finding (exploratory, /tmp/omni_opts*.py, local GPU): T1 decision legs are not
+traction-limited, so μ × 0.5 changed nothing measurable (|Δρ| < 0.001, even with 6 kg), and neither did s0 × 10. At
+× 0.2 the healthy omni module is still nominal-identical (|Δρ| < 0.01), but its fault consequences differ. A single
+with a braked wheel: diagonals 0.25 vs 0.41 for mecanum, surge 0.63 vs 0.65. So H1 tests an unseen type whose
+*fault response* is new, not its nominal capability. The firmware IK is the same mecanum IK for every type. Faults (weak/coast/brake) apply
 on top of any type. Test `test_conventional_module_cannot_sway`: a lone conventional module has |ρ_sway| < 0.1
 (CONFIRMATORY asks < 0.02; the measured value is in the test log below).
 - Columns: `mod_type` (M,) int8 per module (wheel w's type = `mod_type[w // 4]`; candidate types via `cm_mod`).
@@ -161,6 +165,8 @@ observations were ever computed). Each conf split also has one spare last shard 
 - For the env role (mission-segment labels): `cfcap.gen.simrun.label_conditions(items)` labels any generator
   candidate under a μ factor and a payload (mass, x, y in the candidate frame) and returns ρ, ρ_ref (the fixed
   nominal table, unaffected by conditions) and ρ_dec; additive, nothing else changes. Episodes: `make_episode`.
+- OPS: GPU tests passed at the commit below (tests/test_gen.py 24/24 + tests/test_t1.py 8/8, local 4070, ~21:25Z):
+  scaling16 / hetero / confirm are ready to submit at that commit (supersedes ebba94b and 7efaec7: OMNI_MU 0.5 → 0.2).
 - unit_s for all three come from `scripts/gen_campaigns.py` (one rate table; rerun after the pilot2 numbers).
 
 ## Needs from other roles

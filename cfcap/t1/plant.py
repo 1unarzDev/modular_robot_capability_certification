@@ -57,7 +57,7 @@ class Het:
 # The firmware IK is unchanged (nominal mecanum r_hat), i.e. the same controller drives every module type.
 MECANUM, CONVENTIONAL, OMNI = 0, 1, 2
 WHEEL_TYPES = ("mecanum", "conventional", "omni")
-OMNI_MU = 0.5
+OMNI_MU = 0.2          # 0.5 changed nothing measurable; at 0.2 the type changes fault consequences (generator board)
 
 HET_OFF = Het()
 HET_WHEEL8 = Het(wheel_motor=0.08)
