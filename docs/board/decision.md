@@ -564,6 +564,31 @@ Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`
 - useful ≥ the pooled-K arm − 5 pts.
 - If the bars fail, the paper may not claim robustness to an unseen law severity.
 
+## Held-out-severity result: bars PASSED
+Source: `results/decision/hos_K02_*` and `hos_Kpool_*`; appendix files `paper/probe_t0hos_K02.csv`
+(T0-knee-sev3-heldout-appendix) and `probe_t0hos_Kpool.csv`.
+- K₀₋₂ = **26.9**, from 450 calibration episodes at severities 0–2 (pooled K = 28.7).
+- The certificate and the EVOI predictive were calibrated on 599 external episodes at severities 0–2 only.
+- Test: 267 converged severity-3 episodes out of 300. 33 (11 %) were dropped by the convergence filter, a higher drop
+  rate than at the lower severities.
+
+| env_cal, severity 3 | K₀₋₂ = 26.9 (held out) | pooled K = 28.7 |
+|---|---|---|
+| empty-screen share | **2.6 %** | 2.6 % |
+| evoi ep unsafe | **1.1 %** | 1.1 % |
+| evoi useful | **88.5 %** | 88.5 % |
+| evoi regret ± se / probe s | 28.8 ± 5.3 / 2.31 | same |
+| clamp useful / regret | 88.5 % / 34.8 | same |
+| v2 useful / regret | 79.9 % / 37.5 | same |
+
+- Paired Δregret: evoi − clamp −5.9 [−6.5, −5.3]; evoi − dom −1.7 [−2.3, −1.1].
+- **Verdict: all bars pass** (empty 2.6 % ≤ 10 %; unsafe 1.1 % ≤ 10 %; useful Δ 0 pts ≥ −5).
+- **Why the two arms are identical.** Hypotheses with a screen statistic between 26.9 and 28.7 never enter the top-mass
+  set of at most 6. The two arms' kept sets, and so their bounds, are identical (max |Δ rho_pi| = 0). The threshold
+  only has to be large enough not to empty the screen. Its exact value does not matter here.
+- **Context.** Severity 3 alone is harder than the pooled headline (useful 88.5 % vs 93.1 %, unsafe 1.1 % vs 0.34 %).
+  A certificate calibrated without any severity-3 episode still stays far inside α.
+
 ## NEXT queue (not started)
 - **N-post-1b: DONE (see NEXT-1b result).** Original note: a knee-robust screen. Options:
   - (a) a conformalized screen threshold calibrated on knee-law calibration episodes (truth's max |z| at α_s);
