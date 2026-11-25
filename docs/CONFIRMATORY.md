@@ -183,6 +183,35 @@ do not count as passing.
 - **Power.** Undominated incapable decisions per episode are unknown before the run. If a severity cell has fewer
   than 20k, its E_dec verdict is UNDERPOWERED and E_ep decides.
 
+### 3b. Amendment A-GATE (21:40Z, before any confirmatory label exists): the primary certifier replaces the falsified gate
+**Reason.** Exploratory E1 (`results/theory/gate_cert.csv`, 300 episodes per law; `gate_verdict.txt`) falsified the
+trust gate: SUCCESS-1 and SUCCESS-2 both fail. It also showed three things:
+- the physics-trusting `par` fails silently at s = 3 (undominated unsafe 31 % with v2, 24 % with clamp);
+- `pi_cal` with v2+clamp (dominance bound + clamp probe, conformally calibrated) stays at 0–0.4 % unsafe and
+  certifies 79–91 % at every severity;
+- `par_pooled` (calibrated over the law family) stays at 0.2–1.2 %.
+
+Bars 2 (H13) and P6 above are **withdrawn**. Bar 1 (H12/P5) and bar 3 are unchanged. The new bars:
+- **Certifiers in C-GATE.**
+  - `robust` = **dominance + clamp, conformally calibrated** (`pi_cal` with v2+clamp). Its margin is fitted on
+    exploratory knee episodes pooled over s ∈ {0, 1, 2, 3}. This is the **primary** certifier.
+  - `lawcal` = the physics posterior calibrated over a law family (`par_pooled`, v2 only). Its margin is fitted on
+    **s ∈ {0, 1, 2} only**, so that s = 3 is a held-out severity. This is the secondary certifier.
+  - `par` (physics-trusting, calibrated on the correct law only), `raw` and `pi` are kept as comparators. `gate` is
+    reported descriptively only.
+- **P6′ (Holm, replaces P6). Robustness against physics-trusting**, ≥ 3-module children, s = 3:
+  - E_ep(par) − E_ep(robust) > 0 (paired episode bootstrap, Holm);
+  - E_dec(robust) on undominated stratum decisions ≤ 1 % (upper ≤ 1.3 % if powered; else E_ep(robust) ≤ 0.10).
+- **Validity at every severity** (not Holm): E_dec(robust) ≤ 1 % on the stratum (power rule; else E_ep ≤ 0.10) for
+  s = 0, 1, 2, 3.
+- **Price of robustness** (descriptive, pre-stated): CF(par, v2) − CF(robust, v2+clamp) at s = 0 on the stratum is
+  ≤ 10 pts. The exploratory E1 value is ~6 pts.
+- **Held-out misspecification for `lawcal`** (descriptive, but a pre-stated bar): E_dec(lawcal) at the held-out
+  s = 3 is ≤ 2 %. If it fails, the paper states "calibrating over a law family protects only inside that family".
+  This is the honest limit of "calibration over wrong laws restores validity".
+- **The plant is T2**, with the knee law and the fixed reference, on the C-GATE stream. The stress role produces
+  the `robust` / `lawcal` / `par` / `raw` / `pi` rows. The paper role's scorer reads `robust` as P6′.
+
 ## 4. Claim C-ENV: missions in HM3D-calibrated buildings
 - **Prerequisite (gating; no confirmatory scoring without it).** `cfcap/env/buildings.py` reproduces the HM3D
   statistics: two-sample KS p > 0.05, *or* effect size (KS D) < 0.1, for route length, steps per route, passage
@@ -249,6 +278,13 @@ do not count as passing.
   1. **Validity.** E_ep(amortized_comp) ≤ 0.15 on H1 and H2 (upper ≤ 0.18).
   2. **Degradation.** Coverage and CF drop ID → H1/H2 ≤ 5 pts for `amortized_comp`, and smaller than the direct
      head's drop (paired; secondary).
+  0. **What H1 tests (amendment A-HET, 21:40Z, before any label).** The generator sets OMNI_MU = 0.2 (1591e17).
+     Healthy omni is nominally ≈ mecanum (|Δρ| < 0.01), but faults have different consequences: a single module
+     with a braked wheel has diagonals 0.25 vs 0.41.
+     - So H1 tests generalisation to **new fault behaviour** of an unseen wheel type, not to new nominal
+       capability. The paper must state it that way.
+     - For H1 the bars are judged on the **faulted-candidate** block. The all-decisions block is descriptive, because
+       healthy omni candidates are in effect in-distribution.
   3. **Pre-stated interpretation.** If `amortized_comp` passes only when told the type, the claim is "composition
      transfers to new module types whose wheel channel model is known", not "learned type inference".
 
