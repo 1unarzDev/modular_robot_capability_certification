@@ -387,3 +387,14 @@ def test_canary_units_runs_first_units_only(tmp_path, monkeypatch):
     assert run_main([*ST, "--out", str(out), "--canary-units", "1"], monkeypatch) == 0
     m = read(out / "manifest.json")
     assert m["status"] == "complete" and m["units_total"] == 1 and m["canary_units"] == 1
+
+
+def test_lineage_and_canary_flag(staged, monkeypatch):
+    assert MJ.lineage_of("cfcap-nuis2") == "cfcap-nuis"
+    assert MJ.lineage_of("cfcap-baselines-b2r") == "cfcap-baselines"
+    assert MJ.lineage_of("cfcap-gen-ref2") == "cfcap-gen-ref" and MJ.lineage_of("cfcap-decide") == "cfcap-decide"
+    plan = {**PLAN, "lineage": "cfcap-test"}
+    jobs, _ = MJ.group_jobs(plan, group(), INFO, draft=False)
+    assert all(j["spec"]["lineage"] == "cfcap-test" for j in jobs)
+    cans = MJ.batch_canaries(plan, jobs, {"gen": group()}, log=lambda *a: None)
+    assert cans[0]["spec"]["canary"] is True and cans[0]["spec"]["lineage"] == "cfcap-test"

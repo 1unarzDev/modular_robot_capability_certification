@@ -240,6 +240,8 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
                 "shard": k, "n_shards": n, "task_args": list(g.get("task_args") or []),
                 "cfcap_commit": info["cfcap_commit"], "capxfer_commit": info.get("capxfer_commit"),
                 "run": run_line(g, lane, k, n)}
+        if plan.get("lineage"):
+            spec["lineage"] = plan["lineage"]
         if inputs:
             spec["inputs_rsync"] = inputs
         job = {"schema": "rc-job/1", "job_id": jid, "kind": "gpu_command" if lane == "rented" else "py_command",
@@ -288,11 +290,19 @@ def batch_canaries(plan: dict, jobs: list[dict], groups: dict, log=print) -> lis
     return out
 
 
+def lineage_of(campaign: str) -> str:
+    """cfcap-nuis2 -> cfcap-nuis, cfcap-baselines-b2r -> cfcap-baselines, cfcap-gen-ref2 -> cfcap-gen-ref."""
+    return re.sub(r"(-b\d+|\d+)r?$", "", campaign) or campaign
+
+
 def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bool = True, log=print,
          first_only: bool = False, canary: bool = True, campaign: str | None = None,
          cfcap_ref: str | None = None) -> dict:
     """campaign: re-emit the plan under another campaign name (job ids follow it: a new batch, `--resubmit-as`).
     cfcap_ref: pin this cfcap commit instead of HEAD. Every job of the file carries the same refs (one batch per kind)."""
+    # spec.lineage: a stable name across resubmits and new commits (the coordinator opens a new batch at once when
+    # its lineage already has an open batch). The plan's own campaign, minus -bN / N / r version suffixes.
+    plan = {**plan, "lineage": plan.get("lineage") or lineage_of(plan.get("campaign", ""))}
     if campaign:
         plan = {**plan, "campaign": campaign}
     for k in ("campaign", "submitter", "groups", "stop"):
