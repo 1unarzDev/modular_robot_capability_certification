@@ -33,6 +33,9 @@ def weighted_quantile(scores, w_cal, w_test: float, alpha: float) -> float:
     w = np.asarray(w_cal, dtype=float).ravel()
     if s.size == 0 or s.size != w.size:
         return math.inf
+    if not (np.all(np.isfinite(w)) and np.all(w >= 0) and np.isfinite(w_test) and w_test >= 0):
+        return math.inf  # invalid density ratios: refuse
+    s = np.where(np.isnan(s), np.inf, s)  # a NaN score counts as the worst case
     order = np.argsort(s)
     s, w = s[order], w[order]
     p = w / (w.sum() + w_test)
@@ -55,8 +58,13 @@ class SimultaneousLower:
     def scores(self, pred, scale, truth):
         pred, truth = np.asarray(pred, float), np.asarray(truth, float)
         scale = np.maximum(np.asarray(scale, float), self.min_scale)
+        pred, truth, scale = np.atleast_2d(pred), np.atleast_2d(truth), np.atleast_2d(scale)
+        if pred.shape[1] == 0:
+            return np.empty(0)
+        present = ~np.isnan(pred)                 # NaN prediction = padding (absent candidate)
         r = (pred - truth) / scale
-        r = np.where(np.isnan(r), -np.inf, r)
+        r = np.where(present & np.isnan(truth), np.inf, r)   # present prediction, missing label: worst case
+        r = np.where(present, np.nan_to_num(r, nan=np.inf, posinf=np.inf, neginf=-np.inf), -np.inf)
         s = r.max(axis=1)
         # an episode with no present entries carries no information; drop it
         return s[np.isfinite(s) | (s == np.inf)]
@@ -86,8 +94,8 @@ def risk_control_margin(loss_fn, lambdas, alpha: float, B: float = 1.0):
     for lam in lambdas:
         L = np.asarray(loss_fn(lam), float)
         n = L.size
-        if n == 0:
-            return math.inf
+        if n == 0 or not np.all(np.isfinite(L)) or np.any(L < 0) or np.any(L > B):
+            return math.inf  # invalid or unbounded losses: refuse
         if (n / (n + 1)) * L.mean() + B / (n + 1) <= alpha:
             return float(lam)
     return math.inf
