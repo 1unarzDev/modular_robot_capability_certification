@@ -41,6 +41,10 @@ Amendments A-GATE / A-HET (727f995): C-GATE H13 and P6 are withdrawn; P6' (Holm,
 E_ep(par) - E_ep(robust) > 0 at s = 3 on >=3-module children AND robust's undominated E_dec <= 1 % (power rule, else
 E_ep <= 0.10); robust validity at every severity (not Holm); price of robustness and lawcal at the held-out s = 3
 (descriptive, pre-stated); robust = v2+clamp rows, the others v2. C-HET's H1 bars use the faulted-candidate block.
+A-ENV (0dc1aec): conf-ID mission 1499 excluded; amortized_comp E_mis = empirical transfer bars (not guarantees);
+amortized_comp_envcal scored under the same bars (guarantee on ID); raw = plug-in median, descriptive.
+c2b97cd: C-EXPLAIN (§6b, secondary, not in Holm; models' wheels_conf_models.npz + point = q50; truth regenerated with
+make_episode) and an exploratory C-MAIN row with tau from the task-library histogram.
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -435,6 +439,193 @@ def score_main(S, dec, cal):
                       cell="all decisions", plant="T2", n_clusters=len(o_a), status="HOLM",
                       note=f"raw E_dec condition: {v_raw}")
     # cfBH and SMC are descriptive (cells.csv)
+    score_task_library(S, d)
+
+
+# ------------------------------------------------------------------------------------------------- task-library tau
+
+TASK_LIBRARY = ROOT / "results/annotations/task_library.csv"
+
+
+def task_library_taus(path=None):
+    """leg index -> array of requirement values (rho_dec units) from the task library's r_<leg> columns."""
+    path = pathlib.Path(path or TASK_LIBRARY)
+    if not path.exists():
+        return None
+    t = pd.read_csv(path)
+    out = {}
+    for li, leg in enumerate(C.LEGS):
+        col = f"r_{leg}"
+        if col in t:
+            v = t[col].dropna().to_numpy(float)
+            if len(v):
+                out[li] = v
+    return out or None
+
+
+def task_library_stats(d, lower, taus_by_leg):
+    """Per-episode weighted counts with tau drawn from the leg's task-library histogram (expectation: every library
+    tau of that leg with weight 1/n_leg). Stratum = faulted or |rho_dec - tau| < BAND; trivially capable = capable
+    and outside the stratum."""
+    tr = d["truth"].to_numpy(float)
+    lo = np.nan_to_num(np.asarray(lower, float), nan=-np.inf)
+    hf = d["has_fault"].to_numpy(float) > 0.5
+    leg = d["leg"].to_numpy(int)
+    acc = {k: np.zeros(len(d)) for k in ("cap", "cert", "inc", "uns", "w", "triv", "uns_all")}
+    for li, taus in taus_by_leg.items():
+        i = np.flatnonzero((leg == li) & np.isfinite(tr))
+        if not len(i):
+            continue
+        T = taus[None, :]
+        w = 1.0 / len(taus)
+        cap = tr[i, None] >= T
+        go = lo[i, None] >= T
+        st = hf[i, None] | (np.abs(tr[i, None] - T) < BAND)
+        acc["w"][i] += w * len(taus)
+        acc["cap"][i] += w * (cap & st).sum(1)
+        acc["cert"][i] += w * (cap & st & go).sum(1)
+        acc["inc"][i] += w * (~cap & st).sum(1)
+        acc["uns"][i] += w * (~cap & st & go).sum(1)
+        acc["triv"][i] += w * (cap & ~st).sum(1)
+        acc["uns_all"][i] += w * (~cap & go).sum(1)
+    out = pd.DataFrame(acc).groupby(d["eid"].to_numpy()).sum()
+    out["ep_unsafe"] = (out["uns_all"] > 0).astype(float)
+    out["one"] = 1.0
+    return out
+
+
+def score_task_library(S, d, path=None):
+    """Exploratory secondary C-MAIN row (c2b97cd): decisions re-thresholded at tau from the task-library histogram."""
+    tb = task_library_taus(path)
+    if tb is None:
+        S.bar("C-MAIN (task-library tau)", "exploratory", "CF / E_dec / trivially capable", np.nan, status="MISSING",
+              note=f"{C.rel(TASK_LIBRARY)} missing")
+        return
+    for plant in sorted(d.test_plant.astype(str).unique()):
+        dp = d[d.test_plant == plant]
+        bt = Boot(np.sort(dp.eid.unique()))
+        for m in sorted(dp.method.unique()):
+            ev = dp[dp.method == m].reset_index(drop=True)
+            t = task_library_stats(ev, ev["lower"], tb)
+            cf, rcf = bt.ratio(t, "cert", "cap")
+            ed, red = bt.ratio(t, "uns", "inc")
+            tv, rtv = bt.ratio(t, "triv", "w")
+            S.cell(claim="C-MAIN (task-library tau)", method=m, plant=plant, block="stratum", n_ep=len(t), CF_own=cf,
+                   E_dec_own=ed, trivially_capable_share=tv, status="exploratory")
+            if m == OURS:
+                note = "exploratory; tau from results/annotations/task_library.csv; own bound"
+                S.bar("C-MAIN (task-library tau)", "exploratory", "CF (stratum)", cf, rcf, method=m, plant=plant,
+                      descriptive=True, note=note)
+                S.bar("C-MAIN (task-library tau)", "exploratory", "E_dec (stratum)", ed, red, method=m, plant=plant,
+                      descriptive=True, note=note)
+                S.bar("C-MAIN (task-library tau)", "exploratory", "share of trivially capable decisions", tv, rtv,
+                      method=m, plant=plant, descriptive=True, note="capable and outside the stratum")
+
+
+# ------------------------------------------------------------------------------------------------- C-EXPLAIN
+
+WHEELS_GLOB = "models/confirmatory/wheels_*.npz"
+P_BLAME = 0.5
+
+
+def episode_truth(split, index, plate="plated"):
+    """True per-candidate wheel faults, regenerated from the episode index (cfcap.gen.episode.make_episode; latents
+    only, no simulation). -> {cand: [(role, wheel, faulty)]}."""
+    from cfcap.gen.episode import make_episode
+    ep = make_episode(plate, split, int(index))
+    return {ci: [(r, 4 * k + j, int(ep.asms[r].mode[4 * k + j] != 0)) for (r, k) in c.modules for j in range(4)]
+            for ci, c in enumerate(ep.cands)}
+
+
+def load_wheels(res):
+    """models' C-EXPLAIN input (commit 1ffcc69, docs/board/models.md): results/models/confirmatory/
+    wheels_conf_models.npz, one row per wheel sorted by eid then ep_wheel, arrays eid, asm_role (0 parent, 1+ merge
+    partners), wheel (4*module + corner within the assembly), ep_wheel, p (W x 4: P(ok, weak, coast, brake)), g_mean,
+    classes. -> long frame eid, role, wheel, p_fault = 1 - P(ok)."""
+    files = sorted(glob.glob(str(res / WHEELS_GLOB)))
+    if not files:
+        return None, []
+    parts = []
+    for f in files:
+        z = np.load(f, allow_pickle=False)
+        miss = [k for k in ("eid", "asm_role", "wheel", "p") if k not in z.files]
+        if miss:
+            raise C.SchemaError(f"{f}: missing arrays {miss} (docs/board/paper.md §5d, models 1ffcc69)")
+        P = np.asarray(z["p"], float)
+        if P.ndim != 2 or P.shape[1] < 2:
+            raise C.SchemaError(f"{f}: p must be (W, n_classes)")
+        ok = 0
+        if "classes" in z.files:
+            cl = [str(c).lower() for c in z["classes"]]
+            if "ok" not in cl:
+                raise C.SchemaError(f"{f}: classes {cl} has no 'ok'")
+            ok = cl.index("ok")
+        parts.append(pd.DataFrame(dict(eid=z["eid"].astype(int), role=z["asm_role"].astype(int),
+                                       wheel=z["wheel"].astype(int), p_fault=1.0 - P[:, ok])))
+    return pd.concat(parts, ignore_index=True), [C.rel(f) for f in files]
+
+
+def explain_stats(d, wheels, truth_fn):
+    """Per-episode explainer counts over refused stratum decisions of one method (rows d, own lower, point = q50)."""
+    pf = {(int(e), int(r), int(w)): float(p) for e, r, w, p in wheels[["eid", "role", "wheel", "p_fault"]].itertuples(
+        index=False)}
+    blame = {}
+    for eid in d.eid.unique():
+        tr = truth_fn("conf_test", int(eid))
+        for ci, ws in tr.items():
+            b = [(r, w, f) for r, w, f in ws if pf.get((int(eid), r, w), 0.0) >= P_BLAME]
+            blame[int(eid), ci] = (len(b), sum(f for _, _, f in b))
+    key = list(zip(d.eid.astype(int), d.cand.astype(int)))
+    nb = np.array([blame.get(k, (0, 0))[0] for k in key], float)
+    nc = np.array([blame.get(k, (0, 0))[1] for k in key], float)
+    tr = d["truth"].to_numpy(float)
+    lo = np.nan_to_num(d["lower"].to_numpy(float), nan=-np.inf)
+    med = d["point"].to_numpy(float)
+    acc = {k: np.zeros(len(d)) for k in ("ref", "blamed", "blamed_ok", "deficit", "deficit_ok", "margin", "inc_ref",
+                                         "inc_informative", "cap_ref", "cap_wrong_reason")}
+    for tau in TAUS:
+        ref = np.isfinite(tr) & stratum_mask(d, tau) & ~(lo >= tau)
+        deficit = ref & (med < tau)
+        acc["ref"] += ref
+        acc["blamed"] += ref * nb
+        acc["blamed_ok"] += ref * nc
+        acc["deficit"] += deficit
+        acc["deficit_ok"] += deficit & (tr < tau)
+        acc["margin"] += ref & ~(med < tau)
+        inc = ref & (tr < tau)
+        acc["inc_ref"] += inc
+        acc["inc_informative"] += inc & ((nb > 0) | deficit)
+        cap = ref & (tr >= tau)
+        acc["cap_ref"] += cap
+        acc["cap_wrong_reason"] += cap & deficit
+    return pd.DataFrame(acc).groupby(d["eid"].to_numpy()).sum()
+
+
+def score_explain(S, dec, res, truth_fn=None):
+    """C-EXPLAIN (§6b, c2b97cd; secondary, not in Holm): point-judged, episode-clustered CI printed."""
+    claim = "C-EXPLAIN"
+    wheels, srcs = load_wheels(res)
+    d = dec[(dec.claim == "C-MAIN") & (dec.split == "conf_test") & (dec.test_plant == "T1") & (dec.method == OURS)
+            & dec.eid.between(CMAIN_IDX[0], CMAIN_IDX[1] - 1)].reset_index(drop=True)
+    if wheels is None or d.empty:
+        S.bar(claim, "all bars", "", np.nan, status="MISSING",
+              note="needs models' wheels_conf_models.npz and C-MAIN T1 amortized_comp rows")
+        return
+    if d["point"].isna().all():
+        raise C.SchemaError("C-EXPLAIN: amortized_comp rows need point = posterior median (q50)")
+    t = explain_stats(d, wheels, truth_fn or episode_truth)
+    bt = Boot(t.index)
+    for metric, num, den, kw in (("wheel precision", "blamed_ok", "blamed", dict(ge=0.95)),
+                                 ("deficit-claim precision", "deficit_ok", "deficit", dict(ge=0.90)),
+                                 ("informative share (incapable refusals)", "inc_informative", "inc_ref",
+                                  dict(ge=0.80)),
+                                 ("false-reason rate (capable refusals)", "cap_wrong_reason", "cap_ref", dict(le=0.05))):
+        e, r = bt.ratio(t, num, den)
+        S.bar(claim, metric, metric, e, r, method=OURS, cell="C-MAIN T1 refusals (stratum)", plant="T1",
+              n_clusters=len(t), note="point-judged; secondary, not in Holm", **kw)
+    e, r = bt.ratio(t, "margin", "ref")
+    S.bar(claim, "margin share", "share of refusals with a margin claim", e, r, method=OURS, descriptive=True,
+          plant="T1", note="margin claims make no physical assertion")
 
 
 def _paired_diff(S, bt, claim, pid, metric, a, b, num, den, min_pts, ma, mb, plant, note=""):
@@ -653,37 +844,63 @@ def score_gate(S, dec):
 
 # ------------------------------------------------------------------------------------------------- C-ENV
 
+ENV_EXCLUDED = {("ID", 1499)}                            # A-ENV: constructed before scoring
+ENVCAL = "amortized_comp_envcal"
+ENV_CERTIFIERS = {                                       # A-ENV: same bars, different status of the bar
+    OURS: "primary; empirical transfer bar, NOT a guarantee (T1-cal constant outside its calibration distribution)",
+    ENVCAL: "secondary; env-calibrated on exploratory ID missions, guarantee on ID by exchangeability (A-ENV)",
+}
+
+
 def score_env(S, mis, ks):
     if ks is None or ks.empty:
         S.bar("C-ENV", "prerequisite", "HM3D statistics", np.nan, status="NOT SCORED",
               note="results/env/buildings_ks.csv missing: no confirmatory scoring without it (§4)")
         S.p["P7"] = np.nan
         return
-    ok = bool(((ks.ks_p > 0.05) | (ks.ks_d < 0.1)).all())
-    S.bar("C-ENV", "prerequisite", "KS p > 0.05 or D < 0.1 for every statistic", float(ok), ge=1.0,
-          note=f"{len(ks)} statistics")
+    # env role's file (scripts/env_score.py side): stat, ks_p, ks_d [, n_hm3d, n_gen, family, passed]. The rule is
+    # recomputed here from ks_p / ks_d (its `passed` column is informational); §4 also needs >= 500 generated buildings.
+    ok_stat = (ks.ks_p > 0.05) | (ks.ks_d < 0.1)
+    enough = bool((ks.n_gen >= 500).all()) if "n_gen" in ks else True
+    ok = bool(ok_stat.all()) and enough
+    S.bar("C-ENV", "prerequisite", "KS p > 0.05 or D < 0.1 for every statistic (>= 500 generated buildings)",
+          float(ok), ge=1.0, note=f"{len(ks)} statistics" + ("" if enough else "; fewer than 500 generated buildings")
+          + ("" if ok_stat.all() else "; failing: " + ", ".join(ks.stat[~ok_stat].astype(str))))
     if not ok:
         S.bar("C-ENV", "all bars", "", np.nan, status="NOT SCORED", note="prerequisite failed")
         S.p["P7"] = np.nan
         return
     m = mis[mis.claim == "C-ENV"].copy() if not mis.empty else mis
+    if not m.empty and (m["shard"] < 0).any():
+        S.log.append(f"C-ENV: {int((m['shard'] < 0).sum())} mission rows carry shard = -1 (env_score: no shard column "
+                     "in the runner rows), so the canary-shard exclusion cannot apply to them")
     if m.empty:
         S.bar("C-ENV", "1 validity", "E_mis", np.nan, status="MISSING")
         S.p["P7"] = np.nan
         return
+    # A-ENV (0dc1aec): conf-ID mission 1499 was constructed before scoring -> excluded from every cell
+    exc = np.zeros(len(m), bool)
+    for fam, mi in ENV_EXCLUDED:
+        exc |= (m.family == fam).to_numpy() & (m.mission == mi).to_numpy()
+    S.log.append(f"C-ENV: excluded {int(exc.sum())} rows of conf-ID mission 1499 (A-ENV); ID = missions 0-1,498")
+    m = m[~exc].copy()
     m["fail_c"] = (m.committed > 0.5) & (m.failed > 0.5)
-    for fam in sorted(m.family.unique()):
-        e = m[(m.method == OURS) & (m.family == fam)]
-        if e.empty:
-            continue
-        cs = e.groupby("building").agg(num=("fail_c", "sum"), den=("committed", "sum"))
-        bt = Boot(cs.index)
-        est, reps = bt.ratio(cs, "num", "den")
-        if fam == "ID":
-            S.bar("C-ENV", "1 validity", "E_mis", est, reps, le=0.10, up_le=0.13, method=OURS, cell=fam,
-                  n_clusters=len(cs))
-        else:
-            S.bar("C-ENV", "1 validity", "E_mis", est, reps, up_le=0.15, method=OURS, cell=fam, n_clusters=len(cs))
+    for meth, note in ENV_CERTIFIERS.items():
+        for fam in sorted(m.family.unique()):
+            e = m[(m.method == meth) & (m.family == fam)]
+            if e.empty:
+                if fam == "ID":
+                    S.bar("C-ENV", "1 validity", "E_mis", np.nan, method=meth, cell=fam, status="MISSING")
+                continue
+            cs = e.groupby("building").agg(num=("fail_c", "sum"), den=("committed", "sum"))
+            bt = Boot(cs.index)
+            est, reps = bt.ratio(cs, "num", "den")
+            if fam == "ID":
+                S.bar("C-ENV", "1 validity", "E_mis", est, reps, le=0.10, up_le=0.13, method=meth, cell=fam,
+                      n_clusters=len(cs), note=note)
+            else:
+                S.bar("C-ENV", "1 validity", "E_mis", est, reps, up_le=0.15, method=meth, cell=fam,
+                      n_clusters=len(cs), note=note)
     # P7: ID success among oracle-successful missions, paired by building
     idm = m[(m.family == "ID") & (m.oracle_success > 0.5)]
     bt = Boot(np.sort(idm.building.unique()))
@@ -697,6 +914,12 @@ def score_env(S, mis, ks):
         best = max(base, key=lambda b: tab[b].s.sum() / tab[b].n.sum())
         _paired_diff(S, bt, "C-ENV", "P7", "ID success (oracle-successful missions)", tab[OURS], tab[best], "s", "n",
                      0.05, OURS, best, "")
+    # price of the T1 constant (A-ENV, descriptive): useful commits, envcal - amortized_comp, ID, paired by building
+    if ENVCAL in tab and OURS in tab:
+        ea, ra = bt.ratio(tab[ENVCAL], "s", "n")
+        eb, rb = bt.ratio(tab[OURS], "s", "n")
+        S.bar("C-ENV", "price of the T1 constant", f"useful commits: {ENVCAL} - {OURS} (ID)", ea - eb, ra - rb,
+              method=ENVCAL, cell="ID", descriptive=True, note="A-ENV, descriptive")
     # generalisation (descriptive) and reconfiguration necessity (descriptive)
     for fam in sorted(f for f in m.family.unique() if f != "ID"):
         for meth in (OURS, "raw"):
@@ -705,7 +928,8 @@ def score_env(S, mis, ks):
                 continue
             si, sf = a[a.family == "ID"].success.mean(), a[a.family == fam].success.mean()
             S.bar("C-ENV", "3 generalisation", f"success drop ID -> {fam}", si - sf, le=0.10 if meth == OURS else None,
-                  method=meth, cell=fam, descriptive=meth != OURS)
+                  method=meth, cell=fam, descriptive=meth != OURS,
+                  note="raw = plug-in median, not a bound (A-ENV)" if meth == "raw" else "")
     o = m[(m.method == "oracle") & (m.family == "ID") & (m.oracle_success > 0.5)]
     if len(o) and o.reconfig.notna().any():
         S.bar("C-ENV", "4 reconfiguration", "share of oracle plans that merge/split", o.reconfig.mean(), ge=0.20,
@@ -957,7 +1181,7 @@ def report(S, H, out, sha, srcs, mock):
     return V
 
 
-def run(res, out, mock=False, now=None):
+def run(res, out, mock=False, now=None, truth_fn=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     if not mock and not (res / "MOCK.txt").exists() and now < SCORING_OPENS:
         raise SystemExit(f"refusing: the confirmatory scoring window opens {SCORING_OPENS:%Y-%m-%d %H:%MZ} "
@@ -981,6 +1205,7 @@ def run(res, out, mock=False, now=None):
     score_env(S, mis, ks)
     score_scale(S, dec)
     score_het(S, dec)
+    score_explain(S, dec, res, truth_fn)
     H = holm(S)
     h12(S)
     p6_overall(S)

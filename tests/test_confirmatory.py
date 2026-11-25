@@ -272,3 +272,189 @@ def test_ahet_h1_judged_on_faulted_block(tmp_path):
     h2 = V[(V.claim == "C-HET") & (V.bar == "1 validity") & (V.method == K.OURS) & (V.cell == "conf_H2")]
     assert (h2.metric == "E_ep (all)").all() and h2.verdict.iloc[0] == "PASS"
     assert _v(V, "C-HET", "2 degradation", "-> conf_H1 (faulted)").shape[0] == 2
+
+
+# ---- C-ENV with the env role's real output schema (scripts/env_score.py, results/env/buildings_ks.csv)
+
+def _env_score_frame(rng, nb=40):
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
+    import importlib
+    try:
+        famname = importlib.import_module("env_score").FAMNAME            # the env role's family names
+    except Exception:                                                     # noqa: BLE001 (cfcap.env import failure)
+        famname = {"conf-ID": "ID", "conf-E-H1": "E-H1"}
+    rows, mission = [], 0
+    for fname in ("conf-ID", "conf-E-H1"):
+        for b in range(nb):
+            for _ in range(3):                                            # MISSIONS_PER_BUILDING = 3
+                os_ = int(rng.random() < 0.8)
+                for meth, ps, pf in (("oracle", 1.0, 0.0), ("nominal", 0.7, 0.25), ("biggest_body", 0.6, 0.1),
+                                     ("greedy_feasible", 0.7, 0.2), (K.OURS, 0.92, 0.02), ("raw", 0.9, 0.12),
+                                     (K.ENVCAL, 0.95, 0.04)):
+                    com = int(rng.random() < 0.95)
+                    fail = int(com and rng.random() < pf)
+                    # exactly env_score.main's dict: claim, family, building, mission, shard, status, then score_mission
+                    rows.append(dict(claim="C-ENV", family=famname.get(fname, fname), building=f"{fname}-{b}",
+                                     mission=mission, shard=-1, status="confirmatory", method=meth,
+                                     committed=com, failed=fail,
+                                     success=int(com and not fail and os_ and rng.random() < ps),
+                                     oracle_success=os_, reconfig=int(rng.random() < 0.4), time_s=30.0 * com))
+                mission += 1
+    return pd.DataFrame(rows)
+
+
+def _env_ks(ok=True):
+    # the columns of results/env/buildings_ks.csv as committed by the env role
+    return pd.DataFrame(dict(stat=["route_m", "route_steps", "tortuosity", "passage_count"],
+                             ks_p=[0.0497, 0.0132, 3.3e-8, 1.0], ks_d=[0.038, 0.044, 0.084 if ok else 0.12, 0.0],
+                             n_hm3d=2210, n_gen=3000, family="test (= conf-ID rule)", passed=ok))
+
+
+def _env_only_dir(tmp_path, ok=True):
+    res = tmp_path / "in"
+    (res / "env/confirmatory").mkdir(parents=True)
+    (res / "MOCK.txt").write_text("mock\n")
+    _env_score_frame(np.random.default_rng(1)).to_csv(res / "env/confirmatory/missions_conf_env.csv.gz", index=False)
+    _env_ks(ok).to_csv(res / "env/buildings_ks.csv", index=False)
+    return res
+
+
+def test_env_score_schema_is_read(tmp_path):
+    V, H, S = K.run(_env_only_dir(tmp_path), tmp_path / "out", mock=True)
+    env = V[V.claim == "C-ENV"]
+    assert env[env.bar == "prerequisite"].verdict.iloc[0] == "PASS"
+    val = env[(env.bar == "1 validity") & (env.method == K.OURS)].set_index("cell")
+    assert set(val.index) == {"ID", "E-H1"} and val.loc["ID"].verdict == "PASS"
+    p7 = env[env.bar == "P7"]
+    assert p7.verdict.iloc[0] == "PASS"
+    assert any(x in p7.metric.iloc[0] for x in ("nominal", "biggest_body", "greedy_feasible"))
+    assert any("shard = -1" in x for x in S.log)
+    assert len(env[env.bar == "4 reconfiguration"]) == 1
+
+
+def test_env_ks_prerequisite_from_env_file(tmp_path):
+    V, H, _ = K.run(_env_only_dir(tmp_path, ok=False), tmp_path / "out", mock=True)
+    env = V[V.claim == "C-ENV"]
+    pre = env[env.bar == "prerequisite"]
+    assert pre.verdict.iloc[0] == "FAIL" and "tortuosity" in pre.note.iloc[0]
+    assert (env[env.bar != "prerequisite"].verdict == "NOT SCORED").all()
+
+
+def test_real_buildings_ks_file_parses():
+    f = pathlib.Path(__file__).resolve().parents[1] / "results/env/buildings_ks.csv"
+    if not f.exists():
+        pytest.skip("no env KS file")
+    ks = pd.read_csv(f)
+    assert all(c in ks for c in K.KS_REQ)
+
+
+
+# ---- A-ENV (0dc1aec)
+
+def test_aenv_exclusion_labels_and_envcal(tmp_path):
+    res = _env_only_dir(tmp_path)
+    f = res / "env/confirmatory/missions_conf_env.csv.gz"
+    d = pd.read_csv(f)
+    bad = d[d.family == "ID"].drop_duplicates("method").assign(mission=1499, building="conf-ID-999", committed=1,
+                                                                failed=1, success=0, oracle_success=1)
+    pd.concat([d, bad]).to_csv(f, index=False)
+    V, _, S = K.run(res, tmp_path / "out", mock=True)
+    assert any("mission 1499" in x and "excluded 7 rows" in x for x in S.log)
+    val = V[(V.claim == "C-ENV") & (V.bar == "1 validity")]
+    ours = val[(val.method == K.OURS) & (val.cell == "ID")].iloc[0]
+    exp = d[(d.family == "ID") & (d.method == K.OURS)]
+    assert ours.estimate == pytest.approx(((exp.committed == 1) & (exp.failed == 1)).sum() / exp.committed.sum())
+    assert "empirical transfer bar, NOT a guarantee" in ours.note
+    env = val[(val.method == K.ENVCAL)]
+    assert set(env.cell) == {"ID", "E-H1"} and env.note.str.contains("exchangeability").all()
+    assert env[env.cell == "ID"].threshold.iloc[0] == "<= 0.1; upper95 <= 0.13"          # same bars as the primary
+    raw = V[(V.claim == "C-ENV") & (V.method == "raw")]
+    assert (raw.verdict == "DESCRIPTIVE").all() and raw.note.str.contains("plug-in median").all()
+    price = V[(V.claim == "C-ENV") & (V.bar == "price of the T1 constant")]
+    assert len(price) == 1 and price.verdict.iloc[0] == "DESCRIPTIVE"
+
+
+# ---- c2b97cd: task-library tau row (exploratory) and C-EXPLAIN (secondary)
+
+def test_task_library_stats_hand_example(tmp_path):
+    lib = tmp_path / "lib.csv"
+    pd.DataFrame({"task_id": ["a", "b"], "r_surge+": [0.5, 0.9], "r_yaw+": [0.3, np.nan]}).to_csv(lib, index=False)
+    tb = K.task_library_taus(lib)
+    assert set(tb) == {0, 4} and list(tb[4]) == [0.3]
+    d = pd.DataFrame(dict(eid=[1, 1], leg=[0, 4], truth=[0.95, 0.35], lower=[0.6, 0.2], has_fault=[0, 0]))
+    t = K.task_library_stats(d, d["lower"], tb).iloc[0]
+    # surge+: tau .5 -> capable, |.95-.5|>.1 -> trivial; tau .9 -> capable, in stratum, go? .6 < .9 no
+    # yaw+:  tau .3 -> capable, |.35-.3|<.1 -> stratum, go? .2 < .3 no
+    assert t.w == pytest.approx(2.0) and t.triv == pytest.approx(0.5) and t.cap == pytest.approx(1.5)
+    assert t.cert == 0 and t.inc == 0
+
+
+def test_task_library_row_in_main(tmp_path):
+    V, _, _, out = _run(tmp_path)
+    tl = V[V.claim == "C-MAIN (task-library tau)"]
+    assert set(tl.metric) >= {"CF (stratum)", "E_dec (stratum)", "share of trivially capable decisions"}
+    assert (tl.verdict == "DESCRIPTIVE").all() and tl.note.str.contains("exploratory|outside", regex=True).all()
+    cells = pd.read_csv(out / "cells.csv")
+    assert (cells.claim == "C-MAIN (task-library tau)").sum() > 5
+
+
+def _explain_inputs(tmp_path):
+    res = K.write_mock(tmp_path / "in", n_main=60, n_gate=40, n_pairs=40)
+    d = pd.read_csv(res / "models/confirmatory/dec_conf_models.csv.gz", low_memory=False)
+    d = d[(d.claim == "C-MAIN") & (d.method == K.OURS) & (d.test_plant == "T1") & (d.split == "conf_test")]
+    eids = sorted(d.eid.unique())
+    # truth: cands 1, 4, 6 hold a fault (mock has_fault); faulted wheel = wheel 4*cand of role 0
+    truth = {e: {c: [(0, 4 * c + j, int(c in (1, 4, 6) and j == 0)) for j in range(4)] for c in range(8)} for e in eids}
+    # posterior: the true faulted wheel blamed (p .9); plus a wrong blame on cand 2 in a few episodes
+    rows = [(e, 0, 4 * c, 0.9) for e in eids for c in (1, 4, 6)] + [(e, 0, 9, 0.7) for e in eids[-5:]]
+    rows.sort()
+    a = np.array(rows, float)
+    # models' exact format (1ffcc69): eid, asm_role, wheel, ep_wheel, p (W x 4: ok, weak, coast, brake), g_mean, classes
+    pf = a[:, 3]
+    P = np.stack([1 - pf, pf * 0.5, pf * 0.25, pf * 0.25], 1)
+    (res / "models/confirmatory").mkdir(parents=True, exist_ok=True)
+    np.savez(res / "models/confirmatory/wheels_conf_models.npz", eid=a[:, 0].astype(int), asm_role=a[:, 1].astype(int),
+             wheel=a[:, 2].astype(int), ep_wheel=a[:, 2].astype(int), p=P, g_mean=np.ones(len(a)),
+             classes=np.array(["ok", "weak", "coast", "brake"]))
+    return res, (lambda split, index: truth[index])
+
+
+def test_explain_scored_with_regenerated_truth(tmp_path):
+    res, tf = _explain_inputs(tmp_path)
+    V, H, _ = K.run(res, tmp_path / "out", mock=True, truth_fn=tf)
+    ex = V[V.claim == "C-EXPLAIN"].set_index("bar")
+    assert ex.loc["wheel precision"].estimate < 1.0 and ex.loc["wheel precision"].estimate > 0.9
+    assert ex.loc["wheel precision", "threshold"] == ">= 0.95"
+    assert ex.loc["false-reason rate (capable refusals)", "threshold"] == "<= 0.05"
+    assert ex.loc["margin share"].verdict == "DESCRIPTIVE"
+    assert "C-EXPLAIN" not in set(H.P)                                       # not in the Holm family
+
+
+def test_explain_counts_hand_example():
+    d = pd.DataFrame(dict(eid=[7, 7, 7], cand=[0, 0, 1], leg=0, truth=[0.5, 0.95, 0.75], has_fault=[1, 1, 0],
+                          point=[0.55, 0.75, 0.72], lower=[0.4, 0.5, 0.65]))
+    wheels = pd.DataFrame(dict(eid=[7, 7], role=[0, 0], wheel=[0, 5], p_fault=[0.8, 0.6]))
+    tf = lambda s, i: {0: [(0, w, int(w == 0)) for w in range(4)], 1: [(0, w, 0) for w in range(4, 8)]}  # noqa
+    t = K.explain_stats(d, wheels, tf).iloc[0]
+    # row0 (truth .5, faulted): refused at .6/.7/.8, median .55 < tau -> 3 deficits, all correct; blamed wheel 0 ok
+    # row1 (truth .95, faulted -> stratum at every tau): refused at .6/.7 (lower .5), .8: refused; median .75:
+    #       deficit at .8 only (.75 < .8), wrong (capable)
+    # row2 (healthy, truth .75): stratum at .7/.8 (|.75-tau| < .1); refused .7 (.65<.7) and .8; median .72 < .8 ->
+    #       deficit at .8, correct (.75 < .8); blamed wheel 5 is wrong
+    assert t.deficit == 5 and t.deficit_ok == 4
+    assert t.blamed == 3 * 1 + 3 * 1 + 2 * 1 and t.blamed_ok == 6
+    assert t.cap_ref == 3 + 1 and t.cap_wrong_reason == 1
+
+
+def test_wheels_npz_models_format(tmp_path):
+    (tmp_path / "models/confirmatory").mkdir(parents=True)
+    P = np.array([[0.2, 0.7, 0.05, 0.05], [0.9, 0.1, 0.0, 0.0]])
+    np.savez(tmp_path / "models/confirmatory/wheels_conf_models.npz", eid=np.array([40, 40]),
+             asm_role=np.array([0, 1]), wheel=np.array([3, 0]), ep_wheel=np.array([3, 20]), p=P,
+             g_mean=np.array([0.5, 1.0]), classes=np.array(["ok", "weak", "coast", "brake"]))
+    w, _ = K.load_wheels(tmp_path)
+    assert w.role.tolist() == [0, 1] and w.p_fault.round(6).tolist() == [0.8, 0.1]
+    np.savez(tmp_path / "models/confirmatory/wheels_conf_models.npz", eid=np.array([40]), wheel=np.array([3]),
+             p=P[:1])
+    with pytest.raises(K.C.SchemaError):
+        K.load_wheels(tmp_path)
