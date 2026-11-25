@@ -67,7 +67,11 @@ candidate.
 - The cause is per-wheel friction scatter plus differences in the kernel numerics. Compliance, load transfer and
   anisotropy are negligible.
 - Theory predicted weak spots at the diagonals and yaw of ≥3-module children. NOT observed.
-- Next: T2 evaluation of the trained certificates (stage 2), and adversarial search on singles and pairs.
+- Size gradient: single 4.4 % > pair 1.8 % > L3 0.25 % > square 0.07 % flips. The kernel change causes about 60 % of
+  single-module flips; per-wheel roller-friction scatter causes the rest (`docs/board/stress.md` C-stress-1).
+- Adversarial pilot: confident-wrong margins of 0.11–0.15 on pairs after 3 CEM iterations, with an oracle-latent T1
+  certifier.
+- Next: T2 evaluation of the trained certificates (stage 2), and adversarial search (`t2_adv`, held pending ranking).
 
 **H9. The certificate stays honest when the posterior is overconfident.** SUPPORTED (T0 pilot), 11-25.
 - Running all three probes makes the posterior overconfident. The end-to-end calibration catches it: q rises 1.0 → 5.2
