@@ -253,3 +253,12 @@ unmeasured: the small SMC campaign plus models eval2.
     likelihood's per-particle nuisance.
   - The conformalized screen is a compute knob (misses 5.2 → 2.5 %, 3× cost); end-to-end calibration carries the
     safety.
+
+**H16. Realistic missions require certified reconfiguration (env, exploratory pilot, 11-25 ~21:40Z).**
+- Procedural buildings are calibrated to 2,210 HM3D missions (KS D < 0.1 on every matched stat; worst is tortuosity
+  at 0.086; door widths are a design choice, since HM3D records lack them).
+- Pilot: about 3 % of physically fitting segments still fail in closed-loop truth.
+  - Assuming every body is nominal fails 13–14 % of missions; biggest-body 10 %; greedy smallest 20 %.
+  - The oracle splits or merges in about 1/3 of plans (bar ≥ 20 %).
+- So split/merge decisions matter in building-like missions, and a certificate has room to help.
+- Confirmatory C-ENV is pending models' per-segment bounds.
