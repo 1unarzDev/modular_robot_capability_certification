@@ -3,6 +3,11 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **21:15Z: generator v3 label bug (ρ_dec blow-up for heterogeneous types, fixed at 7efaec7).**
+  - Cancelled: queued + leased of cfcap-gen-hetero and cfcap-gen-confirm, and queued of cfcap-gen-scaling16.
+  - Old confirm outputs (9 dirs, 706 MB) were deleted from ~/.cache/vast-out **unopened**; the list is in /tmp/cfops/confirm_discard.log. Any late pull of `cfcap-gen-confirm.*` is auto-deleted.
+  - Old hetero outputs (canary plus 1 shard) are kept for the generator's debugging. **Do not consume them.**
+  - Resubmission from the 7efaec7 plans (same lineages, --resubmit-as *2) waits until the generator board confirms the GPU test passed.
 - **21:08Z BUDGET/UTILISATION.** 24 boxes at $3.83/h, $4.30 spent: projection to 03:00Z ~$27.2, at the ceiling. About 11 boxes are GPU-idle, because the scheduler reports "outranked" while models-b1 (31), b2r (36) and smc-small (31) wait. Sent to the compute session, asking them to hold autoscale. No cut yet: idle boxes leave after 15 min. If the projection passes $27.5, ops cancels decide (priority 90), then theory-ride.
 - 21:05Z: submitted the generator v3 campaigns (e9a0cf3), each with its own lineage:
   - cfcap-gen-scaling16: 7 jobs, priority 65;
