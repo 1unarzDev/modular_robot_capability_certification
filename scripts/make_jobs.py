@@ -167,13 +167,14 @@ def run_line(g: dict, lane: str, shard: int, n: int, task_args_list: list | None
     # Repos are checked out at $PWD/src/<name> (worker.py: work/src/<name>, cwd = the work dir). The box's backend
     # is `bash -lc {spec[run]}`: str.format runs once on that template, so a {repos[...]} inside spec.run would reach
     # bash literally; $PWD/src is the same path, spelled so it works.
-    code = ("S=$PWD/src; test -e $S/cfcap/cfcap/runner.py || { echo 'cfcap repo not checked out at '$S >&2; exit 3; }; "
-            "export PYTHONPATH=$S/cfcap:$S/capxfer CAPXFER_ROOT=$S/capxfer ")
+    # Quoted: free workers (e.g. paxton, WSL under a Windows profile) can have spaces in the work dir.
+    code = ("S=\"$PWD/src\"; test -e \"$S/cfcap/cfcap/runner.py\" || { echo \"cfcap repo not checked out at $S\" >&2; exit 3; }; "
+            "export PYTHONPATH=\"$S/cfcap:$S/capxfer\" CAPXFER_ROOT=\"$S/capxfer\" ")
     if lane in ("free", "cpu") and not g.get("extra_inputs"):
         # CPU lanes read theta from the capxfer repo (no input push, so any matching worker can run them).
         # Free workers' python3 may lack numpy/torch: prefer CFCAP_PY, then the capxfer venv when the host has one
         # (innovation), else python3; the runner exits 3 on a missing module. No input push: theta from the repo.
-        return (code + "CAPXFER_THETA_DIR=$S/capxfer/theta OMP_NUM_THREADS=${CRANE_CPUS:-1} "
+        return (code + "CAPXFER_THETA_DIR=\"$S/capxfer/theta\" OMP_NUM_THREADS=${CRANE_CPUS:-1} "
                 "MKL_NUM_THREADS=${CRANE_CPUS:-1}; PY=python3; "
                 "for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
                 "do [ -n \"$p\" ] && [ -x \"$p\" ] && PY=$p && break; done; "
@@ -181,8 +182,8 @@ def run_line(g: dict, lane: str, shard: int, n: int, task_args_list: list | None
     if g.get("_any_worker"):
         # --any-worker: no input push (free workers get none). theta from the cfcap repo (data/theta), else from the
         # pinned capxfer stage repo (older cfcap refs); python as on the CPU lanes (CFCAP_PY, the capxfer venv, python3).
-        return (code + "CAPXFER_THETA_DIR=$S/cfcap/data/theta; [ -d $CAPXFER_THETA_DIR ] || "
-                "CAPXFER_THETA_DIR=$S/capxfer/theta; export CAPXFER_THETA_DIR; PY=python3; "
+        return (code + "CAPXFER_THETA_DIR=\"$S/cfcap/data/theta\"; [ -d \"$CAPXFER_THETA_DIR\" ] || "
+                "CAPXFER_THETA_DIR=\"$S/capxfer/theta\"; export CAPXFER_THETA_DIR; PY=python3; "
                 "for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
                 "do [ -n \"$p\" ] && [ -x \"$p\" ] && PY=$p && break; done; "
                 f"exec $PY {common}")

@@ -254,7 +254,7 @@ def test_rented_gpu_jobs(staged):
     assert j["repos"] == [{"name": "cfcap", "url": str(MJ.CFCAP), "ref": "a" * 40},
                           {"name": "capxfer", "url": str(staged / "capxfer"), "ref": "c" * 40}]
     run = j["spec"]["run"]
-    assert "S=$PWD/src" in run and "PYTHONPATH=$S/cfcap:$S/capxfer" in run and "CAPXFER_ROOT=$S/capxfer" in run
+    assert 'S="$PWD/src"' in run and 'PYTHONPATH="$S/cfcap:$S/capxfer"' in run and 'CAPXFER_ROOT="$S/capxfer"' in run
     assert "CAPXFER_THETA_DIR=/workspace/in/theta" in run and run.endswith("--require-inputs theta")
     assert "--shard 0 --n-shards 3" in run and "/workspace/inputs" not in run and "{repos" not in run
     assert all(MJ.JOB_ID.match(x["job_id"]) for x in jobs) and len({x["job_id"] for x in jobs}) == 3
@@ -267,7 +267,7 @@ def test_jax_free_and_limits(staged):
     f = MJ.group_jobs(PLAN, group(lane="free", profile="cpu", vram_gb=None), INFO, False)[0][0]
     assert f["kind"] == "py_command" and "tags" not in f["needs"] and "gpu" not in f["needs"]
     assert "inputs_rsync" not in f["spec"] and {r["name"] for r in f["repos"]} == {"cfcap", "capxfer"}
-    assert "CAPXFER_THETA_DIR=$S/capxfer/theta" in f["spec"]["run"] and "--require-inputs" not in f["spec"]["run"]
+    assert 'CAPXFER_THETA_DIR="$S/capxfer/theta"' in f["spec"]["run"] and "--require-inputs" not in f["spec"]["run"]
     s2 = MJ.group_jobs(PLAN, group(extra_inputs=[str(staged / "theta")]), INFO, False)[0][0]
     assert s2["spec"]["run"].endswith("--require-inputs theta,theta")
     with pytest.raises(MJ.PlanError, match="60 min"):
@@ -377,7 +377,7 @@ def test_batch_canary_per_kind(staged, monkeypatch):
 def test_cpu_lane_tags_and_ride(staged):
     c = MJ.group_jobs(PLAN, group(lane="cpu", profile="cpu"), INFO, False)[0][0]
     assert c["kind"] == "py_command" and c["needs"]["tags"] == ["cloud-ok", "cpu"] and "gpu" not in c["needs"]
-    assert "inputs_rsync" not in c["spec"] and "CAPXFER_THETA_DIR=$S/capxfer/theta" in c["spec"]["run"]
+    assert "inputs_rsync" not in c["spec"] and 'CAPXFER_THETA_DIR="$S/capxfer/theta"' in c["spec"]["run"]
     r = MJ.group_jobs(PLAN, group(lane="cpu", profile="cpu", ride="torch"), INFO, False)[0][0]
     assert r["needs"]["tags"] == ["cloud-ok", "torch"] and "gpu" not in r["needs"]
 
