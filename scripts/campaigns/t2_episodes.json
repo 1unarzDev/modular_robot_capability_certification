@@ -1,0 +1,39 @@
+{
+ "campaign": "cfcap-t2-eps",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the 4000 plated T2 test episodes are simulated or the owner cap is reached.",
+ "groups": [
+  {
+   "name": "t2-episodes",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 8,
+   "units_per_shard": 5,
+   "unit_s": 300,
+   "overhead_s": 300,
+   "priority": 0,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--split",
+    "test",
+    "--episodes",
+    "4000",
+    "--per-unit",
+    "100",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/t2ev3 --mode simulate --split test --episodes 40 --per-unit 20 (NUMBA_NUM_THREADS=4, 4070 host, CPU only): 2.44 and 3.42 s/episode (17-22 candidates/episode; labels rho/rho_rel/rho_dec with T2 rho_ref + parent v2 obs), peak RSS 0.66 GB, VRAM 0; a 100-episode unit = ~300 s at 4 threads. Needs torch (CPU imports) + numba (backend auto falls back to jax, then numpy) + input crane_ml.",
+   "role": "stress",
+   "purpose": "Simulate the T2 closed-loop test episodes (same episode specs as the T1 test split) that the 2x2 SMC/amortized by T1/T2 grid evaluates.",
+   "ride": "torch"
+  }
+ ]
+}
