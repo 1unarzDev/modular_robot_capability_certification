@@ -62,8 +62,10 @@ def episodes_from_gate(df, legs):
                  tasks=Pb.make_tasks(np.random.default_rng(TASK_SEED0 + int(seed)), legs),
                  meta=dict(seed=int(seed), parent_size=m, n_faults=int(g.has_fault.max())))
         for p in ("v2", "v2clamp"):
-            for c in ("rho_par", "rho_pi", "undom_speed"):
-                e[f"{c}_{p}"] = arr(f"{c}_{p}")
+            for c in ("rho_par", "rho_pi", "undom_speed", "rho_par_hi"):
+                if f"{c}_{p}" in g:
+                    e[f"{c}_{p}"] = arr(f"{c}_{p}")
+            e.setdefault(f"rho_par_hi_{p}", e[f"rho_par_{p}"])
         eps.append(e)
     return eps
 
@@ -124,7 +126,17 @@ def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
                         gain += _certified_tasks(e, lo["v2"] + dd)[0] - n0
                     gain /= S
                 evoi = Pb.V_TASK * gain - T_CLAMP
-                for pol, use in (("v2", "v2"), ("clamp", "v2clamp"), ("evoi", "v2clamp" if evoi > 0 else "v2")):
+                # dominance trigger (closed-form rival): clamp iff some required, v2-undominated leg of a size-feasible
+                # candidate has its interval [lower_v2, rho_par_hi_v2] straddling the requirement
+                R, mm, _ = Pb.task_arrays(e["tasks"], 10)
+                Rc = Pb.req_ctl(R, len(e["sizes"]))                               # (C, T, L)
+                okc = (e["sizes"][:, None] >= mm[None, :])[..., None]
+                und = (e["undom_speed_v2"] > 0.5)[:, None, :]
+                hi = np.nan_to_num(e["rho_par_hi_v2"], nan=np.inf)[:, None, :]
+                strad = okc & und & ~np.isnan(Rc) & (lo["v2"][:, None, :] < Rc) & (hi >= Rc)
+                dom = bool(strad.any())
+                for pol, use in (("v2", "v2"), ("clamp", "v2clamp"), ("evoi", "v2clamp" if evoi > 0 else "v2"),
+                                 ("dom", "v2clamp" if dom else "v2")):
                     _, ch, tc = _certified_tasks(e, lo[use])
                     tp = T_CLAMP if use == "v2clamp" else 0.0
                     o = Pb.outcome(e["inst"], e["tasks"], ch, tc, e["rho_true"], tp)
@@ -179,3 +191,12 @@ def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", sta
                             n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel))
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
+
+
+def paired(rows, pred, a, b, col="regret", B=4000, seed=0):
+    """Paired episode bootstrap of mean(col | policy a) - mean(col | policy b) for one predictor: (mean, lo, hi)."""
+    d = rows[rows.predictor == pred].pivot_table(index="seed", columns="policy", values=col)
+    x = (d[a] - d[b]).dropna().to_numpy()
+    rng = np.random.default_rng(seed)
+    m = x[rng.integers(0, len(x), (B, len(x)))].mean(1)
+    return float(x.mean()), float(np.quantile(m, 0.025)), float(np.quantile(m, 0.975)), len(x)

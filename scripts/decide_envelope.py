@@ -24,7 +24,6 @@ OUT = Path(os.environ.get("CFCAP_OUT", "/tmp"))
 
 
 def _work(seed):
-    import numpy as np
     import torch
     torch.set_num_threads(1)
     from cfcap.t0 import qs
@@ -33,14 +32,27 @@ def _work(seed):
     return pd.DataFrame(gate_episode(seed, P, th))
 
 
+def _work_post(seed):
+    import torch
+    torch.set_num_threads(1)
+    from cfcap.t0 import qs
+    from cfcap.decide import envelope_post as EP
+    P, th = qs.load_params(), qs.load_theta()
+    return pd.DataFrame(EP.episode(seed, P, th))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", default="0:480")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--post", action="store_true", help="fault modes from a posterior (cfcap.decide.envelope_post)")
+    ap.add_argument("--tag", default=None)
+    ap.add_argument("--status", default="exploratory")
     a = ap.parse_args()
+    tag = a.tag or ("envpost" if a.post else "envelope")
     s0, s1 = map(int, a.seeds.split(":"))
-    theirs = sorted(glob.glob(str(OUT / "theory" / "gate" / "gate_*.pkl")))
-    mine = OUT / "decision" / f"gate_{s0}_{s1}.pkl"
+    theirs = [] if a.post else sorted(glob.glob(str(OUT / "theory" / "gate" / "gate_*.pkl")))
+    mine = OUT / "decision" / f"{'gatepost' if a.post else 'gate'}_{s0}_{s1}.pkl"
     if theirs:
         df = pd.concat([pd.read_pickle(f) for f in theirs])
         df = df[(df.seed >= s0) & (df.seed < s1)]
@@ -49,7 +61,7 @@ def main():
         df = pd.read_pickle(mine)
     else:
         with get_context("spawn").Pool(a.workers) as p:
-            df = pd.concat(p.map(_work, range(s0, s1), chunksize=2))
+            df = pd.concat(p.map(_work_post if a.post else _work, range(s0, s1), chunksize=2))
         mine.parent.mkdir(parents=True, exist_ok=True)
         df.to_pickle(mine)
     if "conv" in df:
@@ -59,12 +71,23 @@ def main():
     eps = En.episodes_from_gate(df, qs.LEG_NAMES)
     rows = En.run(eps)
     res = REPO / "results" / "decision"
-    rows.to_csv(res / "envelope_rows.csv", index=False)
+    rows.to_csv(res / f"{tag}_rows.csv", index=False)
     summ = En.summarise(rows)
-    summ.to_csv(res / "envelope_summary.csv", index=False)
+    summ.to_csv(res / f"{tag}_summary.csv", index=False)
     by = rows.assign(knee=rows.law > 0).groupby("knee", group_keys=True).apply(En.summarise, include_groups=False)
-    by.to_csv(res / "envelope_by_law.csv")
-    En.write_paper(rows, res / "paper" / "probe_t0env.csv")
+    by.to_csv(res / f"{tag}_by_law.csv")
+    pr = []
+    for pred in ("env_cal", "env", "par_cal"):
+        for b in ("clamp", "dom", "v2"):
+            m, lo, hi, n = En.paired(rows, pred, "evoi", b)
+            pr.append(dict(predictor=pred, a="evoi", b=b, mean_diff=m, lo95=lo, hi95=hi, n=n))
+        m, lo, hi, n = En.paired(rows, pred, "dom", "clamp")
+        pr.append(dict(predictor=pred, a="dom", b="clamp", mean_diff=m, lo95=lo, hi95=hi, n=n))
+    pr = pd.DataFrame(pr)
+    pr.to_csv(res / f"{tag}_paired.csv", index=False)
+    print(pr.round(3).to_string(index=False))
+    En.write_paper(rows, res / "paper" / f"probe_t0{tag}.csv", status=a.status,
+                   test_plant="T0-knee-post" if a.post else "T0-knee")
     pd.set_option("display.width", 250)
     print(f"{len(eps)} episodes")
     print(summ.round(4).to_string(index=False))
