@@ -180,6 +180,9 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool) -> tuple[list[dict]
                                                                   g.get("extra_inputs") or []]]
         for p in inputs:
             if not Path(p).exists():
+                if draft and p not in (str(STAGE / "cfcap"), str(STAGE / "capxfer")):
+                    warn.append(f"{g['name']}: input {p} does not exist yet (stage-2 input)")
+                    continue
                 raise PlanError(f"group {g['name']}: input {p} does not exist (run `make_jobs.py stage` first?)")
     purpose = " ".join(str(g["purpose"]).split())
     jobs = []
