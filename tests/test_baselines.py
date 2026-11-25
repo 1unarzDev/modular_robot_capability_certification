@@ -153,3 +153,67 @@ def test_compile_failure_falls_back_to_graph(monkeypatch):
     assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
     assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
     assert calls == ["compile", "graph", "graph"]
+
+
+def test_conformal_selection_fdr_and_refusal():
+    rng = np.random.default_rng(5)
+    E_, W = 400, 20
+    truth = np.clip(1 - rng.exponential(0.15, (E_, W)), 0, 1.2)
+    point = truth + rng.normal(0, 0.05, (E_, W))
+    scale = np.full_like(point, 0.05)
+    folds = np.arange(E_) % 2
+    go = base.conformal_selection(point, scale, truth, folds, 0.8, 0.1)
+    inc = truth < 0.8
+    assert go.sum() > 0 and (go & inc).sum() / go.sum() <= 0.15
+    point[:5] = np.nan
+    go2 = base.conformal_selection(point, scale, truth, folds, 0.8, 0.1)
+    assert not go2[:5].any()
+
+
+def test_fault_shift_weights():
+    w = base.fault_shift_weights([0, 1, 2, 2])
+    assert np.isclose(w.mean(), 1) and np.isclose(w[2] / w[0], 4)
+
+
+def test_from_runs_end_to_end(tmp_path, monkeypatch):
+    import importlib.util
+    import pathlib
+    spec = importlib.util.spec_from_file_location("bp", pathlib.Path(__file__).parents[1] / "scripts/baselines_pilot.py")
+    bp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bp)
+    monkeypatch.setattr(bp, "RES", tmp_path / "res")
+    rng = np.random.default_rng(1)
+    units = tmp_path / "runs" / "units"
+    units.mkdir(parents=True)
+    cols = {k: [] for k in bp.DEC_COLS + ("ep_n_faults", "cand_fault_class", "sims", "peak_vram_gb")}
+    for split in ("cal", "test"):
+        for e in range(60):
+            C = 3
+            tr = np.clip(1 - rng.exponential(0.15, (C, base.L)), 0, 1.2)
+            for meth in ("nominal", "oracle", "nuisance_smc", "capxfer"):
+                pt = {"nominal": np.ones_like(tr), "oracle": tr, "nuisance_smc": tr + rng.normal(0, .03, tr.shape),
+                      "capxfer": np.full_like(tr, np.nan)}[meth]
+                lo = tr - 0.1 if meth == "capxfer" else pt - 0.05
+                n = tr.size
+                vals = dict(method=[meth] * n, route=["raw"] * n, posterior=["none"] * n, train=["T1"] * n,
+                            test_plant=["T1"] * n, split=[split] * n, status=["exploratory"] * n, eid=[e] * n,
+                            shape=["pair" if e % 2 else "square"] * n, cand=np.repeat(np.arange(C), base.L),
+                            kind=["child"] * n, cand_size=[1] * n, has_fault=np.repeat([1, 0, 1], base.L),
+                            leg=np.tile(np.arange(base.L), C), truth=tr.ravel(), point=pt.ravel(),
+                            scale=np.full(n, 0.03), lower=lo.ravel(), alpha=[0.1] * n, seconds=[1.0] * n,
+                            ep_n_faults=[e % 3] * n, cand_fault_class=np.repeat([1, 0, 2], base.L), sims=[0] * n,
+                            peak_vram_gb=[0.0] * n)
+                for k in cols:
+                    cols[k] += list(vals[k])
+    np.savez(units / "u.npz", **{k: np.asarray(v) for k, v in cols.items()})
+    import argparse
+    a = argparse.Namespace(runs=str(tmp_path / "runs"), split="test", cal_split="cal", tag="t_", hardware="cpu")
+    bp.cmd_from_runs(a)
+    import pandas as pd
+    met = pd.read_csv(tmp_path / "res" / "t_metrics.csv")
+    o = met[(met.baseline == "oracle") & (met.certifier == "sim_a10") & (met.stratum == "all") & (met["shape"] == "all")]
+    assert (o.n_unsafe == 0).all() and np.allclose(o.cert_frac, 1.0)
+    assert {"sim_a05", "sim_a10", "mondrian_a10", "raw", "cselect_q10"} <= set(met.certifier)
+    assert {"faults2x"} <= set(met["shift"]) and {"class0", "class2", "decision"} <= set(met.stratum)
+    dec = pd.read_csv(tmp_path / "res" / "paper" / "dec_baselines.csv.gz")
+    assert set(dec.split) == {"test"} and {"capxfer_raw", "nuisance_smc_raw"} <= set(dec.method)

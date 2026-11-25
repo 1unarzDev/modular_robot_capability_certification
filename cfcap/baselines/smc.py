@@ -15,7 +15,9 @@ every episode, and ctx.should_stop() is checked between episodes.
 
 Rows: docs/board/paper.md 1a `dec` schema, one per (method, episode, candidate, leg): method, route, posterior,
 train, test_plant, split, status, eid, shape, cand, kind, cand_size, has_fault, leg, truth, point, scale, lower,
-alpha, seconds; plus per-episode diagnostics repeated on the episode's rows: sims, beta, stages, peak_vram_gb.
+alpha, seconds; plus ep_n_faults (parent faulted wheels: fault-rate shift analysis), cand_fault_class (0 healthy,
+1 weak only, 2 coast/brake involved: per-fault-class analysis) and per-episode diagnostics repeated on the episode's
+rows: sims, beta, stages, peak_vram_gb.
 `lower` here is the method's raw posterior 5 % quantile (route "raw"); the simultaneous conformal bound needs the
 cal split and is added offline by `scripts/baselines_pilot.py export` (route "simultaneous").
 """
@@ -65,6 +67,10 @@ def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):
     C, L = ep.truth.shape
     n = C * L
     hf = ep.cand_has_fault()
+    pm, _ = ep.faults()
+    cls = []
+    for cm, _ in ep.cand_true_modes():                       # 0 healthy, 1 weak only, 2 coast/brake involved
+        cls.append(2 if np.isin(cm, (2, 3)).any() else (1 if (cm == 1).any() else 0))
     rows = dict(method=np.full(n, method), route=np.full(n, "raw"), posterior=np.full(n, posterior),
                 train=np.full(n, "T1"), test_plant=np.full(n, "T1"), split=np.full(n, split),
                 status=np.full(n, status), eid=np.full(n, ep.eid, np.int64), shape=np.full(n, ep.shape),
@@ -72,7 +78,9 @@ def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):
                 cand_size=np.repeat([c.size for c in ep.cands], L), has_fault=np.repeat(hf.astype(np.int8), L),
                 leg=np.tile(np.arange(L), C), truth=ep.truth.ravel().astype(np.float64),
                 point=pred.point.ravel().astype(np.float64), scale=pred.scale.ravel().astype(np.float64),
-                lower=pred.lower.ravel().astype(np.float64), alpha=np.full(n, ALPHA), seconds=np.full(n, seconds))
+                lower=pred.lower.ravel().astype(np.float64), alpha=np.full(n, ALPHA), seconds=np.full(n, seconds),
+                ep_n_faults=np.full(n, int((pm != 0).sum()), np.int16),
+                cand_fault_class=np.repeat(np.asarray(cls, np.int8), L))
     for k, v in (extra or {}).items():
         rows[k] = np.full(n, float(v))
     return rows
@@ -130,7 +138,10 @@ def _one(ep, a):
         sec = time.perf_counter() - t0
         rows = dec_rows(ep, name, POSTERIOR[name], p, sec, a.split, a.status,
                         dict(sims=p.info.get("n_sims", 0), beta=p.info.get("beta", np.nan),
-                             stages=p.info.get("n_stages", 0),
+                             stages=p.info.get("n_stages", 0), mass_true=p.info.get("mass_true", np.nan),
+                             truth_in_support=p.info.get("truth_in_support", np.nan),
+                             truth_retained=p.info.get("truth_retained", np.nan),
+                             dropped_mass=p.info.get("dropped_mass", np.nan), abstain=p.info.get("abstain", 0),
                              peak_vram_gb=torch.cuda.max_memory_reserved() / 1e9 if cuda else 0.0))
         if name == "capxfer":
             rows["point"] = np.full_like(rows["point"], np.nan)     # capxfer has a bound only

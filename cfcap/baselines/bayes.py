@@ -23,12 +23,21 @@ def _pred(rho, w, info):
 
 
 class Enumeration(Baseline):
-    """A6 exact enumeration over <= 2-fault hypotheses, every nuisance at its true value (oracle-ish)."""
+    """A6 exact enumeration over <= 2-fault hypotheses, every nuisance at its true value (oracle-ish).
+
+    No screen: the likelihood of every hypothesis is computed. Propagation to the candidates takes the highest-mass
+    hypotheses until 1 - DROP_TOL of the posterior is covered (at most `cap`); the mass left out is recorded, and if it
+    exceeds DROP_TOL the episode abstains (lower = -inf everywhere: unknown mass is never certified; codex screen-bug
+    review, docs/codex/screen_bug.md). Truth retention (info): `truth_in_support` (the true mode vector has <= 2
+    faults; generator episodes can have 3), `truth_retained` (it is among the propagated hypotheses with the grid's
+    nearest gains or any gains), `mass_true` (posterior mass on the true mode vector)."""
     name = "enum_known"
     privileged = True
+    DROP_TOL = 1e-3
 
-    def __init__(self, grid=Po.GRID, cover=0.999, cap=32, device="cuda"):
-        self.grid, self.cover, self.cap, self.device = grid, cover, cap, device
+    def __init__(self, grid=Po.GRID, cover=None, cap=512, device="cuda"):
+        self.grid, self.cap, self.device = grid, cap, device
+        self.cover = 1 - self.DROP_TOL if cover is None else cover
 
     def predict(self, ep):
         par, asm, cands = ep.params, ep.parent_asm, ep.cands
@@ -37,17 +46,26 @@ class Enumeration(Baseline):
         post = Po.enumerate_known(asm, par, ep.cmd, ep.T, lat, ep.obs, self.grid)
         t_post = time.perf_counter() - t0
         k = Po.top_mass(post["w"], self.cover, self.cap)
+        dropped = float(max(0.0, 1.0 - post["w"][k].sum()))
         rows = Po.set_faults(Po.rows_from(lat, len(k)), post["HM"][k], post["HG"][k])
         rho = Po.propagate(par, cands, rows, post["w"][k], self.device, ep.plate)
         tm, tg = ep.faults()
-        hit = int(np.flatnonzero((post["HM"] == tm).all(1))[0]) if ((post["HM"] == tm).all(1)).any() else -1
-        return _pred(rho, post["w"][k], dict(t_posterior=t_post, n_sims=post["n_sims"], n_prop=len(k),
-                                             map_mass=float(post["w"].max()),
-                                             mode_mass_true=float(post["w"][(post["HM"] == tm).all(1)].sum())))
+        same = (post["HM"] == tm).all(1)
+        info = dict(t_posterior=t_post, n_sims=post["n_sims"], n_prop=len(k), map_mass=float(post["w"].max()),
+                    mass_true=float(post["w"][same].sum()), truth_in_support=int(same.any()),
+                    truth_retained=int(same[k].any()), dropped_mass=dropped, abstain=int(dropped > self.DROP_TOL))
+        info["mode_mass_true"] = info["mass_true"]
+        pred = _pred(rho, post["w"][k], info)
+        if dropped > self.DROP_TOL:
+            pred.lower = np.full_like(pred.lower, -np.inf)
+            pred.point = np.full_like(pred.point, -np.inf)       # the simultaneous layer then refuses too
+        return pred
 
 
 class NuisanceSMCIS(Baseline):
-    """Superseded by NuisanceSMC (role nuisance's sampler); kept for comparison: faults x sampled nuisances
+    """NOT REPORTED. Superseded by NuisanceSMC (role nuisance's sampler). Its screen keeps only the top K hypotheses at
+    the mean nuisance (sd x 3) and excluded faults never return (the screen-truncation flaw of docs/codex/screen_bug.md),
+    so it is not in the runner's method list and no result uses it. Faults x sampled nuisances
     (heterogeneity, mu, load split) with the rest of the domain known; see posterior.nuisance_smc."""
     name = "nuisance_smc_is"
     privileged = False      # reads only the known part of the domain and the mounting-yaw errors (as A6)
@@ -83,7 +101,11 @@ class NuisanceSMC(Baseline):
       * a known payload (task property) copied onto every particle;
       * propagation of n_prop posterior draws to every candidate (children and merges with known partners) as
         rho_dec, summarised as posterior mean / sd + SCALE_FLOOR / 5 % quantile.
-    Nothing privileged is read except the payload."""
+    Nothing privileged is read except the payload (and the true faults, only to record truth retention).
+    Screen: nuisance_post's q(H) mixes the single-fault screen with the prior (0.3) and the discrete moves reach every
+    mode vector, so no hypothesis is excluded for good; truth retention is still recorded per episode
+    (`truth_retained`: the true mode vector is among the propagated draws; `mass_true`: share of particles on it).
+    Its prior allows <= 2 faults; generator episodes with 3 faults are outside the support (`truth_in_support` 0)."""
     name = "nuisance_smc"
     privileged = False
 
@@ -127,7 +149,12 @@ class NuisanceSMC(Baseline):
         rho = Po.propagate(par, cands, rows, np.ones(len(pick)), dev, ep.plate)
         tm, _ = ep.faults()
         mt = torch.as_tensor(tm, device=dev)
+        hit = (modes[0] == mt).all(-1)
+        hit_p = (modes[0, pick] == mt).all(-1)
         return _pred(rho, np.ones(len(pick)), dict(t_posterior=t_post, n_sims=int(simr.n_sims), beta=1.0,
                                                    n_stages=int(info["stages"]), forced=int(info["forced"]),
-                                                   n_prop=len(pick),
-                                                   mode_mass_true=float((modes[0] == mt).all(-1).float().mean())))
+                                                   n_prop=len(pick), mass_true=float(hit.float().mean()),
+                                                   mode_mass_true=float(hit.float().mean()),
+                                                   truth_in_support=int(int((tm != 0).sum()) <= 2),
+                                                   truth_retained=int(bool(hit_p.any())), dropped_mass=0.0,
+                                                   abstain=0))

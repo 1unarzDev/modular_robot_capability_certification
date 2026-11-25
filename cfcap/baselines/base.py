@@ -91,33 +91,104 @@ def cross_fit_lower(point, scale, truth, folds, alpha):
     return lower, qs
 
 
-def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None, band=None):
-    """lower/truth/has_fault (E, W) padded with NaN. Per tau: certified fraction of capable entries (all, and those of
-    candidates holding a faulted wheel), unsafe-commit rate among incapable entries, and the episode-level rate of
-    any unsafe commit (the simultaneous guarantee bounds it by alpha).
+def cross_fit_lower_groups(point, scale, truth, folds, alpha, groups):
+    """Mondrian variant: q fitted separately per (robot-visible) episode group, e.g. parent shape."""
+    lower = np.full_like(point, np.nan)
+    qs = {}
+    for g in np.unique(groups):
+        m = groups == g
+        lo, q = cross_fit_lower(point[m], scale[m], truth[m], folds[m], alpha)
+        lower[m] = lo
+        qs[str(g)] = q
+    return lower, qs
+
+
+def conformal_selection(point, scale, truth, folds, tau, q):
+    """Conformal selection (Jin & Candes 2023, JMLR "Selection by prediction with conformal p-values") of capable
+    entries at FDR level q, cross-fit over folds. Per entry the score is mu = (point - tau) / scale (monotone in the
+    prediction); the null is "incapable" (truth < tau). Conformal p-value of test entry j against the calibration
+    entries i: p_j = (1 + #{i : truth_i < tau, mu_i >= mu_j}) / (n_cal + 1), then Benjamini-Hochberg at level q over
+    the fold's test entries. go = selected. Guarantee: FDR (expected share of unsafe among commits) <= q when the
+    entries are exchangeable; entries of one episode are dependent, so here it is an empirical certifier, reported as
+    such. NaN predictions are never selected."""
+    point, scale, truth = (np.asarray(x, float) for x in (point, scale, truth))
+    mu = (point - tau) / np.maximum(scale, 1e-6)
+    go = np.zeros(point.shape, bool)
+    for f in np.unique(folds):
+        te, ca = folds == f, folds != f
+        mc, tc = mu[ca].ravel(), truth[ca].ravel()
+        ok = ~np.isnan(mc) & ~np.isnan(tc)
+        mc, tc = mc[ok], tc[ok]
+        n = mc.size
+        null = np.sort(mc[tc < tau])
+        mt = mu[te]
+        valid = ~np.isnan(mt) & ~np.isnan(truth[te])
+        v = mt[valid]
+        if n == 0 or v.size == 0:
+            continue
+        cnt = null.size - np.searchsorted(null, v, side="left")       # # null cal scores >= v
+        pv = (1.0 + cnt) / (n + 1.0)
+        order = np.argsort(pv)
+        m = pv.size
+        thr = q * np.arange(1, m + 1) / m
+        passed = np.flatnonzero(pv[order] <= thr)
+        sel = np.zeros(m, bool)
+        if passed.size:
+            sel[order[:passed.max() + 1]] = True
+        g = np.zeros(mt.shape, bool)
+        g[valid] = sel
+        go[te] = g
+    return go
+
+
+def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None, band=None, ep_weight=None, go_by_tau=None):
+    """Per tau: certified fraction of capable entries (all, and those of candidates holding a faulted wheel),
+    unsafe-commit rate among incapable entries, unsafe share among commits (FDR), and the episode-level rate of any
+    unsafe commit (the simultaneous guarantee bounds it by alpha). lower/truth/has_fault (E, W) padded with NaN.
     band: restrict every count to the decision-relevant stratum of that tau, i.e. entries of candidates holding a
     faulted module with |truth - tau| < band (coordinator, 2026-11-25: band 0.1; the paper headline). The lower bounds
-    themselves are unchanged (calibrated on all entries)."""
+    themselves are unchanged (calibrated on all entries).
+    ep_weight: (E,) episode weights (a shifted test distribution by importance weighting, e.g. fault-count shift);
+    every rate becomes a weighted rate.
+    go_by_tau: {tau: (E, W) bool} commit masks of a certifier that has no lower bound (conformal selection)."""
     rows = []
-    E = lower.shape[0]
+    E = truth.shape[0]
     m = np.ones(E, bool) if ep_mask is None else ep_mask
-    lo, tr, hf = lower[m], truth[m], has_fault[m]
+    tr, hf = truth[m], has_fault[m]
+    lo = None if lower is None else lower[m]
+    w = np.ones(int(m.sum())) if ep_weight is None else np.asarray(ep_weight, float)[m]
+    W2 = w[:, None]
     present0 = ~np.isnan(tr)
+    wr = lambda a, b: float((a * W2).sum() / (b * W2).sum()) if (b * W2).sum() > 0 else np.nan
     for tau in taus:
         present = present0 if band is None else present0 & (np.nan_to_num(hf) > 0.5) & (np.abs(tr - tau) < band)
-        go = np.where(present, np.nan_to_num(lo, nan=-np.inf) >= tau, False)
+        if go_by_tau is not None:
+            go = np.asarray(go_by_tau[tau])[m] & present
+            cover = np.zeros_like(go)
+        else:
+            go = np.where(present, np.nan_to_num(lo, nan=-np.inf) >= tau, False)
+            cover = present & (np.nan_to_num(lo, nan=-np.inf) > tr)
         cap_ = present & (tr >= tau)
         inc = present & (tr < tau)
         f = present & (hf > 0.5)
         unsafe = go & inc
-        rows.append(dict(tau=tau, n_ep=int(m.sum()), n_dec=int(present.sum()), n_capable=int(cap_.sum()), n_incapable=int(inc.sum()),
-                         cert_frac=_r(go & cap_, cap_), cert_frac_faulted=_r(go & cap_ & f, cap_ & f),
+        rows.append(dict(tau=tau, n_ep=int(m.sum()), n_dec=int(present.sum()), n_capable=int(cap_.sum()),
+                         n_incapable=int(inc.sum()),
+                         cert_frac=wr(go & cap_, cap_), cert_frac_faulted=wr(go & cap_ & f, cap_ & f),
                          n_capable_faulted=int((cap_ & f).sum()),
-                         unsafe_commit_rate=_r(unsafe, inc), n_unsafe=int(unsafe.sum()),
-                         ep_any_unsafe=float(unsafe.any(1).mean()) if len(go) else np.nan,
-                         ep_miscover=float((present & (np.nan_to_num(lo, nan=-np.inf) > tr)).any(1).mean())
+                         unsafe_commit_rate=wr(unsafe, inc), n_unsafe=int(unsafe.sum()),
+                         fdr=wr(unsafe, go),
+                         ep_any_unsafe=float((unsafe.any(1) * w).sum() / w.sum()) if len(go) else np.nan,
+                         ep_miscover=(float((cover.any(1) * w).sum() / w.sum()) if go_by_tau is None else np.nan)
                          if len(go) else np.nan))
     return rows
+
+
+def fault_shift_weights(n_faults, factor=2.0):
+    """Importance weights emulating a test distribution whose odds of each extra parent fault are multiplied by
+    `factor` (factor 2 ~ 'double the fault prior'): w(k) proportional to factor**k, normalised to mean 1."""
+    w = np.power(float(factor), np.asarray(n_faults, float))
+    return w / w.mean()
 
 
 def _r(a, b):

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import pathlib
 import time
 
@@ -264,77 +265,129 @@ def load_runs(runs):
     return df.drop_duplicates(["method", "split", "eid", "cand", "leg"], keep="last")
 
 
+ALPHAS = (0.05, 0.1)
+RAW_NAME = dict(capxfer="capxfer_raw", enum_known="enum_known_raw", nuisance_smc="nuisance_smc_raw")
+
+
 def cmd_from_runs(a):
-    """Pilot table, latency and the paper contract files straight from rented `smc` outputs. Metrics per baseline,
-    shape and stratum: "all" entries, and "decision" = candidates containing a faulted module with |rho_dec - tau| <
-    0.1 (the paper headline stratum; dec rows carry has_fault / contains_fault and the rho_dec truth to form it):
-    results/baselines/pilot_metrics.csv, pilot_timing.csv, paper/dec_baselines.csv.gz, paper/latency_baselines.csv.
-    Simultaneous route: 2-fold cross-fit SimultaneousLower (alpha 0.1) within the split, folds alternating by eid
-    within each parent shape (the pilot bank has no separate cal split; exploratory)."""
+    """Pilot / campaign tables, latency and the paper contract files straight from rented `smc` outputs.
+
+    Calibration: with --cal-split present in the runs, every conformal layer is fitted on that split's episodes and
+    evaluated on --split (generator cal/test ids, identical for every method incl. capxfer); otherwise 2-fold
+    cross-fit within --split (folds alternate by eid within each parent shape; the pilot bank).
+    Certifiers per method (results/baselines/<tag>metrics.csv, column `certifier`):
+      sim_a{05,10}   SimultaneousLower at the method's own alpha 0.05 / 0.1 (capxfer: on its raw bound, scale 1);
+      mondrian_a10   the same at 0.1 with q fitted per parent shape (robot-visible Mondrian class);
+      raw            the method's own uncalibrated bound: capxfer's Theorem-5 certificate, the posterior 5 % quantile
+                     for enum_known / nuisance_smc (review round 0 (a));
+      cselect_q{05,10}  conformal selection at FDR q (Jin & Candes; review (b)), on (point - tau) / scale.
+    Strata: all; decision (candidate contains a faulted module and |rho_dec - tau| < 0.1; the paper headline);
+    class0/1/2 (candidate truly healthy / weak only / coast-brake involved: per-fault-class behaviour, review (c)).
+    Shift: none, and faults2x (test episodes importance-weighted by 2**n_faults: doubled odds of each parent fault;
+    calibration unchanged; review (c)).
+    Paper files (results/baselines/paper/): dec_baselines.csv.gz with route simultaneous at alpha 0.1 (method name)
+    and route raw (capxfer_raw, enum_known_raw, nuisance_smc_raw); latency_baselines.csv."""
     import pandas as pd
     df = load_runs(a.runs)
-    df = df[df.split == a.split]
+    has_cal = bool(a.cal_split) and (df.split == a.cal_split).any()
+    df = df[df.split.isin([a.split] + ([a.cal_split] if has_cal else []))]
+    tag = a.tag
     RES.mkdir(parents=True, exist_ok=True)
     (RES / "paper").mkdir(parents=True, exist_ok=True)
     rows, timing, dec = [], [], []
     for meth, d in df.groupby("method"):
-        eids = np.sort(d.eid.unique())
-        g = {e: x.sort_values(["cand", "leg"]) for e, x in d.groupby("eid")}
+        keys = sorted({(sp, int(e)) for sp, e in zip(d.split, d.eid)})
+        g = {k: x.sort_values(["cand", "leg"]) for k, x in d.groupby(["split", "eid"])}
+        keys = [k for k in keys if k in g]
         W = max(len(x) for x in g.values())
-        P_ = lambda col: base.pad([g[e][col].to_numpy(float) for e in eids], W)
-        truth, point, scale, raw = P_("truth"), P_("point"), P_("scale"), P_("lower")
-        hf = P_("has_fault")
-        shapes = np.array([g[e]["shape"].iloc[0] for e in eids])
-        folds = np.zeros(len(eids), int)
-        for s_ in np.unique(shapes):
-            idx = np.flatnonzero(shapes == s_)
-            folds[idx] = np.arange(len(idx)) % 2
-        variants = {}
-        if meth == "capxfer":
-            variants["capxfer"] = base.cross_fit_lower(raw, np.ones_like(raw), truth, folds, ALPHA)
-            variants["capxfer_raw"] = (raw, {})
+        P_ = lambda col: base.pad([g[k][col].to_numpy(float) for k in keys], W)
+        truth, point, scale, raw, hf = P_("truth"), P_("point"), P_("scale"), P_("lower"), P_("has_fault")
+        cls = P_("cand_fault_class") if "cand_fault_class" in d else np.where(hf > 0.5, 1.0, 0.0)
+        nf = np.array([g[k]["ep_n_faults"].iloc[0] if "ep_n_faults" in d else 0 for k in keys], float)
+        shapes = np.array([g[k]["shape"].iloc[0] for k in keys])
+        splits = np.array([k[0] for k in keys])
+        if has_cal:
+            folds = (splits == a.split).astype(int)
+            ev = splits == a.split
         else:
-            variants[meth] = base.cross_fit_lower(point, scale, truth, folds, ALPHA)
-            if meth in ("enum_known", "nuisance_smc"):
-                variants[meth + "_q05raw"] = (raw, {})
-        for vname, (lower, q) in variants.items():
-            for shp in ("all",) + tuple(np.unique(shapes)):
-                m = np.ones(len(eids), bool) if shp == "all" else shapes == shp
-                for stratum, band in (("all", None), ("decision", 0.1)):
-                    for r in base.metrics(lower, truth, hf, ep_mask=m, band=band):
-                        rows.append(dict(baseline=vname, shape=shp, stratum=stratum, alpha=ALPHA,
-                                         q_fold0=q.get(0, np.nan), q_fold1=q.get(1, np.nan), **r))
-            if vname.endswith("_q05raw"):
+            folds = np.zeros(len(keys), int)
+            for s_ in np.unique(shapes):
+                idx = np.flatnonzero(shapes == s_)
+                folds[idx] = np.arange(len(idx)) % 2
+            ev = np.ones(len(keys), bool)
+        if meth == "capxfer":
+            pt, sc = raw, np.ones_like(raw)
+        else:
+            pt, sc = point, scale
+        cert = {}
+        for al in ALPHAS:
+            cert[f"sim_a{int(round(al * 100)):02d}"] = dict(lower=base.cross_fit_lower(pt, sc, truth, folds, al)[0])
+        cert["mondrian_a10"] = dict(lower=base.cross_fit_lower_groups(pt, sc, truth, folds, 0.1, shapes)[0])
+        if meth in RAW_NAME:
+            cert["raw"] = dict(lower=raw)
+        if meth not in ("capxfer", "oracle") and np.isfinite(pt).any():
+            for qq in ALPHAS:
+                cert[f"cselect_q{int(round(qq * 100)):02d}"] = dict(go={tau: base.conformal_selection(
+                    pt, sc, truth, folds, tau, qq) for tau in base.TAUS})
+        wts = {"none": None, "faults2x": base.fault_shift_weights(nf, 2.0)}
+        for cname, c in cert.items():
+            for shp in ("all",) + tuple(np.unique(shapes[ev])):
+                m = ev & ((shapes == shp) if shp != "all" else True)
+                strata = [("all", hf, None), ("decision", hf, 0.1)]
+                if shp == "all":
+                    strata += [(f"class{k}", (cls == k).astype(float), np.inf) for k in (0, 1, 2)]
+                for sname, h, band in strata:
+                    for wname, w in wts.items():
+                        if wname != "none" and (shp != "all" or sname not in ("all", "decision")):
+                            continue
+                        for r in base.metrics(c.get("lower"), truth, h, ep_mask=m, band=band, ep_weight=w,
+                                              go_by_tau=c.get("go")):
+                            rows.append(dict(baseline=meth, certifier=cname, shape=shp, stratum=sname, shift=wname,
+                                             eval_split=a.split, calibration=(a.cal_split if has_cal else "crossfit"),
+                                             **r))
+        for cname, mname, route in (("sim_a10", meth, "simultaneous"), ("raw", RAW_NAME.get(meth), "raw")):
+            if cname not in cert or mname is None:
                 continue
-            route = "raw" if vname == "capxfer_raw" else "simultaneous"
-            for i, e in enumerate(eids):
-                x = g[e].copy()
-                x["method"], x["route"], x["lower"] = vname, route, lower[i, :len(x)]
+            lower = cert[cname]["lower"]
+            for i, k in enumerate(keys):
+                if not ev[i]:
+                    continue
+                x = g[k].copy()
+                x["method"], x["route"], x["lower"] = mname, route, lower[i, :len(x)]
                 if meth == "capxfer":
                     x["point"], x["scale"] = np.nan, np.nan
+                x["alpha"] = 0.1
                 x["contains_fault"] = x["has_fault"]
-                dec.append(x[list(DEC_COLS) + ["contains_fault"]])
-        sec = np.array([g[e]["seconds"].iloc[0] for e in eids])
+                extra = [c_ for c_ in ("ep_n_faults", "cand_fault_class") if c_ in x]
+                dec.append(x[list(DEC_COLS) + ["contains_fault"] + extra])
+        sec = np.array([g[k]["seconds"].iloc[0] for k in keys])
         for s_ in np.unique(shapes):
             m = shapes == s_
-            nc = int(g[eids[np.flatnonzero(m)[0]]]["cand"].nunique())
+            nc = int(g[keys[int(np.flatnonzero(m)[0])]]["cand"].nunique())
+            ds = d[d["shape"] == s_]
             timing.append(dict(method=meth, shape=s_, n=int(m.sum()), n_cand=nc,
                                sec_per_decision=float(np.median(sec[m])), sec_mean=float(sec[m].mean()),
                                sec_per_candidate=float(np.median(sec[m]) / nc),
-                               peak_vram_gb=float(d[d["shape"] == s_]["peak_vram_gb"].max()),
-                               sims_per_episode=float(d[d["shape"] == s_].groupby("eid")["sims"].first().median())))
+                               peak_vram_gb=float(ds["peak_vram_gb"].max()) if "peak_vram_gb" in ds else np.nan,
+                               sims_per_episode=float(ds.groupby("eid")["sims"].first().median())
+                               if "sims" in ds else np.nan,
+                               **{c_: float(ds.groupby(["split", "eid"])[c_].first().mean()) if c_ in ds else np.nan
+                                  for c_ in ("truth_in_support", "truth_retained", "mass_true", "dropped_mass",
+                                             "abstain")}))
     met = pd.DataFrame(rows)
-    met.to_csv(RES / "pilot_metrics.csv", index=False)
+    met.to_csv(RES / f"{tag}metrics.csv", index=False)
     tm = pd.DataFrame(timing)
-    tm.to_csv(RES / "pilot_timing.csv", index=False)
+    tm.to_csv(RES / f"{tag}timing.csv", index=False)
     pd.concat(dec, ignore_index=True).to_csv(RES / "paper" / "dec_baselines.csv.gz", index=False)
-    nw = {"pair": 8, "square": 16, "2x3": 24}
-    lat = tm.assign(n_wheels=tm["shape"].map(nw), hardware=a.hardware, status="exploratory")
+    lat = tm.assign(n_wheels=[int(re.match(r"(\d+)m", s_).group(1)) * 4 if re.match(r"\d+m", s_) else
+                              {"pair": 8, "square": 16, "2x3": 24}.get(s_, np.nan) for s_ in tm["shape"]],
+                    hardware=a.hardware, status="exploratory")
     lat[["method", "shape", "n_wheels", "sec_per_decision", "hardware", "status", "n"]].to_csv(
         RES / "paper" / "latency_baselines.csv", index=False)
-    cols = ["baseline", "stratum", "tau", "n_dec", "cert_frac", "cert_frac_faulted", "unsafe_commit_rate",
-            "ep_any_unsafe", "ep_miscover"]
-    print(met[met["shape"] == "all"][cols].round(4).to_string(index=False))
+    cols = ["baseline", "certifier", "stratum", "shift", "tau", "n_dec", "cert_frac", "unsafe_commit_rate", "fdr",
+            "ep_any_unsafe"]
+    sel = met[(met["shape"] == "all") & met.stratum.isin(["all", "decision"]) & (met.tau == 0.8)]
+    print(sel[cols].round(4).to_string(index=False))
     print(tm.round(3).to_string(index=False))
 
 
@@ -345,6 +398,8 @@ def main():
     ap.add_argument("--runs", default="~/.cache/vast-out")
     ap.add_argument("--suffix", default="")
     ap.add_argument("--hardware", default="RTX 4070 Ti SUPER (shared)")
+    ap.add_argument("--cal-split", default="", help="from-runs: fit every conformal layer on this split")
+    ap.add_argument("--tag", default="pilot_", help="from-runs: results/baselines/<tag>metrics.csv")
     ap.add_argument("--per-shape", type=int, default=100)
     ap.add_argument("--baseline")
     ap.add_argument("--max-min", type=float, default=14.0)
