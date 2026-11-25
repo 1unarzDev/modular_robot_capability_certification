@@ -44,6 +44,8 @@ class DecisionPosterior:
     rho: np.ndarray
     latent: np.ndarray
     probes: dict = field(default_factory=dict)
+    unknown: bool = False             # support was pruned without a coverage guarantee (empty screen, budget, underflow):
+                                      # every bound is -inf, so every decision abstains
 
     def __post_init__(self):
         self.w = np.asarray(self.w, float)
@@ -62,6 +64,8 @@ class DecisionPosterior:
         sd = np.sqrt(np.maximum(np.tensordot(w, (x - m) ** 2, 1), 0.0))
         absent = np.isnan(self.rho).all(0)
         m[absent] = np.nan
+        if self.unknown:
+            m[:] = np.nan
         return m, sd + SCALE_FLOOR
 
     def bayes_lower(self, q=0.05, w=None):
@@ -71,7 +75,8 @@ class DecisionPosterior:
         xs = np.take_along_axis(x, o, 0)
         cw = np.cumsum(w[o], 0)
         k = np.minimum((cw < q - 1e-12).sum(0), self.P - 1)
-        return np.take_along_axis(xs, k[None], 0)[0]
+        lo = np.take_along_axis(xs, k[None], 0)[0]
+        return np.full_like(lo, -np.inf) if self.unknown else lo
 
     # ------------------------------------------------------------------ probe likelihood
     def loglik(self, name, y):
@@ -79,13 +84,16 @@ class DecisionPosterior:
         sd = pr.sd_at(y)
         if sd is None:
             sd = pr.sd
+        sd = np.broadcast_to(np.asarray(sd, float), pr.sig.shape)
         z = (np.asarray(y)[None] - pr.sig) / sd
-        return -0.5 * np.nansum(z * z, axis=1)
+        return -0.5 * np.nansum(z * z, axis=1) - np.nansum(np.where(np.isnan(z), 0.0, np.log(sd)), axis=1)
 
     def reweight(self, name, y, w=None):
         """Posterior weights after observing y from probe `name` (a key or a Probe)."""
         w = self.w if w is None else w
         lw = np.log(np.maximum(w, 1e-300)) + self.loglik(name, y)
+        if not np.isfinite(lw.max()):
+            return np.full(len(w), np.nan)                     # underflow: caller marks the support unknown
         lw -= lw.max()
         nw = np.exp(lw)
         return nw / nw.sum()
@@ -105,11 +113,15 @@ class DecisionPosterior:
         """Apply the probe's true observation (if any) and consume the probe. Returns its time cost."""
         pr = self.probes.pop(name)
         if pr.y_true is not None:
-            self.w = self.reweight(pr, pr.y_true)
+            nw = self.reweight(pr, pr.y_true)
+            if not np.isfinite(nw).all():
+                self.unknown = True
+            else:
+                self.w = nw
         return pr.t_s
 
     def copy(self):
-        return DecisionPosterior(self.w.copy(), self.rho, self.latent, dict(self.probes))
+        return DecisionPosterior(self.w.copy(), self.rho, self.latent, dict(self.probes), self.unknown)
 
 
 def degenerate(rho, latent=0):

@@ -27,7 +27,8 @@ def main():
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--tag", default="t1")
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--policies", default="v2,all,random,eig,epig,evoi,always_split")
+    ap.add_argument("--policies", default="v2,fix:clamp,fix:clamp+moddiff,all,random,eig,epig,evoi,always_split")
+    ap.add_argument("--paper-cert", default="simF0.1")
     ap.add_argument("--v2-s", type=float, default=12.5, help="T1 v2 routine duration charged to every policy")
     a = ap.parse_args()
     eps = []
@@ -39,6 +40,8 @@ def main():
         if e["meta"]["seed"] not in seen:
             seen.add(e["meta"]["seed"])
             uniq.append(e)
+    for e in uniq:                                   # 3 folds (evaluate.fold_plan: no label leakage)
+        e["fold"] = int(e["meta"]["seed"]) % 3
     print(f"{len(uniq)} episodes", flush=True)
     t0 = time.time()
     with get_context("spawn").Pool(a.workers) as pool:
@@ -49,7 +52,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     df.to_csv(out / f"{a.tag}_episodes.csv", index=False)
     summ.to_csv(out / f"{a.tag}_summary.csv", index=False)
-    Ev.write_paper(df, uniq, out / "paper" / f"probe_{a.tag}.csv", v2_s=a.v2_s, test_plant="T1")
+    Ev.write_paper(df, uniq, out / "paper" / f"probe_{a.tag}.csv", v2_s=a.v2_s, test_plant="T1",
+                   cert=a.paper_cert)
     print(summ.round(4).to_string())
 
 

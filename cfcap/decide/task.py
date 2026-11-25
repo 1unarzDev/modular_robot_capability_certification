@@ -176,7 +176,7 @@ def decision_batch(shape, episodes, a, log=None):
         meta = dict(seed=eid, episode=int(ep), shape=shape, parent_size=len(asm.modules), n_faults=int((tm != 0).sum()),
                     P=a.draws, smc_s=t_smc, probe_s=time.time() - t1, stages=info.get("stages"))
         out.append(dict(inst=inst, post=dp, rho_true=rho[0].astype(float), rho_nom=np.ones_like(rho[0], dtype=float),
-                        has_fault=hf, tasks=tasks, fold=int(ep) % 2, meta=meta, legs=cap.LEGS,
+                        has_fault=hf, tasks=tasks, fold=int(ep) % 3, meta=meta, legs=cap.LEGS,
                         kinds=[c.kind for c in cands], sizes=[int(c.size) for c in cands]))
         if log:
             log(f"{shape} ep {ep}: {len(cands)} cands, {len(probes)} probes, {time.time() - t1:.1f}s")

@@ -9,6 +9,7 @@ probe the posterior is reweighted with the probe's actual observation and its ti
 the certified option (or abstains). Policies:
   v2      never probes (fixed v2);
   all     every library probe except diagnostic splits (fixed v2+clamp+moddiff+tug);
+  fix:<a>+<b>  a fixed probe set (e.g. fix:clamp, fix:clamp+moddiff: the nested sets of the monotonicity check);
   random  a uniformly random remaining probe while the current decision leaves a task unserved (<= max_probes);
   eig     argmax expected information gain about the discrete latent (fault mode vector), same stop rule;
   epig    argmax expected predictive information gain about the decision-relevant capability events
@@ -30,13 +31,22 @@ POLICIES = ("v2", "all", "random", "eig", "epig", "evoi", "always_split")
 FIXED_ALL = ("clamp", "moddiff", "tug")
 
 
+def policy_id(pol):
+    """Stable small int per policy name (rng stream); fixed nested sets are 'fix:<k1>+<k2>...'."""
+    if pol in POLICIES:
+        return POLICIES.index(pol)
+    return 100 + sum(ord(c) * (i + 1) for i, c in enumerate(pol)) % 100000
+
+
 class Certifier:
-    def __init__(self, q=0.0, lam=0.0):
-        self.q, self.lam = float(q), float(lam)
+    """lower = point - q x max(scale, floor) - lam."""
+
+    def __init__(self, q=0.0, lam=0.0, floor=0.0):
+        self.q, self.lam, self.floor = float(q), float(lam), float(floor)
 
     def lower(self, post, w=None):
         m, sc = post.summary(w)
-        lo = m - self.q * sc - self.lam
+        lo = m - self.q * np.maximum(sc, self.floor) - self.lam
         return np.where(np.isfinite(lo), lo, -np.inf)
 
 
@@ -106,8 +116,10 @@ def run(policy, inst, tasks, post, cert, rng, max_probes=2, S=16, eps=1e-3, allo
     if not allow_split:
         post.probes = {k: v for k, v in post.probes.items() if not k.startswith("split:")}
     used, t_probe = [], 0.0
-    if policy == "all":
-        for n in FIXED_ALL:
+    if post.unknown:                                   # pruned support: no bound, no probe can restore it
+        return np.full(len(tasks), -1, np.int64), 0.0, 0.0, used, post
+    if policy == "all" or policy.startswith("fix:"):
+        for n in (FIXED_ALL if policy == "all" else policy[4:].split("+")):
             if n in post.probes:
                 t_probe += post.observe(n)
                 used.append(n)
@@ -122,7 +134,7 @@ def run(policy, inst, tasks, post, cert, rng, max_probes=2, S=16, eps=1e-3, allo
             used.append(n)
     elif policy != "v2":
         for _ in range(max_probes):
-            if not post.probes or post.P <= 1:
+            if not post.probes or post.P <= 1 or post.unknown:
                 break
             if policy != "evoi" and not _unserved(inst, tasks, post, cert):
                 break

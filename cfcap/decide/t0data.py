@@ -14,7 +14,7 @@ Posterior (`DecisionPosterior`): hypotheses = every <= 2-fault mode vector; scre
 filter (nominal nuisance, sd inflated for heterogeneity, |z| <= K_SCREEN vs the noisy y; truth retention recorded);
 particles = screened hypotheses x M prior nuisance draws, weight = prior x v2 likelihood of the hypothesis with the
 nuisance marginalised by sd inflation (the draws keep weight 1/M; an 8-draw importance sampler on the joint collapses
-to one particle); extra probes and splits reweight with the particle's own signal and floor + heterogeneity sd; the top-mass particles (cover 0.9999, at most P_MAX) are kept. Every particle carries its
+to one particle); extra probes and splits reweight with the particle's own signal and floor + heterogeneity sd; no particle is truncated: a set over the budget P_MAX, or an empty screen, marks the support unknown (abstain). Every particle carries its
 nuisance draw to every candidate through `candidates.carry` (the other assembly's nuisance is known).
 Predictors on the same episode: `rho_true` (oracle), `rho_nom` (every wheel healthy, nominal nuisance).
 """
@@ -43,6 +43,10 @@ K_SCREEN = 5.0
 SD_INFLATE = 1.5         # extra factor on the screen / v2-likelihood sd (nuisance marginalisation is approximate)
 N_MERGE = 4
 EXTRA = ("clamp", "moddiff", "tug")
+PROBE_LIK = "marginal"   # "marginal": probe / split likelihood of the hypothesis with the nuisance marginalised by sd
+                         # inflation, exactly as the v2 likelihood (the draws keep weight 1/M); "draw" (pilot before
+                         # 2026-11-25 review): each particle's own prior nuisance draw with heterogeneity-inflated sd,
+                         # which collapses the posterior onto 1-2 draws and biases the child's nuisance
 
 
 def _ctx():
@@ -69,8 +73,13 @@ def _sd(sig, het=False):
     return np.stack([O.sigma(s, "floor", het) for s in s2]).reshape(sh)
 
 
-def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=None):
-    """faulted: None (prior), True (>= 1 fault), False (healthy)."""
+def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=None, probe_lik=None, k_screen=None,
+            z_only=False):
+    """faulted: None (prior), True (>= 1 fault), False (healthy). k_screen: screen threshold (None = module K_SCREEN;
+    the conformalized screen passes the calibrated `screen_threshold`). p_max: particle budget; a screened set larger
+    than it is not truncated but marked unknown (abstain). z_only: return only the screen statistic of the truth
+    (calibration episodes)."""
+    K_SCREEN = globals()["K_SCREEN"] if k_screen is None else float(k_screen)
     t0 = time.time()
     params, theta = _ctx()
     rng = np.random.default_rng(seed)
@@ -101,6 +110,12 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
     sig_scr = SD_INFLATE * O.sigma(ytrue["v2"], "floor", True, nuis)
     alive = np.arange(len(HM))
     om2, dc2 = arr["v2"]
+    # screen statistic of the TRUE state (calibration of the conformalized screen; never used on test episodes)
+    i_t = SA.find_row(HM, HG, tm, tg)
+    s_t = O.signals(qs.solve(nplant, HM[i_t:i_t + 1], HG[i_t:i_t + 1], om2, dc2))[0]
+    z_true = float((np.abs(s_t - ytrue["v2"]) / sig_scr).max())
+    if z_only:
+        return dict(seed=seed, z_true=z_true, n_faults=nf, parent_size=m)
     for li in SA.V2_ORDER:
         r = qs.solve(nplant, HM[alive], HG[alive], om2[li:li + 1], dc2[li:li + 1])
         z = (np.abs(O.signals(r)[:, 0] - ytrue["v2"][li][None]) / sig_scr[li][None]).max(1)
@@ -109,8 +124,11 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
             break
     ti = SA.find_row(HM, HG, tm, tg)
     truth_in = bool(np.isin(ti, alive))
-    if len(alive) == 0:                                           # keep the prior's best guess: healthy
+    if len(alive) == 0:                                           # empty screen: placeholder particle, support unknown
         alive = np.array([0])
+        unknown = "empty_screen"
+    else:
+        unknown = ""
     # particles = screened hypotheses x nuisance draws
     draws = [O.sample_het(rng, parent, True) for _ in range(M)]
     U = len(alive)
@@ -126,19 +144,31 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
     lw = log_prior(pm, n) + ll
     w = np.exp(lw - lw.max())
     w /= w.sum()
-    o = np.argsort(-w)
-    k = int(min(p_max, np.searchsorted(np.cumsum(w[o]), 0.9999) + 1))
-    keep = o[:k]
-    pm, pg, pj, ph, w = pm[keep], pg[keep], pj[keep], ph[keep], w[keep] / w[keep].sum()
-    het = [h[keep] for h in het]
+    if len(w) > p_max:                                            # over budget: never truncate silently
+        unknown = unknown or "budget"
+        keep = np.argsort(-w)[:p_max]                             # (kept only to bound compute; bounds are -inf)
+        pm, pg, pj, ph, w = pm[keep], pg[keep], pj[keep], ph[keep], w[keep] / w[keep].sum()
+        het = [h[keep] for h in het]
     ess = float(1.0 / (w ** 2).sum())
     P = len(w)
 
+    probe_lik = probe_lik or PROBE_LIK
+    rng2 = np.random.default_rng([int(seed), 77])                 # separate stream: the episode itself is unchanged
+    uh, hinv = np.unique(ph, return_inverse=True)                 # kept hypotheses (indices into alive)
     probes = {}
     for kd in EXTRA:
         om, dc = arr[kd]
-        s = O.signals(qs.solve(tplant, pm, pg, om, dc, het_rows=het))
-        probes[kd] = DP.Probe(s.reshape(P, -1), _sd(s, True).reshape(P, -1), PS.probe_time(kd), ytrue[kd].ravel())
+        if unknown:                                               # unknown support: no bound; inert probe, no work
+            probes[kd] = DP.Probe(np.zeros((P, 1)), np.ones((P, 1)), PS.probe_time(kd), np.zeros(1))
+        elif probe_lik == "marginal":
+            sn = O.signals(qs.solve(nplant, HM[alive][uh], HG[alive][uh], om, dc))[hinv]
+            sdk = SD_INFLATE * O.sigma(ytrue[kd], "floor", True, O.nuisance_sd(nplant, legs[kd], rng2, 8))
+            probes[kd] = DP.Probe(sn.reshape(P, -1), np.broadcast_to(sdk.ravel(), (P, sdk.size)),
+                                  PS.probe_time(kd), ytrue[kd].ravel())
+        else:
+            s = O.signals(qs.solve(tplant, pm, pg, om, dc, het_rows=het))
+            probes[kd] = DP.Probe(s.reshape(P, -1), _sd(s, True).reshape(P, -1), PS.probe_time(kd),
+                                  ytrue[kd].ravel())
 
     # candidates: whole parent, connected children, merges
     kids = Cn.children(parent, params)
@@ -163,8 +193,9 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
         cpl_t = qs.Plant(cd.asm, params, theta, stall=Cn.carry(st, ost, src), noload=Cn.carry(nl, onl, src),
                          mu_f=Cn.carry(mu, omu, src))
         xis = qs.decision_legs(cd.asm)
-        r = qs.solve(cpl_t, cm[first], cg[first], cpl_t.ik(xis), het_rows=[h[first] for h in hrows])
-        rho[:, ci] = qs.rho_of(r["xi"], xis, cd.asm.char_length())[inv]
+        if not unknown:
+            r = qs.solve(cpl_t, cm[first], cg[first], cpl_t.ik(xis), het_rows=[h[first] for h in hrows])
+            rho[:, ci] = qs.rho_of(r["xi"], xis, cd.asm.char_length())[inv]
         tmc = Cn.carry(tm[None], np.zeros((1, no), np.int64), src)
         tgc = Cn.carry(tg[None], np.ones((1, no)), src)
         rt = qs.solve(cpl_t, tmc, tgc, cpl_t.ik(xis))
@@ -175,15 +206,27 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
         rn = qs.solve(cpl_n, hm, hg, cpl_n.ik(xis))
         rho_nom[ci] = qs.rho_of(rn["xi"], xis, cd.asm.char_length())[0]
         has_fault[ci] = bool((tmc != 0).any())
-        if 0 < ci <= len(kids):                                   # diagnostic split: the child's own v2
+        if 0 < ci <= len(kids) and not unknown:                   # diagnostic split: the child's own v2
             vi = list(PS.V2_LEG_IDX)
             sv = O.signals(dict(xi=r["xi"][:, vi], om=r["om"][:, vi], duty=r["duty"][:, vi]))[inv]
             stv = O.signals(dict(xi=rt["xi"][:, vi], om=rt["om"][:, vi], duty=rt["duty"][:, vi]))[0]
             yv = stv + _sd(stv) * rng.standard_normal(stv.shape)
-            probes[f"split:{ci}"] = DP.Probe(sv.reshape(P, -1), _sd(sv, True).reshape(P, -1),
-                                             PS.T_SPLIT_S + PS.set_time("v2"), yv.ravel())
-    post = DP.DecisionPosterior(w, rho, ph, probes)
+            if probe_lik == "marginal":
+                ckey = np.concatenate([cm, np.round(cg * 100)], 1)
+                _, cf, cinv = np.unique(ckey, axis=0, return_index=True, return_inverse=True)
+                v2c = PS.probe_legs(cpl_n, "v2")
+                omc, dcc = SA.legs_arrays(v2c)
+                sv = O.signals(qs.solve(cpl_n, cm[cf], cg[cf], omc, dcc))[cinv.reshape(-1)]
+                sdv = SD_INFLATE * O.sigma(yv, "floor", True, O.nuisance_sd(cpl_n, v2c, rng2, 8))
+                probes[f"split:{ci}"] = DP.Probe(sv.reshape(P, -1), np.broadcast_to(sdv.ravel(), (P, sdv.size)),
+                                                 PS.T_SPLIT_S + PS.set_time("v2"), yv.ravel())
+            else:
+                probes[f"split:{ci}"] = DP.Probe(sv.reshape(P, -1), _sd(sv, True).reshape(P, -1),
+                                                 PS.T_SPLIT_S + PS.set_time("v2"), yv.ravel())
+    post = DP.DecisionPosterior(w, rho, ph, probes, unknown=bool(unknown))
     meta = dict(seed=seed, parent_size=m, n_wheels=n, n_faults=nf, n_hyp=len(HM), n_screen=U, truth_in=int(truth_in),
+                truth_in_final=int(truth_in and not unknown and bool(np.isin(ti, alive[uh]))), unknown=unknown,
+                z_true=z_true, k_screen=K_SCREEN,
                 P=P, ess=ess, C=C, n_children=len(kids), n_merges=len(merges), gen_s=time.time() - t0)
     return dict(inst=inst, post=post, rho_true=rho_true, rho_nom=rho_nom, has_fault=has_fault, meta=meta,
                 legs=qs.LEG_NAMES)

@@ -203,3 +203,53 @@ def test_crc_loss_curve_monotone():
     pt, sc = e["post"].summary()
     cur = Ev.episode_loss_curve(e, pt, sc)
     assert np.all(np.diff(cur) <= 0)
+
+
+# ----------------------------------------------------------------------------- monotonicity along nested probe sets
+def _nested_bank(E=240, seed=0):
+    """Well-specified synthetic bank: 6 discrete states x 4 nuisance draws; probe a splits states {0,1,2}|{3,4,5},
+    probe b reads k mod 3; Gaussian likelihoods are exact, so more probes = more information."""
+    rng = np.random.default_rng(seed)
+    inst = line_instance(2, merges=1)
+    C = inst.C
+    eps = []
+    for i in range(E):
+        base = rng.uniform(0.85, 1.0, (C, L))
+        states = np.repeat(base[None], 6, 0)
+        for k in range(1, 6):
+            c = k % C
+            states[k, c] *= 0.45 + 0.08 * k                   # state k degrades piece k % C
+        kt = int(rng.integers(6))
+        nu = lambda: rng.normal(0, 0.01, (C, L))
+        rho_true = states[kt] + nu()
+        rho = np.stack([states[k] + nu() for k in range(6) for _ in range(4)])
+        lat = np.repeat(np.arange(6), 4)
+        sa = (lat >= 3).astype(float)[:, None]
+        sb = np.eye(3)[lat % 3]
+        probes = {"a": DP.Probe(sa, np.full(sa.shape, 0.1), 5.0, sa[kt * 4] + rng.normal(0, 0.1, 1)),
+                  "b": DP.Probe(sb, np.full(sb.shape, 0.1), 5.0, sb[kt * 4] + rng.normal(0, 0.1, 3))}
+        post = DP.DecisionPosterior(np.ones(len(lat)), rho, lat, probes)
+        eps.append(dict(inst=inst, post=post, rho_true=rho_true, rho_nom=np.ones((C, L)),
+                        has_fault=np.zeros(C, bool), tasks=Pb.make_tasks(rng, LEGS), fold=i % 3,
+                        meta=dict(seed=i, parent_size=2, n_faults=int(kt > 0))))
+    return eps
+
+
+def test_certification_monotone_along_nested_probe_sets():
+    eps = _nested_bank()
+    rows = Ev.run_policies(eps, ["v2", "fix:a", "fix:a+b"], alpha=0.1, alpha_crc=())
+    for cert in ("simF0.1", "simA0.1"):
+        n = {p: sum(r["n_certified"] for r in rows if r["predictor"] == "posterior" and r["policy"] == p
+                    and r["cert"] == cert) for p in ("v2", "fix:a", "fix:a+b")}
+        assert n["v2"] <= n["fix:a"] <= n["fix:a+b"], (cert, n)
+        uns = sum(r["n_unsafe"] > 0 for r in rows if r["predictor"] == "posterior" and r["cert"] == cert)
+        assert uns / (3 * len(eps)) <= 0.1 + 0.05
+
+
+def test_fold_plan_never_uses_own_fold():
+    plan = Ev.fold_plan(np.arange(30) % 3)
+    for f, (h, C) in plan.items():
+        assert h != f and f not in C and h not in C
+    plan2 = Ev.fold_plan(np.arange(10) % 2)
+    for f, (h, C) in plan2.items():
+        assert h != f and f not in C
