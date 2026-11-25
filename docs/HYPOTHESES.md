@@ -295,3 +295,25 @@ unmeasured: the small SMC campaign plus models eval2.
     (95 % of flips also occur with friction scatter alone).
 - **Task library:** 558 realistic tasks; the median requirement is 0.37, well below the synthetic τ 0.6–0.9. Realistic
   jobs are easier than our decision thresholds, so report results at a realistic-requirement τ as well.
+
+**H3 probing: SUPPORTED on fresh episodes (decision, 11-25 ~22:00Z; exploratory T0; pre-written bars).**
+- 583 fresh episodes (seeds 2100–2699); fault modes from the posterior AND the motor law uncertain; calibrated envelope
+  bound.
+
+  | policy | useful | regret | probe time |
+  |---|---|---|---|
+  | v2 | 52.8 % | 79.2 s | 0 |
+  | always clamp | 63.8 % | 69.2 s | 8.8 s |
+  | dominance trigger | 63.7 % | 66.1 s | 5.5 s |
+  | EVOI | 63.6 % | 62.8 s | 1.6 s (probes 18 % of episodes) |
+
+  All policies 0 % unsafe.
+- Paired episode bootstrap on regret: EVOI − clamp −6.4 s [−7.0, −5.6]; EVOI − dominance trigger −3.3 s [−4.1, −2.5].
+- Caveats:
+  - Usefulness is only 64 % (vs 95 % with fault modes known), the cost of a conservative bound over plausible faults.
+    Probing recovers 11 pts of that.
+  - Clamp legs are not used in the fault likelihood (they empty the screen on knee episodes).
+  - ≥3-module yaw: 0 % unsafe here but only 30–50 % certified; with true modes it stays 2.4–3.6 % unsafe under every
+    policy.
+- This makes decision-aware probing a supported contribution in regime 2: EVOI beats the cheap closed-form rival with
+  ~¼ of the probe time.
