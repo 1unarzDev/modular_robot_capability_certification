@@ -27,12 +27,19 @@ def _args(p):
     p.add_argument("--plate", default="plated")
     p.add_argument("--engine", default="compile")
     p.add_argument("--max-wheels", type=int, default=1 << 17)
+    p.add_argument("--spare-shard0", action="store_true",
+                   help="confirmatory groups: shard 0 (the excluded canary) runs one exploratory timing unit "
+                        "(test missions 900000+) and the real units are dealt over shards 1..n-1")
 
 
 def _units(a, shard, n_shards):
     us = []
     for f in a.families.split(","):
         us += [f"env-{f}-{lo:06d}-{min(lo + a.per_unit, a.missions):06d}" for lo in range(0, a.missions, a.per_unit)]
+    if a.spare_shard0:
+        if shard == 0:
+            return [f"env-test-900000-{900000 + a.per_unit:06d}"]
+        return us[shard - 1::n_shards - 1]
     return us[shard::n_shards]
 
 
@@ -41,7 +48,7 @@ def flatten(recs):
     from cfcap.env import buildings as B
     from cfcap.env import missions as M
     cols = {k: [] for k in ("family", "mission", "building", "body_index", "route_m", "narrowest", "payload_kg",
-                            "cand", "cand_kind", "cand_n_mod", "cand_width", "cand_load_ok", "cand_footprint_ok",
+                            "cand", "cand_kind", "cand_mask", "site", "cand_n_mod", "cand_width", "cand_load_ok", "cand_footprint_ok",
                             "mission_ok", "phase0_ok", "phase1_ok", "seg", "n_seg", "seg_leg", "seg_kind",
                             "seg_phase", "seg_cond", "seg_mu", "seg_loaded", "seg_door_w", "seg_narrow", "seg_v_req",
                             "req", "truth", "rho_ref", "fp_ok", "load_ok", "seg_ok", "relevant")}
@@ -60,7 +67,8 @@ def flatten(recs):
         cols["narrowest"].append(full(r["narrowest"], np.float32))
         cols["payload_kg"].append(full(r["payload_kg"], np.float32))
         cols["cand"].append(cc.astype(np.int16))
-        for k in ("cand_kind", "cand_n_mod", "cand_width", "cand_load_ok", "cand_footprint_ok", "mission_ok"):
+        cols["site"].append(full(r["site"], np.float32))
+        for k in ("cand_kind", "cand_mask", "cand_n_mod", "cand_width", "cand_load_ok", "cand_footprint_ok", "mission_ok"):
             cols[k].append(r[k][cc])
         cols["phase0_ok"].append(r["phase_ok"][cc, 0])
         cols["phase1_ok"].append(r["phase_ok"][cc, 1])
@@ -92,6 +100,10 @@ def _run(unit, ctx):
     recs = M.label_missions(ms, plate=a.plate, engine=a.engine, max_wheels=a.max_wheels, stats=stats)
     t2 = time.perf_counter()
     rows = flatten(recs)
+    n = rows["req"].size
+    rows["claim"] = np.full(n, "C-ENV" if fam.startswith("conf-") else "exploratory")
+    rows["status"] = np.full(n, "confirmatory" if fam.startswith("conf-") else "exploratory")
+    rows["shard"] = np.full(n, int(a.shard), np.int16)
     ctx.meta.update(dict(family=fam, missions=len(ms), rows=int(rows["req"].size),
                          relevant=int(rows["relevant"].sum()), feasible=int((rows["fp_ok"] & rows["load_ok"]).sum()),
                          mission_ok_any=int(sum(bool(r["mission_ok"].any()) for r in recs)),

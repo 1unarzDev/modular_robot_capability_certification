@@ -1,0 +1,9 @@
+stat,ks_p,ks_d,n_hm3d,n_gen,family,passed
+route_m,0.0497400243405859,0.03796681749622928,2210,3000,test (= conf-ID rule),True
+route_steps,0.013190155441358471,0.04426546003016596,2210,3000,test (= conf-ID rule),True
+m_per_step,0.4901140521416682,0.02329562594268475,2210,3000,test (= conf-ID rule),True
+tortuosity,3.341200811719454e-08,0.08359276018099547,2210,3000,test (= conf-ID rule),True
+passage_pos,1.3368978623668885e-05,0.06818853695324278,2210,3000,test (= conf-ID rule),True
+station_m,0.7633224651737764,0.018666666666666665,2210,3000,test (= conf-ID rule),True
+n_sites,0.9997474376847398,0.0005656108597285082,2210,3000,test (= conf-ID rule),True
+passage_count,1.0,0.0,2210,3000,test (= conf-ID rule),True

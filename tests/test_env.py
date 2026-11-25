@@ -129,3 +129,21 @@ def test_record_and_flatten_with_stub_labels(monkeypatch):
     rows = T.flatten(recs)
     n = sum(r["req"].size for r in recs)
     assert all(len(v) == n for v in rows.values())
+
+
+def test_spare_shard0_units():
+    import argparse
+    from cfcap.env import task as T
+    a = argparse.Namespace(families="conf-ID", missions=1500, per_unit=250, spare_shard0=True)
+    u0 = T._units(a, 0, 4)
+    assert len(u0) == 1 and u0[0].startswith("env-test-900000")
+    rest = sum((T._units(a, k, 4) for k in range(1, 4)), [])
+    assert sorted(rest) == sorted(T._units(argparse.Namespace(**{**vars(a), "spare_shard0": False}), 0, 1))
+
+
+def test_conf_block_bounds():
+    """Confirmatory missions beyond the pre-registered buildings are refused (no building is drawn)."""
+    with pytest.raises(ValueError):
+        B.seeds("conf-ID", 300 * B.CONF_MISSIONS_PER_BUILDING)
+    kf, b, bs, ms = B.seeds("conf-E-H2", 0)
+    assert kf == "E-H2" and b == 450 and bs == [92599, 23, 450]
