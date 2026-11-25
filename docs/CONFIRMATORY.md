@@ -144,7 +144,7 @@ do not count as passing.
 
 ## 3. Claim C-GATE: trust-gated extrapolation under a wrong motor law (T2 knee)
 - **Stream.** `conf_test` indices 3,040–5,039 (disjoint from C-MAIN and from the excluded 0–39), with the knee seed root `[92599, 22, ·]` for the
-  knee draws, **2,000 episodes per severity s ∈ {0, 1, 2, 3}**. s = 0 is the T2 `all` plant without the
+  knee draws, **the same 2,000 episodes at every severity (a paired design: latents shared, only the knee draws vary) s ∈ {0, 1, 2, 3}**. s = 0 is the T2 `all` plant without the
   knee. Plated, train-like families. Truth from T2 with the knee law (`cfcap/t0/envelope.py` / `Effects(motor_kind=
   'knee', knee_severity=s)`), fixed reference.
 - **Methods.**
