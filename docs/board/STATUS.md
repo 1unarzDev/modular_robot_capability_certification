@@ -3,6 +3,11 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **23:48Z OUTPUTS READY: generator.**
+  - gen-ref complete: gen-ref2 (14 shards present) + gen-ref3 (plated H3/H4 s000) + gen-ref4 (plated cal.s001, test.s000, plateless test.s000).
+  - gen-hetero2 complete (5/5).
+  - gen-confirm2 complete (12/12), **stored unread until 01:45Z**.
+  - Paths: `~/.cache/vast-out/*/crane/cfcap-gen-{ref2,ref3,ref4,hetero2,confirm2,scaling16r}.*`. For duplicated shard names, use the gen-ref3/4 copies.
 - **23:45Z BLOCKER, C-MAIN baselines: #22 cfcap-baselines-conf2 tripped on CUDA OOM, even at vram_gb 22.**
   - The conf-cal jobs run out of memory during CUDA-graph instantiation (`Failed to allocate resources for the kernel nodes`) on 24 GB cards. This is a code issue; ops has no knob for it (no engine or batch option in `smc.py`, `posterior.py` forces `engine="graph"`).
   - b2r2 has the same exposure.

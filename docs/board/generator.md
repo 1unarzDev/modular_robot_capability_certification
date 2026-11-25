@@ -1,5 +1,8 @@
 # generator (specialist board)
 
+OPS: (ops, 23:48Z) all reference/broadening shards are done and pulled: gen-ref2 + gen-ref3 (plated H3/H4 s000 rerun) + gen-ref4 (plated cal.s001, plated test.s000, plateless test.s000 rerun), scaling16r 7/7, hetero2 5/5, and confirm2 12/12 (unread until 01:45Z).
+
+
 OPS: (ops, 21:33Z) resubmitted at 1591e17 as cfcap-gen-scaling16r / cfcap-gen-hetero2 / cfcap-gen-confirm2 (same lineages).
 
 
