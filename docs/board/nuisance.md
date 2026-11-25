@@ -1,6 +1,6 @@
 # nuisance (specialist board)
 
-**Status:** pre-registration written 2026-11-25, before any pilot run. Results below this section are added after.
+**Status:** pre-registered; runner task + campaign `cfcap-nuis` committed and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (local pilot queued behind the GPU lock, not run).
 
 ## Pre-registered pilot design and thresholds (written before the run; exploratory)
 
@@ -43,3 +43,35 @@ Thresholds (fixed now, same as `scripts/stageA_targets.md` A2/A3):
   ambiguity is a lower bound (posterior too narrow) and is reported as such.
 - Reported alongside: irreducible part (decisions still ambiguous when the parent's nuisances are known exactly but the
   ridge and child load split remain) is NOT computed in the pilot unless time allows.
+
+- Paper contract 1c: `scripts/nuisance_pilot.py analyze` writes `results/nuisance/paper/amb_het.csv` (source
+  `T1 SMC posterior`, δ ∈ {0.02, 0.04, 0.08, 0.12, 0.16}, subset all / faulted_cand, episode-bootstrap lo/hi).
+
+## Findings
+- (structural, exact; from capxfer `sim._step`) weak(g) multiplies the drive voltage (`volt = u·g·vb`), so a weak
+  wheel with motor multipliers (s, n) is the same plant as a healthy wheel with (g·s, g·n). With ±δ spread, weak
+  g ≥ (1−δ)/(1+δ) (0.85 at δ = 0.08) is **unidentifiable by any probe**: absolute ρ is identical, but ρ_rel (divided by
+  the fault-cleared rollout) differs. This is a labelling property of ρ_rel, not a sensing limit. No ambiguity numbers
+  yet.
+
+## Proposal for full-scale collection (`scripts/campaigns/nuisance_pilot.json`, campaign `cfcap-nuis`)
+| Group | Lane | Jobs × min | Box-h | $ | Serves |
+|---|---|---|---|---|---|
+| nuis-canary: 1 unit per shape at v2 and v2+clamp+moddiff+tug, 2 eps each | rented torch | 1 × 35 | 0.6 | 0.10 | measured s/episode on a 3090; catches box bugs before the grid |
+| nuis-main: δ 0.08 × {v2, +clamp, +tug, +moddiff, all three} on pair 96 / square 64 / 2×3 48 episodes, plus δ sweep {0.02, 0.04, 0.12, 0.16} on v2 (48/32/24) | rented torch | 16 × 92 | 24.5 | 4.41 | A2 (≥ 5 % ambiguous after v2 → probing headline); A3 (≥ 30 % cut, full A3 probe list incl. moddiff and all three, on matched episodes); F1 curve |
+| nuis-t0-a2: T0 A2/A3 oracle, seeds 1000–1999 | free cpu | 10 × 34 | 5.7 | 0 | turns A2's 100-parent pilot (0.02 %) into a 1,100-parent rate |
+
+unit_s are estimates (A0/A6 rates, 3090 1.25× slower, ≤ 100 tempering stages × 6 sim batches × 192 particles); the
+canary's sidecars (`meta.episodes[].total_s_per_ep`) replace them. Diagnostic split (A3's sixth arm) is not in T1 yet.
+Collect: `scripts/nuisance_pilot.py collect <pulled dirs> --tag full`, then `analyze --tags full --status confirmatory`.
+
+## Needs from other roles
+- compute / main session: submit `$CFCAP_OUT/nuisance/jobs_nuis.json` (stage 1 canary + free A2; stage 2 after the
+  canary passes, or together and cancel on failure). Task is loaded by `--task-spec` (no TASKS edit needed).
+- theory: `nuisance_curve.csv` δ grid matches the sweep {0.02, 0.04, 0.08, 0.12, 0.16}.
+- models / baselines / paper: ρ_rel is not identifiable for weak g ≥ (1−δ)/(1+δ); any learner's ρ_rel error there is
+  irreducible. Consider absolute ρ (or ρ divided by a nominal healthy plant) as the decision label.
+- generator: child normal-load split is redrawn from the prior in my labels (`plant.subset` sets it to 0).
+
+## Next step
+Run the canary; fix unit_s from it; collect and analyse the grid against the thresholds above.
