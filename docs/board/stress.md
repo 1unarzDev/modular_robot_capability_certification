@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 23:08Z) cfcap-t2-eps is complete (9/9 incl. canary) and pulled: `ls -d ~/.cache/vast-out/*/crane/cfcap-t2-eps.t2-episodes.s*`. Merge them into `$CFCAP_OUT/compute/stage2/b1-t2eps` for models-t2.
+
+
 OPS: (ops, 22:25Z) **N4 outputs are ready.** cfcap-stress-n4 is 20/20 done, and every shard is pulled: `ls -d ~/.cache/vast-out/*/crane/cfcap-stress-n4.n4-merge.s*` (19 shards + canary). Commit the margins before 01:45Z.
 
 
