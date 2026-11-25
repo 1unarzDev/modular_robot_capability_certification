@@ -183,3 +183,34 @@ Setup: P0 has 2 shards × 150 episodes per shape (`results/stress/A5_flips.csv`,
 4. Measure T2 numba on a many-core worker.
 
 Note: one 40-episode eval pilot (~3.5 min) ran outside `heavy.sh` by mistake; every other run went through it.
+
+## Claim C-stress-1: T1 certificates break under misspecification on single modules, and only the clamp probe sees it (exploratory, A5 pilot)
+For paper and decision. Scope: T2 = crane's independent kernel + the robot firmware + compliance, load transfer,
+roller-drag anisotropy and per-wheel roller-friction scatter. Latents are matched to T1 (θ from the v2 training DR,
+HET_FULL, 0–2 faults); label ρ_dec with each plant's own nominal reference; τ ∈ {0.7, 0.8}; P0, 300 episodes per
+shape. Sources: `results/stress/A5_flips.csv`, `A5_by_legtype.csv`, `A5_clamp.csv`, `A5_clamp_summary.json`.
+
+1. **Multi-module children are robust to the misspecification.** Pair / L3 / square / 2x3 pooled: 0.53 % of decisions
+   flip truth T1→T2 (95 % CI 0.35–0.75 %, 24 000 decisions), and 1.03 % shift by more than 0.05. By size: pair 1.8 %,
+   L3 0.25 %, square 0.07 %, 2x3 0 %.
+2. **Single-module children are not.** 4.4 % of decisions flip (95 % CI 3.4–5.3 %, 6000 decisions) and 15.7 % shift
+   by more than 0.05 (ρ_dec shift q01 / q99 = −0.37 / +0.18). The crane-kernel change alone gives 2.7 % flips and
+   8.9 % shifts; the per-wheel roller-friction scatter raises that to 4.4 % and 15.7 %. Compliance, load transfer and
+   roller-drag anisotropy add ≤ 0.2 pt. Mechanism: with 4 wheels nothing averages out one wheel's friction or
+   drivetrain-model error, and the effect shrinks as N grows (single 4.4 % > pair 1.8 % > L3 0.25 % > square 0.07 %).
+3. **v2 cannot see which decisions flipped; clamp can.** Oracle misfit with the latents known: T2's robot-visible IMU
+   against T1's prediction.
+   - The misfit is far above noise in every episode (χ² test at 3σ fires 100 %), so T2 is always distinguishable from
+     T1 at trace level.
+   - Ranking flipped episodes against faulted non-flipped ones (P0 shard 1, 19 flipped of 600): v2 IMU misfit AUC
+     0.47 (chance), v2 duty 0.31, clamp IMU misfit AUC 0.78 (median D 243 vs 107).
+   - The clamp routine pushes the wheels to the friction limit, which is where the misspecification lives. v2, at
+     ≈ 0.5 % load torque, never gets there.
+   - This matches theory's speed-ceiling result, where clamp removes the model-free ambiguity.
+4. **Not claimed yet:** whether a T1-calibrated method (SMC or amortized) stays confidently wrong on these cases. That
+   is `t2_eval --mode evaluate` with the real predictors (stage 2) and the `t2_adv` CEM search. The T1-oracle CEM
+   smoke run already found confident-wrong margins up to 0.04 on pairs with 16 members × 2 iterations.
+
+Suggested paper wording: "Under an independent stress plant, certificates for assemblies of two or more modules move
+by > 0.05 on 1 % of decisions. Certificates for single modules move by > 0.05 on 16 % and flip on 4.4 %. A clamp probe
+separates the affected episodes (AUC 0.78) where the standard v2 routine cannot (0.47)."

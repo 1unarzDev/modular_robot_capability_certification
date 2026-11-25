@@ -230,6 +230,11 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
             mut = mu * rng.uniform(0.7, 1.3, n)
         else:
             rng.uniform(size=n)
+        # adversarial search (cfcap.t2.adv): explicit per-wheel effect factors replace the draws (rng stays aligned)
+        if effects.aniso and lat.get("t2_drag_pos") is not None:
+            mufp, mufn = muf * _np(lat["t2_drag_pos"])[b], muf * _np(lat["t2_drag_neg"])[b]
+        if effects.aniso_mu and lat.get("t2_mu_fac") is not None:
+            mut = mu * _np(lat["t2_mu_fac"])[b]
         radius = nom["radius"] * ga("radius_scale")
         wheels = []
         for j in range(n):

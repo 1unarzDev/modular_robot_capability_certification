@@ -1,0 +1,74 @@
+{
+ "campaign": "cfcap-t2-extra",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the 1000 plateless T2 test episodes and the 1000-episode 7-condition ablation are simulated or the owner cap is reached.",
+ "groups": [
+  {
+   "name": "t2-plateless",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 2,
+   "units_per_shard": 5,
+   "unit_s": 200,
+   "overhead_s": 300,
+   "priority": 0,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--plate",
+    "plateless",
+    "--split",
+    "test",
+    "--episodes",
+    "1000",
+    "--per-unit",
+    "100",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25 (scripts/heavy.sh, NUMBA_NUM_THREADS=4, 4070 host, CPU only): python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/pl --mode simulate --plate plateless --split test --episodes 10 --per-unit 10: 1.89 s/episode (18 candidates/episode, labels + parent v2 obs), unit of 100 episodes ~190 s at 4 threads; RSS < 1 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Simulate 1000 plateless T2 test episodes (same specs as the T1 plateless test split) so the misspecification result is reported per plate state.",
+   "ride": "torch"
+  },
+  {
+   "name": "t2-ablation",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 8,
+   "units_per_shard": 5,
+   "unit_s": 280,
+   "overhead_s": 300,
+   "priority": 10,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--split",
+    "test",
+    "--episodes",
+    "1000",
+    "--per-unit",
+    "25",
+    "--no-obs",
+    "--backend",
+    "auto",
+    "--conds",
+    "base,compliance,load_transfer,aniso,aniso_mu,all-aniso_mu,all"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25 (scripts/heavy.sh, NUMBA_NUM_THREADS=4, 4070 host, CPU only): python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/abl --mode simulate --split test --episodes 6 --per-unit 6 --no-obs --conds base,compliance,load_transfer,aniso,aniso_mu,all-aniso_mu,all: 10.6 s/episode (7 conditions, 18 candidates/episode), unit of 25 episodes ~265 s at 4 threads; RSS < 1 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Re-run 1000 plated T2 test episodes under each of the 7 T2 effect conditions to attribute the T1 to T2 certificate shift to its cause at episode scale.",
+   "ride": "torch"
+  }
+ ]
+}

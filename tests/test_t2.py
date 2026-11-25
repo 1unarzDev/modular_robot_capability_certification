@@ -127,3 +127,16 @@ def test_eval_simulate_episode():
     assert rr.shape == (len(ep.cands), 10) and np.isfinite(rr).all()
     assert np.all(rr[~faulted] == 1.0)
     assert ob["duty"].shape[1] == ep.parent.asm.n and ob["imu"].shape[1] == 3
+
+
+def test_adv_space_and_score(setup):
+    """t2_adv: decoding z gives valid latents (0-2 faults, payload) and the score is finite."""
+    par, th, dr = setup
+    from cfcap.t2 import adv
+    asm = P.named_assembly("pair", par)
+    sp = adv.Space(asm, dr)
+    z = np.random.default_rng(0).uniform(size=(6, sp.d))
+    refs = adv._refs(asm, par, "plated", "numba")
+    sc, leg, tau, r1, r2, lat = adv.score_members(sp, z, par, refs, 1, "numba")
+    assert np.isfinite(sc).all() and r1.shape == r2.shape == (6, 10)
+    assert ((lat["mode"].numpy() > 0).sum(1) <= 2).all()

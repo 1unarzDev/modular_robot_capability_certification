@@ -1,0 +1,39 @@
+{
+ "campaign": "cfcap-t2-adv",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the 360 CEM restarts are done or about 100 thread-h are spent, whichever is first.",
+ "groups": [
+  {
+   "name": "t2-adv",
+   "task": "t2_adv",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 24,
+   "units_per_shard": 15,
+   "unit_s": 230,
+   "overhead_s": 300,
+   "priority": 20,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.adv:TASK",
+    "--restarts",
+    "360",
+    "--pop",
+    "256",
+    "--iters",
+    "25",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25 (scripts/heavy.sh, NUMBA_NUM_THREADS=4, 4070 host, CPU only): python -m cfcap.runner t2_adv --task-spec cfcap.t2.adv:TASK --shard 0 --n-shards 1 --out /tmp/advp --restarts 3 --pop 256 --iters 3: 8.6 s per CEM iteration on a pair (256 members x 10 legs on T1 CPU + T2 numba), so a 25-iteration restart = ~215 s at 4 threads (a single is cheaper); 360 restarts = ~86 thread-h. Best T1-oracle confident-wrong margin after 3 iterations: 0.11-0.15.",
+   "role": "stress",
+   "purpose": "Adversarial CEM search over latents, faults, payload and T2 effect factors for confident-wrong certificates on single and pair modules (T2 truth, T1-oracle certifier).",
+   "ride": "torch"
+  }
+ ]
+}
