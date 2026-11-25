@@ -132,7 +132,7 @@ submit).
     It took 148 s/episode (SMC 132 s, probes + labels 16 s), with peak VRAM 0.13 GB. The rows and pickles were
     checked.
   - Scaled estimate: ~320 s/episode on average (pair 150 / square 300 / 2x3 500) → ~1300 s/unit →
-    **16 boxes × ~1.6 h ≈ 26 box-h ≈ $5.2 at $0.2/h**, plus boot (~$0.5). It fits the 8 h window.
+    **make_jobs emit (validated): 18 jobs, 30.5 box-h, $5.5 at $0.18–0.2/h** (16 main jobs × ~110 min, plus a 4-min shrunk canary and a 1-unit stage-1 canary), plus boot (~$0.5). It fits the 8 h window.
   - If the canary is slower, cut `--episodes` to 64 per shape (~$3.5).
 - Offline evaluation on CPU (≤ 10 min): `scripts/decide_t1_eval.py <pulled dirs> --tag t1` →
   `results/decision/paper/probe_t1.csv`.
