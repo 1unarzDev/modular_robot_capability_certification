@@ -40,3 +40,10 @@ session (`certified-counterfactual-self-models`).
   - τ applies to ρ_dec.
   - ρ_rel stays as a secondary field, used only for comparison with capxfer.
   - Error from faults inside the motor spread is irreducible. Report it as such; it is not a method failure.
+
+## Deferred (run once the data is in)
+- **Paper refinement loop.** The owner asked for this on 2026-11-25. The playbook is
+  `docs/PAPER_REFINEMENT_LOOP.md`, distilled from the owner's prompts in the `rewrite-conference-paper` session.
+  - Start condition: the Stage B–D result CSVs in `docs/board/paper.md` exist, and `scripts/analysis/make_all.py`
+    has run on real data.
+  - Then run the multi-round, multi-perspective review and refinement loop exactly as the playbook says.
