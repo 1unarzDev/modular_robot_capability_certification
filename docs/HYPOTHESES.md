@@ -100,6 +100,14 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **21:00Z H11 (screen): SUPPORTED, exploratory T0** (`results/decision/t0_n1_verdict.json`).
+  - With end-to-end + Mondrian-by-difficulty and budget-abstention off: ep_any_unsafe 0.33 % (upper 0.8 %), useful
+    95.4 %, healthy abstention 0.
+- **21:00Z H10 (raw posterior near-oracle): SUPPORTED in-model, T0.**
+  - raw ep_any_unsafe 1.7 % < α; Bayes q05 0.17 % with regret 9.5 s ≤ simM's 11.1 s.
+  - Calibration buys the guarantee, not safety, in regime 1.
+- **21:00Z H3 (probing): FALSIFIED in regime 1** (T0 N1). EVOI = v2. Every time-matched probe policy has higher
+  regret. Open only in regime 2 (≥ 3-module yaw, N5).
 - **20:55Z H12 (silent extrapolation). PARTIAL; SUPPORTED for ≥ 3-module children (exploratory, post-hoc
   restriction).** Sources `results/stress/N3_flips.csv`, `N3_verdict.json`.
   - With the fixed reference: undominated flips 2.76 % [2.21, 3.35]; dominated 1.82 %, all of it in singles and

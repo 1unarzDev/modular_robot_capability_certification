@@ -4,7 +4,7 @@
 Hypothesis numbers follow the ledger. My proposals H11–H14 of 20:15Z are renumbered **H12–H15**, because the
 ledger's H11 is the conformalised screen.
 
-**N1. Fix the inference-difficulty abstention (decides H11; owner: decision; CPU, offline, $0, < 1 h).**
+**N1 (DONE 21:00Z: PASS; see critique log). Fix the inference-difficulty abstention (decides H11; owner: decision; CPU, offline, $0, < 1 h).**
 - **Evidence** (`results/decision/t0_k5_meta.csv`, `t0_k5_summary.csv`, my analysis): after the screen fix,
   35 % of episodes abstain.
   - `unknown=budget` fires on 74/240 episodes, `empty_screen` on 11.
@@ -156,6 +156,22 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **21:00Z, decision N1** (`results/decision/t0_n1_verdict.json`, `t0_n1_overall.csv`, `t0_n1_bins.csv`; 600 T0
+  episodes).
+  - **The N1 bar PASSES.** simM0.1: per-bin ep_any_unsafe ≤ 0.024 (upper), healthy abstention 0 %, useful 95.4 %,
+    against 65 % at k5. The budget-abstention diagnosis was right.
+  - Critique 1 (it reframes the in-model claim): the certificate is **~30× more conservative than its level**.
+    Realised ep risk is 0.33 % at nominal α = 0.10, and even `raw` (q = 0) has ep_any_unsafe 1.7 % < α.
+    - The uncalibrated Bayes q05 is as safe (0.17 %) and slightly more useful, with lower regret (9.5 vs 11.1 s).
+    - So in regime 1 conformal calibration buys **the guarantee, not safety or utility** (H10 confirmed on T0).
+    - The paper must not claim that calibration improves in-model decisions. Its value must appear in T2 / knee
+      (CONFIRMATORY P3) or nowhere.
+  - Critique 2: the Mondrian bins are degenerate. Mass-bin 0 has only tercile 0, 135 episodes, and 20 % abstention:
+    the empty screens. Per-bin validity is checked on 4 bins with 58–207 episodes, so the per-bin upper bounds are
+    0.02–0.04. That is fine for "≤ 0.1", but does not show conditional validity at a resolution worth a claim.
+  - Critique 3: probing is dead in regime 1. EVOI picks no probe (regret = v2 = 9.5 s with Bayes). Every
+    probe-time-matched policy (@8.8, @16.8) is worse. The paper reports this as the regime-1 negative and moves
+    probing to regime 2 (≥ 3-module yaw), where N5 must deliver a feasible probe or probing is appendix-only.
 - **20:55Z, N3 fixed reference** (`results/stress/N3_flips.csv`, `N3_verdict.json`).
   - **H12 as written (pooled): neither supported nor falsified.** Undominated flips are 2.76 % [2.21, 3.35] > 1 %,
     but dominated flips are 1.82 % > 0.5 %, all of them in singles and pairs (H8 scatter, present without the motor
