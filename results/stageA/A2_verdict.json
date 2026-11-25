@@ -1,0 +1,13 @@
+{
+ "amb_share_v2": 0.00020549704597996405,
+ "amb_ci": [
+  8.818225568622185e-05,
+  0.0003343531431816387
+ ],
+ "A2_probing_secondary": true,
+ "oracle_cert_frac_all": 0.999810184466187,
+ "oracle_cert_frac_lone_faulted": 0.9937712344280861,
+ "gain_vs_capxfer_hi_pts": 24.377123442808614,
+ "A2_attack_conformal_slack": false,
+ "oracle_unsafe_go_share": 0.0
+}

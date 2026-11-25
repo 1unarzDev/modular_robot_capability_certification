@@ -1,0 +1,20 @@
+{
+ "v2_ambiguous_decisions": 24,
+ "testable": false,
+ "best_probe_set": "v2+clamp+moddiff+tug",
+ "best_rel_reduction": 0.75,
+ "best_ci": [
+  0.43727678571428574,
+  1.0
+ ],
+ "any_probe_cuts_30pct": true,
+ "reductions": {
+  "v2": 0.0,
+  "v2+clamp": 0.6666666666666667,
+  "v2+moddiff": 0.33333333333333337,
+  "v2+tug": 0.16666666666666663,
+  "v2+clamp+moddiff+tug": 0.75,
+  "diag_split": 0.16666666666666663
+ },
+ "A3_drop_probing_headline": true
+}

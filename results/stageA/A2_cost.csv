@@ -1,0 +1,2 @@
+n_parents,mean_t_total_s,mean_t_parent_s,p90_t_total_s,mean_qs_parent,mean_qs_child,mean_n_hyp,share_singleton_v2_sensor,mean_setsize_v2_sensor,mean_nonconv_child
+100,5.895599999999999,3.5021,11.171000000000006,26120.18,20606.66,25860.52,0.69,12.49,0.003452081843652441
