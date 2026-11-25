@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 23:33Z: #20 eval2h canary tripped (infra). The new 170 MB models-b1-weights input reached live boxes after the runner's 6-min input wait. It is present on the boxes now, so the batch is resumed.
 - **23:52Z: eval2 is LEASED.** cfcap-models-eval2h has its canary and 3 eval2-het shards running. cfcap-models-b1r.s000 (the st-n6-1 retrain) is leased too.
 - 23:50Z: the runner now mirrors complete outputs (files ≤ 95 MB, ≤ 400 MB per job) to `$CRANE_RUN_DIR/artifacts/out`, so the coordinator keeps them if a box dies (dbc0a28, tests 30 pass). It applies to jobs emitted from now on, starting with eval2 main.
 - **23:40Z: models_eval2, part 1 submitted.**
