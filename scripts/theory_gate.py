@@ -85,10 +85,12 @@ def lower_bounds(cal, test, probe):
     out = {"raw": test[par].values, "pi": test[pi].values}
     qp = q_sim(cal, par, cal.law == 0)
     out["par"] = test[par].values - qp
-    out["par_pooled"] = test[par].values - q_sim(cal, par)
-    out["pi_cal"] = test[pi].values - max(0.0, q_sim(cal, pi))
+    qpp, qpi = q_sim(cal, par), q_sim(cal, pi)
+    out["par_pooled"] = test[par].values - qpp
+    out["pi_cal"] = test[pi].values - max(0.0, qpi)
     cal = cal.assign(nom_l0=cal.rho_nom, det_l0=np.where(cal.has_fault == 1, -np.inf, cal.rho_nom))
-    out["nominal"] = test.rho_nom.values - q_sim(cal, "nom_l0")
+    qn = q_sim(cal, "nom_l0")
+    out["nominal"] = test.rho_nom.values - qn
     qd = q_sim(cal[cal.has_fault == 0], "det_l0")
     out["detector_gated"] = np.where(test.has_fault.values == 1, -np.inf, test.rho_nom.values - qd)
     # gate: q_gate on half A, margin on half B
@@ -108,7 +110,9 @@ def lower_bounds(cal, test, probe):
     qB = q_sim(B.assign(g_l0=l0B), "g_l0")
     l0T = np.where(test[f"dom_{probe}"] | (test[mis] <= best), test[par], test[pi])
     out["gate"] = l0T - qB
-    return out, dict(q_gate=best, q_gate_margin=qB, q_par=qp)
+    # q_gate is a threshold (may be +-inf by design); every q_* below is a margin and must be finite
+    return out, dict(q_gate=best, q_gate_margin=qB, q_par=qp, q_par_pooled=qpp, q_pi_cal=qpi, q_nominal=qn,
+                     q_detector=qd)
 
 
 def cmd_analyze(a):
@@ -199,15 +203,44 @@ def cmd_analyze(a):
 MIN_EPISODES = 100
 
 
+SEVERITIES = (0, 1, 2, 3)
+MARGINS = ("q_gate_margin", "q_par", "q_par_pooled", "q_pi_cal", "q_nominal", "q_detector")
+
+
+def sufficiency(R, Q):
+    """Problems that void a verdict (empty list = sufficient):
+    every expected (severity, probe) cell present with >= MIN_EPISODES episodes, and for every probe both folds
+    present with every margin finite."""
+    probs = []
+    cells = R[(R.stratum == "all") & (R.certifier == "par")]
+    for sev in SEVERITIES:
+        for p in PROBES:
+            c = cells[(cells.severity == sev) & (cells.probe == p)]
+            if c.empty:
+                probs.append(f"cell severity={sev} probe={p} missing")
+            elif int(c.n_episodes.min()) < MIN_EPISODES:
+                probs.append(f"cell severity={sev} probe={p} has {int(c.n_episodes.min())} < {MIN_EPISODES} episodes")
+    if Q is None or len(Q) == 0:
+        probs.append("no margin table")
+        return probs
+    for p in PROBES:
+        for fold in (0, 1):
+            q = Q[(Q.probe == p) & (Q.fold == fold)]
+            if q.empty:
+                probs.append(f"margins probe={p} fold={fold} missing")
+                continue
+            for m in MARGINS:
+                v = q[m].iloc[0] if m in q else np.nan
+                if not np.isfinite(v):
+                    probs.append(f"margin {m} probe={p} fold={fold} not finite ({v})")
+    return probs
+
+
 def verdict(R, Q=None):
     lines = []
-    cells = R[(R.stratum == "all") & (R.certifier == "par")]
-    small = cells[cells.n_episodes < MIN_EPISODES]
-    qbad = [] if Q is None else [r for r in Q.to_dict("records") if not np.isfinite([r["q_gate_margin"], r["q_par"]]).all()]
-    qinf = R[(R.stratum == "all")]
-    if len(small) or qbad:
-        lines.append(f"INSUFFICIENT: {len(small)} (law, severity, probe) cells have < {MIN_EPISODES} episodes; "
-                     f"{len(qbad)} fold/probe gate margins are not finite. No verdict.")
+    probs = sufficiency(R, Q)
+    if probs:
+        lines.append("INSUFFICIENT: " + "; ".join(probs) + ". No verdict.")
         (RES / "gate_verdict.txt").write_text("\n".join(lines) + "\n(source: results/theory/gate_cert.csv; exploratory)\n")
         print("\n".join(lines))
         return

@@ -89,6 +89,9 @@ almost all legs.
 (nominal 0 % CF; detector_gated 0–1.4 % CF.)
 
 **Verdict against the pre-registered bars** (`gate_verdict.txt`):
+- Sufficiency guard (audit item 1, fixed after scoring with the verdict unchanged): `sufficiency()` now requires every
+  (severity, probe) cell to be present with ≥ 100 episodes, and both folds of each probe to have all six margins
+  finite (`gate_thresholds.csv`). Tested in `tests/test_theory_gate.py` (5 tests).
 - **Kill not met:** the knee law does bite. Its main effect is at severity 3. There the physics-trusting `par` has 29 %
   unsafe on undominated decisions with v2 (22 % with v2+clamp), and 74 % / 67 % of episodes contain an unsafe commit.
   - At severities 1–2 `par` is close to its two-constant level, but ep_any rises 4 → 12 % with v2 (α = 10 %).
@@ -96,6 +99,10 @@ almost all legs.
     (ep_any 4 % ≤ α), so the 1 % per-decision kill bar is partly confounded.
 - **SUCCESS-1 FAILS.** Under the two-constant truth with v2, gate CF is 81.8 % against par's 96.6 % (−14.8 pts). With
   v2+clamp it is 94.1 vs 96.1 (−2.0, at the bar), but the bar was set on v2.
+  - *Reading used and limitation (codex audit `docs/codex/re_gate.md`):* the pre-registered first bar does not
+    name a probe set. The verdict uses **v2**, matching the second bar's explicit "with v2 only" and the script,
+    which scores v2. Under the v2+clamp reading the bar sits exactly at −2.0 pts. That reading was not pre-specified
+    and is not used. The verdict is unchanged.
 - **SUCCESS-2 FAILS.** At severity 3 with v2, gate has 1.7 % unsafe (> 1 %), and its CF of 72.1 % is only +1.2 pts over
   pi's 70.9 %. With v2+clamp it has 0.4 % unsafe and 4 % ep_any, but its CF of 77.4 % sits below pi_cal's 79.0 %.
 - **What the data do say:**
