@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **21:08Z BUDGET/UTILISATION.** 24 boxes at $3.83/h, $4.30 spent: projection to 03:00Z ~$27.2, at the ceiling. About 11 boxes are GPU-idle, because the scheduler reports "outranked" while models-b1 (31), b2r (36) and smc-small (31) wait. Sent to the compute session, asking them to hold autoscale. No cut yet: idle boxes leave after 15 min. If the projection passes $27.5, ops cancels decide (priority 90), then theory-ride.
 - 21:05Z: submitted the generator v3 campaigns (e9a0cf3), each with its own lineage:
   - cfcap-gen-scaling16: 7 jobs, priority 65;
   - cfcap-gen-hetero: 5 jobs, priority 66–69;
