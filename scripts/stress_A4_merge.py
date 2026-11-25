@@ -85,7 +85,9 @@ def perturb(lat, rng):
     return out
 
 
-def run(arm, pairs, shard=0, pert=False):
+def run(arm, pairs, shard=0, pert=False, export=None):
+    """export: a list -> only replay the generation and append per pair dict(pair, k1, k2, g1, g2, l1, l2, merges=[
+    (merge index, asm, payload (mass, x, y) or None)]) to it (used by scripts/stress_N4.py); no simulation."""
     import torch
     from capxfer import assembly as A, sim
     from cfcap.t0 import candidates as C
@@ -114,6 +116,9 @@ def run(arm, pairs, shard=0, pert=False):
         host = int(rng.integers(k1))
         off = rng.uniform(-0.08, 0.08, 2)
         pm = float(rng.uniform(0.0, 5.0)) if arm == "P5" else 0.0
+        if export is not None:
+            rec = dict(pair=shard * 100000 + pi, k1=k1, k2=k2, g1=g1, g2=g2, l1=l1, l2=l2, merges=[])
+            export.append(rec)
         for mi, s in enumerate(sel):
             t = pl[int(s)]
             cand = C.merge(g1, tuple(range(k1)), g2, t, par)
@@ -124,6 +129,8 @@ def run(arm, pairs, shard=0, pert=False):
                 xy = np.asarray(asm.module_pos)[host] + off
                 pay = dict(mass=torch.tensor([pm]), x=torch.tensor([float(xy[0])]), y=torch.tensor([float(xy[1])]))
             lt = merged_latents(l1, l2, n, rng.normal(size=n) * het.load_split, pay)
+            if export is not None:
+                rec["merges"].append((mi, asm, None if pay is None else (pm, float(pay["x"][0]), float(pay["y"][0]))))
             lc = merged_latents(l1, l2, n, np.zeros(n), pay)
             lr = plant.sample_latents(asm, 1, np.random.default_rng(0), plant.HET_OFF,
                                       domain=P.point_domain(th, 1, "cpu"), device="cpu")
@@ -133,6 +140,8 @@ def run(arm, pairs, shard=0, pert=False):
             truth.append((asm, lt)); comp.append((asm, lc)); refl.append((asm, lr))
             meta.append(dict(pair=shard * 100000 + pi, merge=mi, n_mod=k1 + k2, n_wheel=n, k1=k1, k2=k2,
                              n_fault=int((lt["mode"] > 0).sum()), payload_kg=pm, t=json.dumps(list(map(int, t)))))
+    if export is not None:
+        return export
     print(arm, len(meta), "merges", "(T1 perturbed)" if pert else "", flush=True)
     t0 = time.time()
     out = {}

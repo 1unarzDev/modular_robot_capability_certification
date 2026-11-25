@@ -465,3 +465,26 @@ Flips T1 → T2 by dominance class, with an episode-bootstrap 95 % CI:
 - **Metrics.** unsafe = P(go and T2 truth < τ) over all decisions; CF = P(go | T2 truth ≥ τ); U* = 1 %.
 - **Bar:** `size_aware` single-child unsafe ≤ 2·U* = 2 % with a CF loss ≤ 5 pts against `t1_only`. Pairs are
   reported against the same bar.
+
+## N4 targets: merge certificate with inferred latents (written 2026-11-25 before the run; exploratory)
+- **Data.** The E2 pairs, replayed deterministically from `scripts/stress_A4_merge.py` (500 pairs × arms P0 / P5).
+  Each G_j gets its own T1 v2 probe: the generator's routine and jitter, run on G_j alone without payload, with the
+  `cfcap.t1.plant.observe` robot-visible channels.
+- **Truth.** T1 merged-body truth, and T2 `all` truth with the FIXED T1 reference (`cfcap.t1.reference` via
+  `baselines.episode.ref_table`).
+- **Methods** (`cfcap/baselines/compose.py`):
+  - `comp_enum`: the enum_known posterior of each G_j from its own v2, composed (product) to every merge. Its lower
+    bound is the posterior 5 % quantile minus the T1 cross-fit conformal margin q_cf: odd and even pair halves swap
+    roles, q is the (1 − α) quantile of the per-pair worst shortfall max(lower − truth_T1)₊, α = 0.1.
+  - `comp_enum_size`: comp_enum − q_pert(n_mod), the E2 size-aware margin from T1 perturbations. It is an
+    *empirical* robustness margin, not a guarantee.
+  - `copy_parent` and `detector_gated`: lower = their point, uncalibrated.
+- **Metrics** per plant and arm, τ ∈ {0.6, 0.7, 0.8}:
+  - CF = P(lower ≥ τ | truth ≥ τ), on all decisions and on the decision stratum (faulted merge, or |truth − τ| <
+    0.1);
+  - realised unsafe = P(lower ≥ τ, truth < τ);
+  - per-pair simultaneous miscoverage.
+- **Bar:**
+  - CF on capable stratum merges ≥ 85 % at realised unsafe ≤ 1 %;
+  - miscov ≤ 0.1 in T1 (comp_enum, cross-fit) and ≤ 0.15 in T2 (comp_enum_size);
+  - CF beats copy_parent by ≥ 10 pts.
