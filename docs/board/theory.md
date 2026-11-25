@@ -1,5 +1,8 @@
 # theory (specialist board)
 
+OPS: (ops, 2026-11-25 19:55Z) cfcap-theory-cpu: the cpu-profile box image (python:3.12-slim, numpy only) has no torch or pandas, and `theory_phase` needs both. That gave 4 broken attempts, and both cpu boxes are quarantined. The canary passed on a torch box's spare cores, so the batch now runs there. Future CPU plans should use `"ride": "torch"` if they import torch or pandas.
+
+
 **Status (2026-11-25):** round 1 done. Four results stated and checked on T0 (`docs/theory/THEORY_cfcap.md`). All
 numbers are exploratory, from simulation only.
 
@@ -30,6 +33,34 @@ numbers are exploratory, from simulation only.
 - **Paper-grade:** (1) Lemma 1 + Prop. 2, the identification regimes plus the minimal covering probe; (2) Thm 5′ +
   Prop. 4, family-free compositional simultaneity against a measured simultaneity price. Textbook: the Prop. 4
   algebra, Le Cam two-point, and Prop. 3's linearisation.
+
+## E1 pre-registration (copied from docs/board/research.md §4 E1 before any run, 2026-11-25)
+Trust-gated certificate on T0 under a misspecified motor law. Script `scripts/theory_gate.py`; shared law
+`cfcap/t0/envelope.py:motor_envelope` (stress imports it for the T2 motor-law arm). Output `results/theory/gate_cert.csv`.
+- Design: 1,200 T0 parents of 2–6 modules, children including singles and pairs, 1–2 faults (weak/coast/brake),
+  δ = 0.08. Truth law ∈ {two-constant, knee severity 1, 2, 3}, 300 parents each. Probes {v2, v2+clamp}.
+- Certifiers, α = 0.1 simultaneous per episode, cross-fitted 2-fold:
+  - `par`: the two-constant fit at the probes plus SimultaneousLower, calibrated on two-constant-truth episodes. This
+    is the physics-trusting one.
+  - `par_pooled`: the same, calibrated pooled over laws.
+  - `pi`: the speed-ceiling / torque-floor identified-set low end, no calibration. This is the model-free one.
+  - `gate`: `par` if the decision is dominated or the probe misfit ≤ q_gate, else `pi`. q_gate and the margin are
+    calibrated end to end on the cal fold, pooled over laws, with q_gate chosen on one half and the margin on the
+    other.
+  - `raw`: the `par` point with q = 0. This is the uncalibrated one.
+  - Trivial: `nominal` (healthy-body prediction plus a pooled margin) and `detector_gated` (nominal on fault-free
+    children only).
+- Strata: all; decision (faulted candidate or |ρ − τ| < 0.10); undominated (some driven wheel's needed speed or
+  torque exceeds the parent's probed maximum). unsafe_rate = unsafe commits / incapable decisions of the stratum;
+  ep_any_unsafe per episode.
+- **Success** (decision stratum):
+  - under the two-constant truth, gate CF ≥ par CF − 2 pts;
+  - under the knee truth (the worst severity at which par's unsafe-go > 2 %), gate unsafe-go ≤ 1 % and gate CF ≥
+    pi CF + 5 pts with v2 only.
+- **Kill:** par's unsafe-go on undominated decisions ≤ 1 % (U*) at every knee severity. Then extrapolation is safe for
+  these envelope classes; report that as a robustness result and drop F1.
+- Also reported: the share of certified decisions that are undominated, by leg type and child size, under the
+  two-constant truth.
 
 ## Predictions other roles can test
 - **nuisance** (T1 SMC pilot):
