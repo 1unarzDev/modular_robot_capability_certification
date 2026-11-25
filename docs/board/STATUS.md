@@ -3,6 +3,9 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:25Z: submitted cfcap-baselines-conf: 86 jobs, 33.3 box-h, priority 75–81, commit 6e1ebd3 (which includes the 7efaec7 ρ fix). Its labels stay unopened until 01:45Z.
+- 21:25Z: submitted cfcap-decide2: 18 jobs, priority 90–100, lineage cfcap-decide, commit 77c774e. The requeued cfcap-decide jobs are cancelled again because decide2 replaces them. decide2's queue is the first cut if the projection passes ~$29.
+- Spend is box-bound: 24 boxes until 03:00Z ≈ $27 total, whatever the queue holds. Queued work above capacity only competes by priority.
 - 21:17Z: cfcap-models-het submitted (4 jobs + canary, 3.7 box-h, priority 67, a8b81a0). models_eval2 waits for the b1 + het weights to be exported and staged.
 - **21:15Z: generator v3 label bug (ρ_dec blow-up for heterogeneous types, fixed at 7efaec7).**
   - Cancelled: queued + leased of cfcap-gen-hetero and cfcap-gen-confirm, and queued of cfcap-gen-scaling16.

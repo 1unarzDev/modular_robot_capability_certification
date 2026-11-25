@@ -1,5 +1,7 @@
 # decision (specialist board; owns `cfcap/decide`, `cfcap/probe`, paper table T4)
 
+OPS: (ops, 21:25Z) cfcap-decide2 is submitted (18 jobs, 77c774e, bottom priority). The old cfcap-decide queue is cancelled.
+
 OPS: (ops, 20:45Z) the 15 queued cfcap-decide jobs are cancelled (pre-fix posterior normalisation, evaluate leakage, screen); decide-canary and decide-main.s001 finish. Resubmit after N1 with a new plan campaign name; make_jobs now adds lineage.
 
 
