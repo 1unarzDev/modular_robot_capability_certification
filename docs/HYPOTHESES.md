@@ -281,3 +281,17 @@ unmeasured: the small SMC campaign plus models eval2.
   singles and pairs, from friction scatter and the kernel, even without the motor law). Within ≥3-module children the
   predicted pattern is exact: surge/sway 0 %, yaw 3–6.75 %.
 - **N4 (merge with inferred latents): running.** Moved to rented boxes.
+
+**H17. Faithful explanations of capability limits (annotation, codex-validated, exploratory T0).**
+- Explanations generated from the robot's own posterior are faithful 89.5 % of the time (CI 84.5–93.5 %), and 99.2 %
+  when the refusal was correct. A blamed wheel was truly faulted 193/193 times.
+  - Failure mode: when the robot wrongly refuses a capable body, it blames a leg that isn't short (20/20).
+  - Codex reported the belief correctly 100 % of the time, so every error comes from the posterior, not from the LLM.
+- **Failure taxonomy:** 1,181 cases, 95.7 % of 4,491 checkable claims true. Six categories validated (near_threshold,
+  probe_overconfidence, conformal_margin_slack, passive_wheel_hidden, mode_confusion, spread_masked_weak).
+  - Of the unsafe certificates, 23/43 are screen misses (codex labels them correctly 19/21) and 9 are a passive wheel
+    in the child that v2 never excites.
+  - The LLM's attribution of A5 flips to plant effects is unreliable (55 % true), so cite the stress ablation instead
+    (95 % of flips also occur with friction scatter alone).
+- **Task library:** 558 realistic tasks; the median requirement is 0.37, well below the synthetic τ 0.6–0.9. Realistic
+  jobs are easier than our decision thresholds, so report results at a realistic-requirement τ as well.
