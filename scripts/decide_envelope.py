@@ -32,14 +32,23 @@ def _work(seed):
     return pd.DataFrame(gate_episode(seed, P, th))
 
 
-def _work_post(args):
-    seed, lik, cover = args
+def _work_z(seed):
     import torch
     torch.set_num_threads(1)
     from cfcap.t0 import qs
     from cfcap.decide import envelope_post as EP
     P, th = qs.load_params(), qs.load_theta()
-    return pd.DataFrame(EP.episode(seed, P, th, lik=lik, cover=cover))
+    return EP.episode(seed, P, th, z_only=True)
+
+
+def _work_post(args):
+    seed, lik, cover, ks = args
+    import torch
+    torch.set_num_threads(1)
+    from cfcap.t0 import qs
+    from cfcap.decide import envelope_post as EP
+    P, th = qs.load_params(), qs.load_theta()
+    return pd.DataFrame(EP.episode(seed, P, th, lik=lik, cover=cover, k_screen=ks))
 
 
 def main():
@@ -50,15 +59,33 @@ def main():
     ap.add_argument("--tag", default=None)
     ap.add_argument("--lik", default="v2", help="envelope_post fault likelihood: v2 | robust")
     ap.add_argument("--cover", type=float, default=0.99, help="envelope_post kept posterior mass")
+    ap.add_argument("--screen-cal", default=None, help="s0:s1 calibration seeds for the knee-tolerant conformal screen")
+    ap.add_argument("--alpha-s", type=float, default=0.01)
     ap.add_argument("--status", default="exploratory")
     ap.add_argument("--keep-nonconv", action="store_true",
                     help="keep episodes whose knee fixed point did not converge (truth = least-residual point)")
     a = ap.parse_args()
     tag = a.tag or ("envpost" if a.post else "envelope")
     s0, s1 = map(int, a.seeds.split(":"))
+    ks = None
+    if a.screen_cal:
+        from cfcap.conformal.core import split_quantile
+        c0, c1 = map(int, a.screen_cal.split(":"))
+        zc = REPO / "results" / "decision" / f"screen_cal_knee_{c0}_{c1}.csv"
+        if zc.exists():
+            zd = pd.read_csv(zc)
+        else:
+            with get_context("spawn").Pool(a.workers) as p:
+                zd = pd.DataFrame(p.map(_work_z, range(c0, c1), chunksize=4))
+            zd.to_csv(zc, index=False)
+        zd = zd[zd.conv]
+        ks = split_quantile(zd.z_true.to_numpy(), a.alpha_s)
+        print(f"knee-tolerant screen: K = {ks:.3f} (alpha_s {a.alpha_s}, n_cal {len(zd)}, seeds {c0}:{c1})")
+        print(zd.groupby("law").z_true.quantile([0.5, 0.9, 0.99]).unstack().round(2).to_string())
     theirs = [] if a.post else sorted(glob.glob(str(OUT / "theory" / "gate" / "gate_*.pkl")))
-    mine = OUT / "decision" / (f"gatepost_{a.lik}_{a.cover}_{s0}_{s1}.pkl" if a.post else f"gate_{s0}_{s1}.pkl")
-    if a.post and a.lik == "v2" and a.cover == 0.99 and (OUT / "decision" / f"gatepost_{s0}_{s1}.pkl").exists():
+    mine = OUT / "decision" / (f"gatepost_{a.lik}_{a.cover}_{'' if ks is None else f'K{ks:.2f}_'}{s0}_{s1}.pkl"
+                               if a.post else f"gate_{s0}_{s1}.pkl")
+    if a.post and ks is None and a.lik == "v2" and a.cover == 0.99 and (OUT / "decision" / f"gatepost_{s0}_{s1}.pkl").exists():
         mine = OUT / "decision" / f"gatepost_{s0}_{s1}.pkl"
     if theirs:
         df = pd.concat([pd.read_pickle(f) for f in theirs])
@@ -68,7 +95,7 @@ def main():
         df = pd.read_pickle(mine)
     else:
         with get_context("spawn").Pool(a.workers) as p:
-            jobs = [(s_, a.lik, a.cover) for s_ in range(s0, s1)] if a.post else list(range(s0, s1))
+            jobs = [(s_, a.lik, a.cover, ks) for s_ in range(s0, s1)] if a.post else list(range(s0, s1))
             df = pd.concat(p.map(_work_post if a.post else _work, jobs, chunksize=2))
         mine.parent.mkdir(parents=True, exist_ok=True)
         df.to_pickle(mine)

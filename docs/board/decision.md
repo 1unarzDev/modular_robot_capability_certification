@@ -454,6 +454,23 @@ Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`
 - The two arms' T4 files are deliberately not in `paper/`: they would duplicate policy names. The rows live in
   `results/decision/n1*_rows.csv`.
 
+## NEXT-1b pre-registration: knee-tolerant conformal screen (written 2026-11-25 before the run)
+**Design.**
+- The screen threshold is K = the split-conformal (1 − α_s) quantile, α_s = 0.01, of the TRUE fault state's screen
+  statistic: max |z| over the v2 legs, with weak g snapped to the grid.
+- It is computed on **exploratory knee-law calibration episodes, seeds 5000–5599**, pooled over severities 0–3. Only
+  converged episodes are used.
+- **Evaluation on fresh seeds 3900–4499** with this K and the v2-only fault likelihood (otherwise H3's envelope_post).
+- The comparison arm is K = 5 on the same seeds.
+
+**Bars** (env_cal):
+- EVOI useful ≥ 75 % at ep unsafe ≤ 0.10;
+- empty-screen share ≤ 10 %;
+- H3 B1–B4 unchanged.
+
+**Reported:** the empty-screen share by severity, before (K = 5) and after. Fallback if the bars fail: a heavy-tailed
+(Student-t) screen statistic, pre-registered separately.
+
 ## NEXT queue (not started)
 - **N-post-1b (the real lever):** a knee-robust screen. Options:
   - (a) a conformalized screen threshold calibrated on knee-law calibration episodes (truth's max |z| at α_s);

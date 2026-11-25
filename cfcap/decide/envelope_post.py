@@ -83,8 +83,11 @@ def _bounds(parent, cands, P, th, st, nl, mu, hm, hg, obs, sl, plant):
     return out
 
 
-def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None):
+def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None, k_screen=None, z_only=False):
+    """k_screen: screen threshold (None = K_SCREEN; the knee-tolerant screen passes the conformal threshold).
+    z_only: return only the TRUE fault state's screen statistic (max |z| over the v2 legs; calibration episodes)."""
     lik = lik or LIK
+    ks = K_SCREEN if k_screen is None else float(k_screen)
     cover = COVER if cover is None else cover
     from capxfer.sim import OK, WEAK, COAST, BRAKE
     from cfcap import theory_task as TT
@@ -121,16 +124,25 @@ def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None):
     sl2 = TT.PROBE_IDX["v2"]
     yk = y[sl2]
     sd = SD_INFLATE * O.sigma(yk, "floor", True, O.nuisance_sd(nplant, legs[:6], np.random.default_rng((60_000 + seed,)), 8))
+    if z_only:
+        # the truth's state on the hypothesis grid: weak g snapped to the nearest grid value (the screen only ever sees
+        # grid hypotheses, so this is the statistic the screen applies to the closest admissible hypothesis)
+        gq = np.where(tm == WEAK, stagea.G_GRID[np.abs(stagea.G_GRID[None] - tg[:, None]).argmin(1)], 1.0)
+        rt_ = qs.solve(nplant, tm[None], gq[None], om_ref[sl2])
+        zt = (O.signals(rt_)[0] - yk) / sd
+        return dict(seed=seed, law=sev, z_true=float(np.abs(zt).max()), n_faults=int((tm != 0).sum()),
+                    parent_size=len(parent.modules), conv=bool(obs["conv"].all()))
     alive = np.arange(len(HM))
     ll = np.zeros(len(HM))
     for li in range(yk.shape[0]):
         r = qs.solve(nplant, HM[alive], HG[alive], om_ref[sl2][li:li + 1])
         z = (O.signals(r)[:, 0] - yk[li][None]) / sd[li][None]
         ll[alive] += -0.5 * (z * z).sum(1)
-        alive = alive[np.abs(z).max(1) <= K_SCREEN]
+        alive = alive[np.abs(z).max(1) <= ks]
         if len(alive) == 0:
             break
     meta["n_screen"] = len(alive)
+    meta["k_screen"] = ks
     if len(alive) == 0:
         meta["empty_screen"] = 1
         res = {key: None for key in TT.PROBE_IDX}
