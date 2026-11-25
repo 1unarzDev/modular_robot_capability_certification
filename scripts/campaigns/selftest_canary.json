@@ -1,0 +1,20 @@
+{
+ "campaign": "cfcap-canary",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the two canary shards: they only prove the box path (inputs, outputs, metrics, signals) before the B1 campaign.",
+ "_doc": "Box-path canary for cfcap.runner: 2 gpu_command shards on one rented torch box plus 1 free-lane py_command shard. pilot: local dry run in docs/board/compute.md.",
+ "groups": [
+  {"name": "st-torch", "task": "selftest", "stage": 1, "lane": "rented", "profile": "torch", "shards": 2,
+   "units_per_shard": 6, "unit_s": 30, "overhead_s": 30, "vram_gb": 1, "priority": 0,
+   "task_args": ["--units", "6", "--rows", "100000", "--unit-s", "30", "--steps", "30"],
+   "pilot": "local box simulation (docs/board/compute.md dry run): 6 units x 30.0 s, exit 0, resume after SIGTERM and kill -9",
+   "purpose": "Canary for the cfcap shard runner on a rented 3090: checks pushed inputs, columnar outputs under the box output root, metrics and resume before the B1 campaign."},
+  {"name": "st-free", "task": "selftest", "stage": 1, "lane": "free", "profile": "cpu", "shards": 1,
+   "units_per_shard": 6, "unit_s": 50, "overhead_s": 30, "priority": 0,
+   "task_args": ["--units", "6", "--rows", "100000", "--unit-s", "50", "--steps", "25"],
+   "pilot": "local box simulation (docs/board/compute.md dry run): 6 units x 50.0 s, exit 0",
+   "purpose": "Canary for the cfcap shard runner on a free worker: checks repo bundles of cfcap and the staged capxfer source, artifacts output and metrics."}
+ ]
+}
