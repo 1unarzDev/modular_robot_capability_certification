@@ -65,12 +65,12 @@ REPO = Path(__file__).resolve().parents[1]
 # Task name -> "module:attr" (a Task). Roles add their module; the names are what make_jobs.py emits.
 TASKS: dict[str, str] = {
     "selftest": "cfcap.runner:SELFTEST",
-    "gen_shard": "cfcap.gen.shard:TASK",          # role generator: T1 episodes (train/cal/test/H1-H7 splits)
+    "gen_shard": "cfcap.compute_tasks:GEN_SHARD", # role generator: cfcap.gen.shard.write_shard (adapter)
     "train": "cfcap.models.train:TASK",           # role models: one training run (arch x diversity x seed)
     "smc": "cfcap.baselines.smc:TASK",            # role baselines: GPU-SMC posterior over test episodes
     "t2_eval": "cfcap.t2.eval:TASK",              # role stress: T2 (JAX closed loop) evaluation shard
 }
-OWNER = {"gen_shard": "generator", "train": "models", "smc": "baselines", "t2_eval": "stress"}
+OWNER = {"gen_shard": "generator (cfcap.gen.shard)", "train": "models", "smc": "baselines", "t2_eval": "stress"}
 
 
 def grace_s(sig_name: str) -> float:
