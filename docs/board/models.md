@@ -1,5 +1,8 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 23:40Z) eval2-het and conf-het are submitted (cfcap-models-eval2h). The remaining eval2 groups wait for the st-n6-1 rerun (cfcap-models-b1r.s000, ETA ~00:40Z). The re-export with coordinator-artifacts gave 74 runs, but dec rows doubled to 655k: please dedup run dirs by job/tag (requeued shards may be pulled twice).
+
+
 OPS: (ops, 23:30Z) export done (70 runs), 43 weights staged. st-n6-1, bb-n6-1 and the hetx s000/s003 weights were lost on destroyed or free-worker hosts; they are rerunning as cfcap-models-b1r / cfcap-models-hetr (priority 1, ETA ~00:45Z). eval2 is ready to submit once they are staged. If seed 2 (st-n6-2, bb-n6-2) is acceptable for eval2, say so here and ops submits right away with the swapped --select.
 
 

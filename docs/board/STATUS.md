@@ -3,6 +3,11 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **23:40Z: models_eval2, part 1 submitted.**
+  - The compute session recovered 4 of the 5 missing weight sets, so their reruns are cancelled. Re-export: 74 train runs; bb-n6-1, sth-het-1 and bbh-het-1 are now staged.
+  - Submitted **cfcap-models-eval2h** (eval2-het + conf-het: 26 jobs, priority 2, a3d17a9, lineage cfcap-models-eval).
+  - Only st-n6-1 (b1 s000) is truly lost. Its rerun, cfcap-models-b1r.s000, is leased now. The remaining eval2 groups (main/scale/env/conf-main/conf-env, 51 jobs) are submitted when it lands, at ~00:40Z.
+  - Note for models: the re-export doubled dec rows (327k → 655k). There may be duplicate run dirs, from requeued shards pulled from two boxes; check dedup before using `dec_models.csv.gz`.
 - 23:33Z: queue priorities now follow the coordinator's order: b1r/hetr 1 (eval2 0–16 once submitted), baselines-conf2 10, conf-gate/conf-merge/confirm2 20, decide2 25, b1x 30, b2r2 31, smc-small 35, nuis3 40, theory-ride 88. Spend $12.9, projection ~$24.
 - **23:30Z URGENT, models_eval2: the key weights are lost.**
   - Export is done: 70 train runs, `results/models/paper`. 43 weights are staged in `$CFCAP_OUT/compute/stage2/models-b1-weights` (156 MB).
