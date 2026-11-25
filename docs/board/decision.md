@@ -2,7 +2,7 @@
 
 **Status:** decision layer built and tested (`cfcap/decide/`, `tests/test_decide.py` 43 pass). T0 CPU pilot done
 (numbers below, exploratory). T1 runner task `cfcap/decide/task.py:TASK` written on the nuisance role's posterior;
-campaign draft `scripts/campaigns/decide_pilot.json`. PILOT_STATUS_LINE
+campaign draft `scripts/campaigns/decide_pilot.json`. The T4 contract file is in place, and `make_all` fills T4 (checked; the paper outputs were not committed).
 
 ## What is built
 - `problem.py` (PLAN §3).
@@ -54,7 +54,62 @@ campaign draft `scripts/campaigns/decide_pilot.json`. PILOT_STATUS_LINE
 - Oracle and nominal predictors are `degenerate(rho)` (a single particle).
 
 ## Findings, T0 pilot (exploratory; `scripts/decide_pilot.py`, `results/decision/pilot_t0_*.csv`)
-PILOT_FINDINGS
+**Setup.**
+- 600 episodes: parents of 2–4 modules, 79 % faulted, heterogeneity on, plus merges with a healthy single.
+- 1–3 tasks per episode.
+- The posterior is ≤ 2-fault enumeration × 8 prior nuisance draws, with the nuisance marginalised by sd inflation.
+  - The truth survives the screen in 95.5 % of episodes.
+  - Mean particle count 63, median ESS 8.5.
+- Cross-fitted over 2 folds. Utility constants are V 120 s and C_unsafe 600 s. Generation 421 s, evaluation 60 s.
+
+**Unsafe/useful rates are per assignment; "ep" rates are per episode.** Source: `pilot_t0_summary.csv`.
+
+| predictor / policy / certifier | unsafe commit | ep any unsafe | useful commit | abstain | regret (s, ±se) | probe s |
+|---|---|---|---|---|---|---|
+| oracle (raw / sim) | 0 | 0 | 100 % | 0 | 0 | 0 |
+| nominal, raw (plug-in healthy) | **8.7 %** | 15.7 % | 92.7 % | 0 | 116 ± 11 | 0 |
+| nominal, sim0.1 (q = 30) | 0 | 0 | 0 | 100 % | 193 ± 3 | 0 |
+| posterior, v2, raw | 1.1 % | 2.0 % | 98.9 % | 0 | 14.3 ± 4.1 | 0 |
+| posterior, v2, **sim0.1** (q ≈ 1.0) | 0.54 % | 1.0 % | 99.4 % | 0 | **7.7 ± 2.9** | 0 |
+| posterior, v2, crc0.01 (λ ≈ 5.5) | 0.57 % | 0.83 % | 77.7 % | 11.5 % | 45.6 ± 3.6 | 0 |
+| posterior, evoi, sim0.1 | 0.72 % | 1.3 % | 99.3 % | 0 | 9.8 ± 3.3 | 0.18 |
+| posterior, epig, sim0.1 | 0.63 % | 1.2 % | 99.3 % | 0 | 9.5 ± 3.1 | 0.67 |
+| posterior, eig, sim0.1 | 0.63 % | 1.2 % | 99.3 % | 0 | 11.5 ± 3.2 | 2.7 |
+| posterior, random, sim0.1 | 0.81 % | 1.5 % | 99.2 % | 0 | 18.3 ± 3.6 | 7.2 |
+| posterior, all (clamp+moddiff+tug), sim0.1 (q = 5.2) | 0.71 % | 1.2 % | 87.4 % | 4.8 % | 55.2 ± 3.6 | 24.8 |
+| posterior, always_split, sim0.1 | 0.54 % | 1.0 % | 99.5 % | 0 | 49.5 ± 2.9 | 42 |
+
+**Probe value (T4 contract, `paper/probe_pilot_t0.csv`).** Pairs are (candidate, task).
+- After v2, 138 of 12,862 pairs are ambiguous (1.1 %).
+- Share of those resolved, with the resolved share ÷ extra probe-minutes (T4's "per extra min", ×100 there):
+  - EVOI: 23 % at 0.18 s mean probe time (78).
+  - EPIG: 20 % at 0.67 s (18).
+  - EIG: 9 % at 2.7 s (2).
+  - random: 19 % at 7.2 s (1.6).
+  - fixed all: 99 % at 24.8 s (2.4).
+  - always split: 92 % at 42 s (1.3).
+- EVOI wins per probe-second.
+- No probing policy improves regret over fixed v2: every difference is within 1 se. The only exceptions are the costly
+  policies (all, split), which do worse.
+
+**Decision-relevant stratum.** The faulted piece or |ρ − r| < 0.1 covers 8,135 pairs. Certified share is 99.0–99.1 %
+for every policy except fixed all (72 %). Unsafe certified pairs are 3.3–3.7 % of the stratum's incapable pairs (fixed all 2.8 %).
+
+**Readings** (exploratory; T0 only, and the T0 posterior is crude):
+1. The oracle has zero unsafe commits and zero regret. The plug-in nominal predictor commits unsafely 8.7 % of the time.
+   Conformalising the nominal predictor makes it safe but useless (100 % abstain).
+2. Every residual unsafe commit (6/600 episodes, v2 sim) is a **screen miss**: a 2-fault truth outside the screened
+   hypothesis set, with truth_in = 0 in 6/6. The posterior's misspecification sets the floor, not the decision rule.
+3. **The end-to-end conformal certificate catches a probe-induced misspecification.** After all three probes the
+   posterior is overconfident: its likelihood uses prior nuisance draws with only an sd inflation. The cross-fitted
+   end-to-end q rises from 1.0 to 5.2, and useful commits fall to 87 %. A fixed q calibrated on v2 would have been
+   unsafe there.
+4. The CRC margin is λ = 0 at α = 0.1 / 0.05, because the plug-in risk of 2 % is already below α. At α = 0.01 the
+   finite-sample term (B/(n+1) with n = 300 per fold) forces λ ≈ 5.5 and 11 % abstention. The simultaneous certificate
+   (nominal α = 0.1) is far more conservative than its level but not in utility. Its realised episode risk (1 %) beats
+   CRC@0.01 in regret.
+5. Probing is secondary on T0, as Stage A found (C4 fallback holds on T0). The T1/model-free comparison is still open,
+   see the proposal.
 
 ## Paper contract
 - `results/decision/paper/probe_pilot_t0.csv` follows contract 1b, with `test_plant`=T0.
@@ -66,11 +121,37 @@ PILOT_FINDINGS
 - No `dec_*.csv` from this role: T0 ρ is not on the T1 legs or labels.
 
 ## Proposal: full-scale T1 (decides T4 / claim C4)
-PROPOSAL
+**Primary (T1, physics-trusting posterior).** `scripts/campaigns/decide_pilot.json` (draft, for the coordinator to
+submit).
+- `decide-canary`: 3 units (one per shape, 2 episodes each) ≈ 0.15 box-h.
+- `decide-main`: 16 shards. That is 72 units of 4 episodes = 288 episodes (96 per shape), with the same episode seeds
+  as nuis-main (`--nseed 1909`), 192 particles and 64 draws.
+  - Per episode: SMC, plus T1 labels for children and 10 merges, plus clamp/tug/moddiff, plus one diagnostic split per
+    child.
+  - **Measured locally (4070, shared GPU):** `/tmp/decide_smoke`, 2 pair episodes, 64 particles, 16 draws, 40 stages.
+    It took 148 s/episode (SMC 132 s, probes + labels 16 s), with peak VRAM 0.13 GB. The rows and pickles were
+    checked.
+  - Scaled estimate: ~320 s/episode on average (pair 150 / square 300 / 2x3 500) → ~1300 s/unit →
+    **16 boxes × ~1.6 h ≈ 26 box-h ≈ $5.2 at $0.2/h**, plus boot (~$0.5). It fits the 8 h window.
+  - If the canary is slower, cut `--episodes` to 64 per shape (~$3.5).
+- Offline evaluation on CPU (≤ 10 min): `scripts/decide_t1_eval.py <pulled dirs> --tag t1` →
+  `results/decision/paper/probe_t1.csv`.
+- It serves table T4 and claim C4: EVOI vs fixed/EIG/EPIG/split per probe-second, and the end-to-end certificate's
+  unsafe/useful/abstain/regret on T1.
+
+**Second predictor class (model-free speed-ceiling envelope; theory finding: v2 ambiguity 7 %, clamp → 0.06 %).** It
+costs no rented compute; it is CPU only.
+- An envelope predictor is a `DecisionPosterior` whose draws are the corners of the identified set. Its probes shrink
+  the set.
+- On T0 it needs a theory-supplied `envelope_lower`. Then rerun `decide_pilot.py` with a second predictor
+  (~10 min on 4 CPU). On T1 it would reuse the same pulled episodes.
+
+**If T2 truths exist** for the same eids (stress), re-score with the probe trajectory fixed. This is offline and costs
+nothing.
 
 ## Needs from other roles
 - **nuisance:** keep `nuisance_post` `setup / sample_truth / screen / Q / smc / fresh_split / concat / Probe / Sim /
-  observe_feats` stable. `task.py` calls them read-only. Use the same `--seed` (1909) as nuis-main, so that eids join.
+  observe_feats` stable. `task.py` calls them read-only. Use the same `--nseed` (1909) as nuis-main, so that eids join.
 - **theory:** the speed-ceiling envelope class from `scripts/theory_coverage.py`, as a function
   `envelope_lower(asm, obs_by_probe) -> (C, L)`, or as corner draws. It plugs in as a degenerate posterior whose probes
   shrink the interval. This gives T4's second predictor class.

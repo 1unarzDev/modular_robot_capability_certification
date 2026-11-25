@@ -38,7 +38,7 @@ def _args(p):
     p.add_argument("--shapes", default=",".join(SHAPES))
     p.add_argument("--episodes", type=int, default=96, help="episodes per shape")
     p.add_argument("--per-unit", type=int, default=8)
-    p.add_argument("--seed", type=int, default=909, help="nuisance_post episode seed")
+    p.add_argument("--nseed", type=int, default=909, help="nuisance_post episode seed")
     p.add_argument("--particles", type=int, default=256)
     p.add_argument("--draws", type=int, default=64)
     p.add_argument("--max-stages", type=int, default=150)
@@ -109,7 +109,7 @@ def decision_batch(shape, episodes, a, log=None):
     E = len(episodes)
     truths, others, merges, lab_seeds = [], [], [], []
     for ep in episodes:                                          # identical to nuisance_post.run_batch
-        rng = NP.episode_rng(a.seed, shape, ep)
+        rng = NP.episode_rng(a.nseed, shape, ep)
         truths.append(NP.sample_truth(space, rng))
         other = P.named_assembly(str(rng.choice(["single", "pair"])), par)
         torch.manual_seed(int(rng.integers(2**31)))
@@ -117,7 +117,7 @@ def decision_batch(shape, episodes, a, log=None):
         merges.append(Cn.sample_merges(asm, other, par, rng, n_merge=10))
         lab_seeds.append(int(rng.integers(2**31)))
     modes_t = torch.stack([t[0] for t in truths]); z_t = torch.stack([t[1] for t in truths])
-    gen = torch.Generator(device=NP.DEV).manual_seed(int(NP.episode_rng(a.seed + 1, shape + "v2", episodes[0])
+    gen = torch.Generator(device=NP.DEV).manual_seed(int(NP.episode_rng(a.nseed + 1, shape + "v2", episodes[0])
                                                          .integers(2**62)))
     t0 = time.time()
     lat_t = space.to_lat(modes_t, z_t)

@@ -117,6 +117,7 @@ def run_policies(eps, policies, alpha=0.1, alpha_crc=(0.1, 0.05), S=16, max_prob
 
 
 AMB = (0.05, 0.95)
+REL_BAND = 0.10        # scripts/analysis/common.py REL_BAND
 
 
 def pair_counts(e, lower, w0, w1, rho):
@@ -129,7 +130,14 @@ def pair_counts(e, lower, w0, w1, rho):
     cs = Pb.capable(rho, R, mm, e["inst"].sizes).astype(float)
     p0, p1 = np.tensordot(w0, cs, 1), np.tensordot(w1, cs, 1)
     amb = lambda p: int(((p > AMB[0]) & (p < AMB[1])).sum())
-    return dict(n_dec=int(cap.size), n_capable=int(cap.sum()), n_incapable=int((~cap).sum()),
+    # decision-relevant stratum (docs/board/paper.md 1.0): the piece holds a faulted module, or some required leg's
+    # true label lies within REL_BAND of its requirement
+    hf = np.asarray(e.get("has_fault", np.zeros(cap.shape[0], bool)), bool)
+    near = (np.abs(e["rho_true"][:, None, :] - R[None]) < REL_BAND).any(-1)          # (C, T); NaN r -> False
+    rel = hf[:, None] | near
+    return dict(n_capable_rel=int((cap & rel).sum()), n_incapable_rel=int((~cap & rel).sum()),
+                n_certified_rel=int((cer & cap & rel).sum()), n_unsafe_rel=int((cer & ~cap & rel).sum()),
+                n_dec=int(cap.size), n_capable=int(cap.sum()), n_incapable=int((~cap).sum()),
                 n_certified=int((cer & cap).sum()), n_cert_any=int(cer.sum()), n_unsafe_cert=int((cer & ~cap).sum()),
                 n_amb_before=amb(p0), n_amb_after=amb(p1))
 
@@ -176,7 +184,9 @@ def write_paper(df, eps, path, v2_s, test_plant, cert="sim0.1"):
                action=np.where(d.abstain > 0, "abstain", "commit"), n_dec=d.n_dec, n_capable=d.n_capable,
                n_incapable=d.n_incapable, n_certified=d.n_certified, n_unsafe=d.n_unsafe_cert,
                n_amb_before=d.n_amb_before, n_amb_after=d.n_amb_after, utility=d.U, test_plant=test_plant,
-               regret=d.regret, n_unsafe_assigned=d.n_unsafe, n_split=d.n_split)
+               regret=d.regret, n_unsafe_assigned=d.n_unsafe, n_split=d.n_split,
+               n_capable_rel=d.n_capable_rel, n_incapable_rel=d.n_incapable_rel,
+               n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel)
     import pandas as pd
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(out).to_csv(path, index=False)

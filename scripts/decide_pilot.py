@@ -61,7 +61,7 @@ def main():
             cache.write_bytes(pickle.dumps(eps))
         t_gen = time.time() - t0
         print(f"episodes {len(eps)} in {t_gen:.0f} s", flush=True)
-        rows = Ev.run_policies(eps, a.policies.split(","), alpha=0.1, alpha_crc=(0.1, 0.05), S=a.S,
+        rows = Ev.run_policies(eps, a.policies.split(","), alpha=0.1, alpha_crc=(0.1, 0.05, 0.01), S=a.S,
                                max_probes=a.max_probes, log=lambda s: print(s, f"{time.time() - t0:.0f}s", flush=True),
                                pmap=lambda f, xs: pool.map(f, xs, chunksize=4))
     df, summ = Ev.summarise(rows)
