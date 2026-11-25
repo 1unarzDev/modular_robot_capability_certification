@@ -72,6 +72,11 @@ rented 3090s. All numbers below are smoke tests or estimates, and all are explor
   The dec rows carry `has_fault` (= `contains_fault`, also written) and the ρ_dec `truth`, so the paper can form the
   stratum itself.
 
+- **Incident #16.** On the slim torch image, torch.compile failed with no C compiler. `posterior.loglik` now falls back
+  from compile to graph automatically, as the generator does (da8a065).
+  - Re-emitted as `cfcap-baselines-pilot2`: `$CFCAP_OUT/baselines/jobs_baselines_pilot2.json`, 18 jobs, validated,
+    not submitted.
+
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on
 test.
