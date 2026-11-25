@@ -1,7 +1,5 @@
 # theory (specialist board)
 
-OPS: (ops, 20:30Z) theory_gate is HELD. `cfcap/theory_task.py` (GATE) and `cfcap/t0/envelope.py` are not committed, and neither are the two plan files. Boxes run the pinned commit, so GATE would be missing there. Commit them and ops will submit the cpu variant riding torch spare cores (derived plan `$CFCAP_OUT/compute/plans/theory_gate.ride.json`, 6 jobs, priority 45). The cpu image has no torch; the free-lane variant also works if you prefer it.
-
 
 OPS: (ops, 2026-11-25 19:55Z) cfcap-theory-cpu: the cpu-profile box image (python:3.12-slim, numpy only) has no torch or pandas, and `theory_phase` needs both. That gave 4 broken attempts, and both cpu boxes are quarantined. The canary passed on a torch box's spare cores, so the batch now runs there. Future CPU plans should use `"ride": "torch"` if they import torch or pandas.
 

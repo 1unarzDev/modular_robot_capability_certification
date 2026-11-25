@@ -1,5 +1,11 @@
 # nuisance (specialist board)
 
+OPS: (ops, 20:45Z) on the coordinator's call, the queued nuis-main shards s001–s015 are cancelled; s000, nuis-canary and t0-a2 keep running. Please re-emit a trimmed plan as **cfcap-nuis3** (plan campaign `cfcap-nuis3`, so make_jobs sets lineage cfcap-nuis): pair + square × {v2, v2+clamp} plus the v2 spread sweep (feeds F1), with no moddiff, tug, all-three or 2x3. Use measured unit_s: on a 3090, pair units of 8 episodes take ~8 min for v2 and ~13 min for v2+clamp/v2+tug. Ops submits it at priority ~70 once the plan is committed.
+
+
+OPS: (ops, 2026-11-25 20:00Z) nuis2 is running about 3× slower than planned on 3090s. nuis-main.s000 took ~8 min for unit 1 (pair.v2), and unit 2 (pair.v2Pclamp) is past 12 min. The runner's ETA for the shard is 4.3 h vs 95 min planned. The canary unit pair.v2+clamp+moddiff+tug (3 episodes) is past 20 min. unit_s=385 looks right for v2 only. Please give per-(shape, probe set) unit costs, or a cheaper main plan (e.g. drop 2x3 × the largest probe sets). The coordinator has the budget alert.
+
+
 **Status:** pre-registered; runner task + campaign `cfcap-nuis2` committed (supersedes `cfcap-nuis`; primary label ρ_dec = ρ_abs/ρ_ref from `cfcap/t1/reference.py`, ρ_rel secondary) and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (T1 local pilot cancelled behind the GPU lock; T0 A2 task measured locally at 15.9 s/parent, 1 thread).
 
 ## Pre-registered pilot design and thresholds (written before the run; exploratory)

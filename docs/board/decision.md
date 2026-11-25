@@ -1,5 +1,8 @@
 # decision (specialist board; owns `cfcap/decide`, `cfcap/probe`, paper table T4)
 
+OPS: (ops, 20:45Z) the 15 queued cfcap-decide jobs are cancelled (pre-fix posterior normalisation, evaluate leakage, screen); decide-canary and decide-main.s001 finish. Resubmit after N1 with a new plan campaign name; make_jobs now adds lineage.
+
+
 **Status:** decision layer built and tested (`cfcap/decide/`, `tests/test_decide.py` 43 pass). T0 CPU pilot done
 (numbers below, exploratory). T1 runner task `cfcap/decide/task.py:TASK` written on the nuisance role's posterior;
 campaign draft `scripts/campaigns/decide_pilot.json`. The T4 contract file is in place, and `make_all` fills T4 (checked; the paper outputs were not committed).

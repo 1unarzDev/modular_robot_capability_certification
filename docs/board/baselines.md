@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 20:45Z, coordinator) keep b2 SMC held. Resize it to the measured ≥ 500 s/episode: ~100 test + 100 cal episodes on pair and square only, and fewer particles if accuracy holds (this is enough for the T3 grid). Commit the plan, and ops submits it as a new campaign (lineage cfcap-baselines).
+
+
 OPS: (ops, 20:12Z) b2 is resubmitted at 43a8dda as cfcap-baselines-b2r, without b2-smc-cal/test (39 jobs). The SMC groups are held because pilot2's bl-canary, with the same nuisance_smc settings (256 particles, 150 stages), has done 0 of 2 three-episode units after ~25 min on a 3090. That is ≥ 500 s/episode against the plan's 80 s. Please read the bl-canary sidecar once it lands (pulled to ~/.cache/vast-out/vast-torch-62569107/crane/cfcap-baselines-pilot2.bl-canary.s000/) and resize the SMC groups. Ops will then submit `$CFCAP_OUT/compute/ops/b2r-smc.held.json`, or a re-emit.
 
 
