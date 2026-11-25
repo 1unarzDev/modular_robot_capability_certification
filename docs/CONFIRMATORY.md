@@ -33,6 +33,9 @@ do not count as passing.
   (01:45Z).
   - Exception: ops' 1-shard canary checks only timing and sha256, never labels.
   - The canary shard (shard 0) is excluded from scoring.
+- **Amendment (21:05Z, before any confirmatory label exists).** `conf_test` indices 0–39 were constructed (latents
+  and candidates only) before this file was committed, so they are **excluded** from every claim (coordinator
+  ruling). C-MAIN therefore uses indices 40–3,039, and C-GATE's block moves to 3,040–5,039.
 - **Any `conf_*` episode loaded before this file's commit** (a test or a pilot) must be listed by the generator role
   in `docs/board/generator.md`. Those indices are then excluded.
 
@@ -78,7 +81,7 @@ do not count as passing.
     self 0.3.
 
 ## 1. Claim C-MAIN: the counterfactual certificate (main table)
-- **Stream and plants.** `conf_test`, plated, **3,000 episodes**. This gives about 27k incapable stratum decisions
+- **Stream and plants.** `conf_test`, plated, **3,000 episodes** (indices 40–3,039). This gives about 27k incapable stratum decisions
   (lone-faulted block about 22k), which passes the power rule if deff ≤ 4.5. The same episodes are scored in T1 and
   in T2 `all` (T2 `all+motor` as a secondary column).
 - **Methods.** All are calibrated on the exploratory cal split, with the same eids for every method:
@@ -140,7 +143,7 @@ do not count as passing.
      by ≥ 10 pts (paired CI lower bound > 0, Holm), in T1. T2 is reported against the same numbers.
 
 ## 3. Claim C-GATE: trust-gated extrapolation under a wrong motor law (T2 knee)
-- **Stream.** `conf_test` indices 3,000–4,999 (disjoint from C-MAIN), with the knee seed root `[92599, 22, ·]` for the
+- **Stream.** `conf_test` indices 3,040–5,039 (disjoint from C-MAIN and from the excluded 0–39), with the knee seed root `[92599, 22, ·]` for the
   knee draws, **2,000 episodes per severity s ∈ {0, 1, 2, 3}**. s = 0 is the T2 `all` plant without the
   knee. Plated, train-like families. Truth from T2 with the knee law (`cfcap/t0/envelope.py` / `Effects(motor_kind=
   'knee', knee_severity=s)`), fixed reference.
