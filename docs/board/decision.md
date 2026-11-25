@@ -505,8 +505,8 @@ Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`
     guarantee, so the credible-set envelope is not by itself a valid bound.
   - Raw `env` with clamp is 12.5 % unsafe on yaw legs of children with ≥ 3 modules; env_cal brings that to 0–4 %.
   - Severity-3 knees and large bodies remain under-represented by the convergence filter.
-  - Cost: the wider screen keeps more hypotheses alive through all 6 v2 legs, so generation takes about 4 s per
-    episode instead of 2.5 s.
+  - Cost: the wider screen keeps more hypotheses alive through all 6 v2 legs. Per-episode time was not recorded; the
+    600-episode run took about twice as long as the K = 5 arm.
 - **NEXT-2** (90 %-mass set) is now unblocked, but not started tonight.
 
 ## NEXT queue (not started)
