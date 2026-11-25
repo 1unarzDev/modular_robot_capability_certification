@@ -79,8 +79,8 @@ def _unflat(z, pre):
     return lat
 
 
-def stage_t1(arm, n, shard):
-    """GPU stage (short): latents + T1 labels -> npz."""
+def stage_t1(arm, n, shard, device="cuda"):
+    """T1 stage (GPU, or torch CPU with --device cpu): latents + T1 labels -> npz."""
     import torch
     from cfcap.t1 import capability as cap1, params as P, plant
     par = P.base_params("plated")
@@ -91,10 +91,12 @@ def stage_t1(arm, n, shard):
     targets = []
     for s in SHAPES:
         asm = P.named_assembly(s, par)
-        targets.append((asm, plant.sample_latents(asm, n, rng, het, dr=dr, faults=faults_k(n, asm.n, rng))))
+        targets.append((asm, plant.sample_latents(asm, n, rng, het, dr=dr, faults=faults_k(n, asm.n, rng),
+                                                  device=device)))
     t0 = time.time()
-    o1 = cap1.capability(targets, par, relative=True)
-    torch.cuda.synchronize()
+    o1 = cap1.capability(targets, par, relative=True, device=device)
+    if device == "cuda":
+        torch.cuda.synchronize()
     out = {"time_T1": time.time() - t0, "seed": seed}
     for s, (asm, lat), o in zip(SHAPES, targets, o1):
         out[f"{s}/T1/rho_rel"] = o["rho_rel"].cpu().numpy()
@@ -218,9 +220,10 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=100)
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--conds", default=",".join(CONDS))
+    ap.add_argument("--device", default="cuda")
     a = ap.parse_args()
     if a.cmd == "t1":
-        stage_t1(a.arm, a.n, a.shard)
+        stage_t1(a.arm, a.n, a.shard, a.device)
     elif a.cmd == "t2":
         stage_t2(a.arm, a.n, a.shard, tuple(a.conds.split(",")))
     else:

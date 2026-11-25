@@ -22,8 +22,8 @@ def main(backend):
     dr = P.theta_dr(P.load_theta("plated"))
     K = 150
     rows = []
-    sizes = {"numba": (256, 1024), "jax": (1024, 4096, 16384)}[backend]
-    for name in ("pair", "square", "2x3"):
+    sizes = {"numba": (256, 1024), "jax": (4096, 16384)}[backend]
+    for name in (("pair", "square", "2x3") if backend == "numba" else ("square", "2x3")):
         asm = P.named_assembly(name, par)
         tabs, _ = cap1.leg_tables(asm, par)
         for E in sizes:

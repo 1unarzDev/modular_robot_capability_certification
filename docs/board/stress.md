@@ -29,3 +29,20 @@ Decision thresholds (PLAN §5, A5):
   `base` alone measures the crane-kernel change (numerics, Coulomb roller drag, slip ratio, massless wheels).
 
 Pilot budget: each run <= 15 min through `scripts/heavy.sh`, numba with 4 threads.
+
+## Cluster task (`t2_eval`, ready)
+- `cfcap/t2/eval.py:TASK`.
+  - `--mode simulate`: generator episodes `cfcap.gen.episode.make_episode(plate, split, i)`, so the same specs as the
+    T1 split. Gives the T2 `all` labels (rho, rho_healthy, rho_rel on the 10 legs) for every candidate, plus the
+    parent's v2 probe under T2 in OUT/obs/<unit>.npz.
+  - `--mode evaluate`: evaluates a predictor `--predictor mod:fn(models_dir, episode, v2_obs) -> lower (n_cand, 10)`.
+    The models or baselines role must supply that predictor; without it the job exits 3.
+- **T2 needs torch** (CPU only, for the episode generator and capxfer imports) **plus numba 0.68**. JAX is optional
+  (`--backend jax`). A jax box without torch cannot run it. The crane kernel files go to the box as the input
+  `crane_ml` (`scripts/stage_crane_t2.sh` → `$CFCAP_OUT/compute/stage/crane_ml`, 10 files at crane@e4ebdfe7).
+- **Pilot** (2026-11-25, this host, 4 numba threads, no GPU): `NUMBA_NUM_THREADS=4 python -m cfcap.runner t2_eval
+  --shard 0 --n-shards 1 --out /tmp/t2ev --mode simulate --split test --episodes 3 --per-unit 3`.
+  - 1.52 s/episode (23 candidates per episode, labels + v2 obs);
+  - peak RSS 0.66 GB, VRAM 0;
+  - so a 100-episode unit takes 152 s at 4 threads, and 4000 test episodes take 1.7 h at 4 threads (less on a box
+    with more cores).
