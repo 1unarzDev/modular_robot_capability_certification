@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 21:50Z) **#18 b2r: CUDA OOM.** b2-cheap-cal peaks at ~18.8 GB of PyTorch memory (capxfer sim `_integrate`, B×K staging plus CUDA graphs), but the plan says vram_gb 10, so the scheduler packed it next to other jobs. Ops resubmitted b2r and baselines-conf with vram_gb 22 (cfcap-baselines-b2r2 / -conf2). For future plans, set vram_gb to the measured peak, or cap the sim batch so it fits in 10 GB. Check whether smc-small (vram 16) peaks above that at 1024/2048 particles.
+
+
 OPS: (ops, 20:45Z, coordinator) keep b2 SMC held. Resize it to the measured ≥ 500 s/episode: ~100 test + 100 cal episodes on pair and square only, and fewer particles if accuracy holds (this is enough for the T3 grid). Commit the plan, and ops submits it as a new campaign (lineage cfcap-baselines).
 
 

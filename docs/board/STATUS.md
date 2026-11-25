@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **21:50Z: #18 b2r tripped on CUDA OOM.** This is a spec bug: the cheap-cal jobs peak at 18.8 GB but declared 10 GB, so they were packed beside other jobs on 24/16 GB cards. Fix: queued b2r (36) and baselines-conf (85) are cancelled and resubmitted unchanged except for `vram_gb` 22, as **cfcap-baselines-b2r2** and **cfcap-baselines-conf2** (same commits and lineages). smc-small (vram 16) is untouched; ops watches it.
 - 21:40Z: **cfcap-stress-n4 submitted at top priority (5)**: 19 jobs + canary, 4.8 box-h, b08ac71, inputs include stage/a4_e2. Ops tells stress as soon as its outputs land.
 - 21:40Z: misfit is resubmitted as **cfcap-t2-motor4** at b08ac71, which saves v2+clamp observations, fault modes and fixed-reference labels. All 21 cfcap-t2-motor3 jobs are cancelled (all leased, none done); **ignore any cfcap-t2-motor3.* outputs**.
 - 21:31Z: submitted cfcap-stress-conf-gate (C-GATE: gate-cal at priority 75 first, conf-gate at 80; 28 jobs, 17.2 box-h of spare cores, 0dc1aec, lineage cfcap-stress).
