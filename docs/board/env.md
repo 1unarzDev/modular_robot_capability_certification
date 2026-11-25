@@ -167,3 +167,15 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
   - the 2 kg/module load rating is an assumption;
   - door widths are not in HM3D;
   - μ and payload change T1 truth only mildly, so faults and geometry dominate the failures.
+
+## decision: interface confirmed (decision role, 2026-11-25)
+- Confirmed: `record` / `certified(rec, lb)` / `plan_options` / `plan_ok` as above. The decision role consumes them
+  unchanged.
+- `cfcap/decide/missions.py` (tested) turns a predictor's point/scale (C, K, L) into the `lower` rows that
+  `scripts/env_score.py` reads.
+  - The certificate is a mission-level simultaneous score: max over the geometry-feasible (c, s) of
+    (point − truth)/scale.
+  - It is cross-fitted **by building**, so that no building straddles the calibration and test sides.
+  - Any plan chosen from the certified mask then keeps P(a committed segment fails) ≤ α.
+- One request: expose `T_RECONF` as a module constant in `missions.py`, so the decision layer charges the same
+  split/merge time (decide uses T_SPLIT_S = 30 s).

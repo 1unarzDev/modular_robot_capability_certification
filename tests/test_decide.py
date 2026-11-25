@@ -315,3 +315,31 @@ def test_per_candidate_requirement_and_feasibility():
     assert ch.tolist() == [2] and tc == Pb.T_SPLIT_S
     e = dict(inst=inst, tasks=[t], rho_true=rho, has_fault=np.zeros(inst.C, bool))
     assert Ev.relevant(e)[:, 0].all() and not Ev.relevant(e)[:, 1].any()
+
+
+# ----------------------------------------------------------------------------- env missions
+def _rec(rng, b):
+    C, S, K = 3, 6, 2
+    truth = rng.uniform(0.5, 1.0, (C, K, L))
+    leg, cond = rng.integers(0, L, S), rng.integers(0, K, S)
+    rec = dict(family=0, mission=b, building=b // 2, seg_leg=leg, seg_cond=cond, rho_dec=truth,
+               req=rng.uniform(0.4, 0.9, (C, S)), fp_ok=rng.random((C, S)) > 0.1, load_ok=np.ones((C, S), bool))
+    rec["seg_truth"] = truth[:, cond, leg]
+    return rec
+
+
+def test_mission_certificate_simultaneous_within_alpha():
+    from cfcap.decide import missions as Mi
+    rng = np.random.default_rng(0)
+    recs = [_rec(rng, b) for b in range(900)]
+    pts = [r["rho_dec"] + rng.normal(0, 0.05, r["rho_dec"].shape) for r in recs]
+    scs = [np.full(r["rho_dec"].shape, 0.05) for r in recs]
+    q = Mi.crossfit_q(recs, pts, scs, 0.1)
+    miss = []
+    for r, p, s, qq in zip(recs, pts, scs, q):
+        lo = Mi.seg_values(r, p) - qq * Mi.seg_values(r, s)
+        feas = r["fp_ok"] & r["load_ok"]
+        miss.append(bool((feas & (lo > r["seg_truth"])).any()))
+    assert np.mean(miss) <= 0.1 + 0.03
+    rows = Mi.lower_rows(recs[0], pts[0], scs[0], q[0])
+    assert len(rows["lower"]) == 3 * 6 and np.isneginf(Mi.lower_rows(recs[0], pts[0], scs[0], np.inf)["lower"]).all()

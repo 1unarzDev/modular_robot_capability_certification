@@ -138,6 +138,9 @@ def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
                                      regret=orc["U"] - o["U"], oracle_served=orc["n_served"], **o,
                                      n_capable=pc["n_capable"], n_incapable=pc["n_incapable"],
                                      n_certified=pc["n_certified"], n_unsafe_cert=pc["n_unsafe_cert"],
+                                     n_dec=pc["n_dec"], n_capable_rel=pc["n_capable_rel"],
+                                     n_incapable_rel=pc["n_incapable_rel"], n_certified_rel=pc["n_certified_rel"],
+                                     n_unsafe_rel=pc["n_unsafe_rel"], parent_size=e["meta"]["parent_size"],
                                      yb_capable=int((cap & yawbig).sum()), yb_certified=int((cer & cap & yawbig).sum()),
                                      yb_unsafe=int((cer & ~cap & yawbig).sum()), yb_incapable=int((~cap & yawbig).sum()),
                                      q=q[use]))
@@ -156,3 +159,23 @@ def summarise(df):
         unsafe_pairs=d.n_unsafe_cert.sum() / max(d.n_incapable.sum(), 1),
         yawbig_cert=d.yb_certified.sum() / max(d.yb_capable.sum(), 1),
         yawbig_unsafe=d.yb_unsafe.sum() / max(d.yb_incapable.sum(), 1))), include_groups=False).reset_index()
+
+
+PAPER_POLICY = {"v2": "fixed_v2", "clamp": "fixed_v2_clamp", "evoi": "evoi"}
+
+
+def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", status="exploratory"):
+    """T4 contract rows (docs/board/paper.md 1b) for one envelope predictor; predictor_class = envelope. Ambiguity
+    is undefined for a bound-only predictor (n_amb_* = NaN)."""
+    d = rows[rows.predictor == pred]
+    out = pd.DataFrame(dict(policy=d.policy.map(PAPER_POLICY), predictor_class="envelope", predictor=pred,
+                            split="test", status=status, eid=d.seed, shape=d.parent_size.map(lambda m: f"{m}mod"),
+                            n_probes=d.probed, probe_time_s=d.probe_s + v2_s,
+                            action=np.where(d.abstain > 0, "abstain", "commit"), n_dec=d.n_dec,
+                            n_capable=d.n_capable, n_incapable=d.n_incapable, n_certified=d.n_certified,
+                            n_unsafe=d.n_unsafe_cert, n_amb_before=np.nan, n_amb_after=np.nan, utility=d.U,
+                            test_plant=test_plant, regret=d.regret, n_unsafe_assigned=d.n_unsafe, law=d.law,
+                            n_capable_rel=d.n_capable_rel, n_incapable_rel=d.n_incapable_rel,
+                            n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(path, index=False)

@@ -64,6 +64,7 @@ def main():
     summ.to_csv(res / "envelope_summary.csv", index=False)
     by = rows.assign(knee=rows.law > 0).groupby("knee", group_keys=True).apply(En.summarise, include_groups=False)
     by.to_csv(res / "envelope_by_law.csv")
+    En.write_paper(rows, res / "paper" / "probe_t0env.csv")
     pd.set_option("display.width", 250)
     print(f"{len(eps)} episodes")
     print(summ.round(4).to_string(index=False))

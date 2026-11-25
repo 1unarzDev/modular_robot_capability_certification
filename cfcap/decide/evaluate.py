@@ -318,7 +318,7 @@ def write_paper(df, eps, path, v2_s, test_plant, cert="sim0.1"):
     probe_time_s includes the 12 s v2 routine. Cross-fitted folds: every episode is a test episode."""
     d = df[(df.predictor == "posterior") & (df.cert == cert)].copy()
     shape = {e["meta"]["seed"]: e["meta"].get("shape", f"{e['meta']['parent_size']}mod") for e in eps}
-    out = dict(policy=d.policy.map(lambda p: PAPER_POLICY.get(p, p)), split="test", status="exploratory", eid=d.eid,
+    out = dict(policy=d.policy.map(lambda p: PAPER_POLICY.get(p, p)), predictor_class="physics", split="test", status="exploratory", eid=d.eid,
                shape=d.eid.map(shape), n_probes=d.n_probes, probe_time_s=d.probe_s + v2_s,
                action=np.where(d.abstain > 0, "abstain", "commit"), n_dec=d.n_dec, n_capable=d.n_capable,
                n_incapable=d.n_incapable, n_certified=d.n_certified, n_unsafe=d.n_unsafe_cert,
