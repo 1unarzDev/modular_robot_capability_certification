@@ -33,6 +33,10 @@ Rules implemented (section numbers of docs/CONFIRMATORY.md):
         cluster design effect of the cell's ratio estimator (linearised; at an observed rate of 0 the Kish
         unequal-cluster-size deff is used). z = 1.96 reproduces the document's "deff <= ~4.5 at 20k". A failing cell
         is UNDERPOWERED and its E_dec bar does not count; E_ep decides where the document says so.
+Amendments of docs/CONFIRMATORY.md §9 (e176756): (1) the E_ep validity bars of C-MAIN bar 1 and C-MERGE bar 2 use
+the `all` block (block-restricted E_ep is descriptive); (2) ">=" thresholds (C-SCALE coverage, P4 CF, C-HET drop
+ID - split <= 0.05) are judged on the point estimate with the one-sided bound printed; (3) P5's >=3-module dominated
+cell, when underpowered, is contrast-judged: one-sided upper <= 2 %; when powered, <= 1 % with upper <= 1.3 %.
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -372,7 +376,8 @@ def score_main(S, dec, cal):
         else:
             est, reps = bt.ratio(own, "ep_unsafe", "one")
             S.bar("C-MAIN", "1 validity", "E_ep", est, reps, le=bars["ep"][0], up_le=bars["ep"][1], method=OURS,
-                  cell="all decisions", plant=plant, n_clusters=len(own))
+                  cell="all decisions", plant=plant, n_clusters=len(own),
+                  note="all block (§9.1); block-restricted E_ep is descriptive (cells.csv)")
             mt = stats.get((OURS, plant, "stratum", "matched"))
             if mt is None:
                 S.bar("C-MAIN", "1 validity", "E_dec@U*", np.nan, method=OURS, plant=plant, status="MISSING",
@@ -475,6 +480,7 @@ def score_merge(S, dec, cal):
             cs = cluster_stats(m, m["lower"], cluster="pair")
             est, reps = bt.ratio(cs, "ep_unsafe", "one")
             S.bar("C-MERGE", "2 validity", "E_ep per pair", est, reps, up_le=0.10, method="comp_enum_size",
+                  note="all block: any unsafe merge decision of the pair (§9.1)",
                   plant=plant, n_clusters=len(cs))
         # P4 (T1 decides; T2 reported against the same numbers)
         tabs = {}
@@ -502,6 +508,7 @@ def score_merge(S, dec, cal):
                   note="descriptive unless the power rule holds")
             e, r = bt.ratio(a, "cert", "cap")
             S.bar("C-MERGE", "P4" if plant == "T1" else "P4 (T2, reported)", "CF@U* comp_enum_size", e, r, ge=0.85,
+                  note="point-judged (§9.2)",
                   method="comp_enum_size", plant=plant, n_clusters=len(a), descriptive=plant == "T2")
         if plant == "T1":
             _paired_diff(S, bt, "C-MERGE", "P4", "CF@U* (stratum merges)", a, tabs.get("copy_parent"), "cert", "cap",
@@ -554,8 +561,13 @@ def score_gate(S, dec):
         if td is not None:
             pwd = S.power_check("C-GATE", "s3 v2 ge3 dominated", m, "T2", td)
             e, r = bt.ratio(td, "uns", "inc")
-            S.bar("C-GATE", "1 dominated", f"E_dec dominated ({m}) <= 1 %", e, r, le=0.01, up_le=POWER_UP, method=m,
-                  cell="s=3 v2 >=3-module", plant="T2", n_clusters=len(td), power_row=pwd)
+            if pwd["power_ok"]:
+                S.bar("C-GATE", "1 dominated", f"E_dec dominated ({m}) <= 1 %", e, r, le=0.01, up_le=POWER_UP,
+                      method=m, cell="s=3 v2 >=3-module", plant="T2", n_clusters=len(td), power_row=pwd)
+            else:   # CONFIRMATORY §9 amendment 3: contrast-judged against the undominated excess threshold
+                S.bar("C-GATE", "1 dominated", f"E_dec dominated ({m}) upper95 <= 2 %", e, r, up_le=0.02, method=m,
+                      cell="s=3 v2 >=3-module", plant="T2", n_clusters=len(td),
+                      note="dominated: UNDERPOWERED, contrast-judged (§9.3)")
     S.p["P5"] = max(ps) if ps and all(np.isfinite(ps)) else np.nan          # intersection-union: both must hold
     if killed:
         S.bar("C-GATE", "kill", "par and raw <= 1 % undominated at s=3", 0.0, status="KILLED",
@@ -697,6 +709,7 @@ def score_scale(S, dec):
                       cell=f"N {a}-{b}", n_clusters=len(cs))
                 est, reps = bt.ratio(cv, "cov", "n")
                 S.bar("C-SCALE", "1 validity", "stratum coverage", est, reps, ge=0.85, method=meth, cell=f"N {a}-{b}",
+                      note="point-judged (§9.2)",
                       n_clusters=len(cv))
     # bar 2: coverage slope over bin index, comp - direct, paired (secondary, not in Holm)
     if direct and all((m_, i) in covs for m_ in (OURS, direct) for i in range(len(SCALE_BINS))):
@@ -762,6 +775,7 @@ def score_het(S, dec):
             ei, ri = bt.ratio(res[OURS, "conf_het_test"][which], num, den)
             eh, rh = bt.ratio(res[OURS, sp][which], num, den)
             S.bar("C-HET", "2 degradation", f"{metric} drop ID -> {sp}", ei - eh, ri - rh, le=0.05, method=OURS,
+                  note="ID - split, point-judged (§9.2)",
                   cell=sp)
             if direct and (direct, "conf_het_test") in res and (direct, sp) in res:
                 di, rdi = bt.ratio(res[direct, "conf_het_test"][which], num, den)
@@ -810,6 +824,23 @@ def holm(S):
         r["verdict"] = "PASS" if (rej.get(pid, False) and thr_ok) else "FAIL"
         r["note"] = (r["note"] + "; " if r["note"] else "") + f"Holm {'rejects' if rej.get(pid) else 'does not reject'}"
     return pd.DataFrame(table)
+
+
+def h12(S):
+    """C-GATE bar 1 (H12) overall: both undominated excess rows (P5, Holm-resolved) and both dominated rows pass."""
+    und = [r for r in S.rows if r["claim"] == "C-GATE" and r["bar"] == "P5"]
+    dom = [r for r in S.rows if r["claim"] == "C-GATE" and r["bar"] == "1 dominated"]
+    if not und:
+        return
+    if any(r["verdict"] == "MISSING" for r in und) or len(dom) < 2:
+        v = "MISSING"
+    else:
+        v = "PASS" if all(r["verdict"] == "PASS" for r in und + dom) else "FAIL"
+    S.rows.append(dict(claim="C-GATE", bar="1 H12 overall", metric="undominated excess (P5) and dominated condition",
+                       method="raw, par", cell="s=3 v2 >=3-module", plant="T2", estimate=np.nan, ci_lo=np.nan,
+                       ci_hi=np.nan, upper95=np.nan, lower95=np.nan, threshold="all component rows PASS",
+                       n_clusters=np.nan, n_incapable=np.nan, deff=np.nan, power_ok=np.nan, verdict=v,
+                       note="dominated rows: " + ", ".join(f"{r['method']} {r['verdict']}" for r in dom)))
 
 
 def conf_sha():
@@ -881,6 +912,7 @@ def run(res, out, mock=False, now=None):
     score_scale(S, dec)
     score_het(S, dec)
     H = holm(S)
+    h12(S)
     V = report(S, H, out, conf_sha(), s1 + s2 + ([C.rel(ksf)] if ks is not None else []), mock or
                (res / "MOCK.txt").exists())
     return V, H, S

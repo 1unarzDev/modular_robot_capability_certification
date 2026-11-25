@@ -146,3 +146,54 @@ def test_fixed_reference_label_is_scored_not_own(tmp_path):
     a = V1[V1.claim == "C-MAIN"].estimate.to_numpy()
     b = V2[V2.claim == "C-MAIN"].estimate.to_numpy()
     np.testing.assert_allclose(a, b)
+
+
+# ---- CONFIRMATORY.md §9 amendments (e176756)
+
+def test_amendment1_ep_bars_use_all_block(tmp_path):
+    V, _, _, out = _run(tmp_path, good=False)
+    cells = pd.read_csv(out / "cells.csv")
+    for plant in ("T1", "T2"):
+        bar = _v(V, "C-MAIN", "1 validity", "E_ep", plant=plant)
+        assert "§9.1" in bar.note.iloc[0]
+        allb = cells[(cells.claim == "C-MAIN") & (cells.method == K.OURS) & (cells.block == "all")
+                     & (cells.plant == plant)].E_ep.iloc[0]
+        assert bar.estimate.iloc[0] == pytest.approx(allb)
+    m = _v(V, "C-MERGE", "2 validity", "E_ep per pair", plant="T1")
+    assert "§9.1" in m.note.iloc[0]
+
+
+def test_amendment2_ge_bars_point_judged():
+    S = K.Scorer()
+    reps = np.linspace(0.80, 0.90, 1000)                     # point above, one-sided lower below the threshold
+    assert S.bar("C-SCALE", "1 validity", "stratum coverage", 0.86, reps, ge=0.85) == "PASS"
+    assert S.rows[-1]["lower95"] < 0.85                       # the bound is still printed
+    assert S.bar("C-HET", "2 degradation", "drop", 0.04, np.linspace(0.0, 0.09, 1000), le=0.05) == "PASS"
+
+
+def test_amendment2_scorer_rows(tmp_path):
+    V, _, _, _ = _run(tmp_path)
+    for claim, bar, met in (("C-SCALE", "1 validity", "stratum coverage"), ("C-MERGE", "P4", "CF@U* comp_enum_size"),
+                            ("C-HET", "2 degradation", "drop ID")):
+        q = _v(V, claim, bar, met)
+        assert (q.threshold.isin([">= 0.85", "<= 0.05"])).all() and q.note.str.contains("9.2").all()
+
+
+def test_amendment3_dominated_contrast_when_underpowered(tmp_path):
+    V, _, _, _ = _run(tmp_path)                               # small mock: dominated cells are underpowered
+    dom = V[(V.claim == "C-GATE") & (V.bar == "1 dominated")]
+    assert len(dom) == 2 and dom.metric.str.contains("upper95 <= 2 %").all()
+    assert dom.note.str.contains("UNDERPOWERED, contrast-judged").all()
+    assert (dom.threshold == "upper95 <= 0.02").all()
+    # mock: raw's dominated E_dec ~2.4 % fails the contrast, par's 0 % passes; H12 overall then fails
+    assert dom.set_index("method").loc["par"].verdict == "PASS"
+    h = V[(V.claim == "C-GATE") & (V.bar == "1 H12 overall")]
+    assert len(h) == 1 and h.verdict.iloc[0] == ("PASS" if (dom.verdict == "PASS").all() else "FAIL")
+
+
+def test_amendment3_powered_keeps_original_bar(tmp_path, monkeypatch):
+    monkeypatch.setattr(K, "POWER_N", 1)
+    monkeypatch.setattr(K, "POWER_UP", 1.0)                   # every cell powered
+    V, _, _, _ = _run(tmp_path)
+    dom = V[(V.claim == "C-GATE") & (V.bar == "1 dominated")]
+    assert dom.metric.str.contains("<= 1 %").all() and (dom.threshold == "<= 0.01; upper95 <= 1.0").all()
