@@ -32,6 +32,14 @@ TUG_V, TUG_HOLD = 0.40, 1.0
 
 
 # ----------------------------------------------------------------------------- generic runner
+_COMPILE_BROKEN = False
+
+
+def _set_compile_broken():
+    global _COMPILE_BROKEN
+    _COMPILE_BROKEN = True
+
+
 def _pad_rows(B, cap_rows, min_rows=16):
     if B >= cap_rows:
         return cap_rows
@@ -83,9 +91,20 @@ def run_jobs(jobs, params, T, keys, engine="compile", max_wheels=1 << 17, device
                 else:
                     C[k] = v.to(device) if torch.is_tensor(v) else v
             t1 = time.perf_counter()
-            with plant._use_step(plant._step_pw if pw else sim._step, engine == "compile"):
-                R, n_rec, _ = sim._integrate(C, steps, Bp, n, DT, REC_HZ, device, engine, 50, None, torch.float32,
-                                             None)
+            eng = "graph" if (engine == "compile" and _COMPILE_BROKEN) else engine
+            try:
+                with plant._use_step(plant._step_pw if pw else sim._step, eng == "compile"):
+                    R, n_rec, _ = sim._integrate(C, steps, Bp, n, DT, REC_HZ, device, eng, 50, None, torch.float32,
+                                                 None)
+            except Exception as ex:                    # no working inductor/triton toolchain on the box: CUDA graphs
+                if eng != "compile":
+                    raise
+                print(f"[gen] torch.compile failed ({type(ex).__name__}: {ex}); falling back to engine=graph",
+                      flush=True)
+                _set_compile_broken()
+                with plant._use_step(plant._step_pw if pw else sim._step, False):
+                    R, n_rec, _ = sim._integrate(C, steps, Bp, n, DT, REC_HZ, device, "graph", 50, None,
+                                                 torch.float32, None)
             Rh = {k: R[k][:B] for k in keys}
             Rh = {k: v.cpu() for k, v in (reduce(Rh) if reduce is not None else Rh).items()}
             t2 = time.perf_counter()

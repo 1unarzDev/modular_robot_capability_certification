@@ -1,0 +1,22 @@
+{
+ "campaign": "cfcap-gen-pilot",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the two pilot shards: they measure generator s/episode, bytes/episode and the label cost share on a 3090 for the Stage B data proposal (docs/board/generator.md).",
+ "_doc": "Generator pilot on one rented 3090: one 300-episode plated train shard plus one 50-episode plated cal shard through the runner adapter (cfcap/compute_tasks.py GEN_SHARD -> cfcap.gen.shard.write_shard). unit_s is a deliberately generous bound (local 4070 smoke: ~20 episodes in ~4 s labels + ~18 s first-shape CUDA-graph capture; compile warm-up ~3-5 s per shape); the sidecar shard_*.json (gen_seconds, bytes, stats.label/probe) gives the measured numbers. engine compile falls back to graph automatically if inductor/triton is unusable on the box.",
+ "groups": [
+  {"name": "gen-pilot-train", "task": "gen_shard", "stage": 1, "lane": "rented", "profile": "torch", "shards": 1,
+   "units_per_shard": 1, "unit_s": 1200, "overhead_s": 120, "vram_gb": 6, "priority": 30,
+   "task_args": ["--split", "train", "--plate", "plated", "--gen-shards", "1", "--episodes", "300", "--probes", "v2", "--engine", "compile", "--block", "150"],
+   "pilot": "local 4070 Ti S smoke of cfcap.gen (fe24b9d): 20 train episodes probed+labelled with engine graph, labels 4.0 s, probes 18 s (first-shape capture); bound set generously at 20 min",
+   "role": "generator",
+   "purpose": "Measure generator throughput (s/episode), bytes/episode and label cost share on a 3090 to size the Stage B train/cal/test/held-out data."},
+  {"name": "gen-pilot-cal", "task": "gen_shard", "stage": 1, "lane": "rented", "profile": "torch", "shards": 1,
+   "units_per_shard": 1, "unit_s": 600, "overhead_s": 120, "vram_gb": 6, "priority": 31,
+   "task_args": ["--split", "cal", "--plate", "plated", "--gen-shards", "1", "--episodes", "50", "--probes", "v2", "--engine", "compile", "--block", "50"],
+   "pilot": "as gen-pilot-train (local 4070 smoke, fe24b9d); bound 10 min",
+   "role": "generator",
+   "purpose": "Check the cal split path and the cold-start (compile) overhead per job on a fresh process."}
+ ]
+}
