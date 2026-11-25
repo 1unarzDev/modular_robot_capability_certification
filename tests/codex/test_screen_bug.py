@@ -88,6 +88,9 @@ def test_screen_miss_must_abstain_before_and_after_probe(screen_miss):
         assert (chosen < 0).all()
 
 
+@pytest.mark.skip(reason="retired by coordinator 2026-11-25 (research N1): budget truncation is recorded as "
+                         "meta mass_dropped and absorbed by end-to-end calibration; replaced by "
+                         "tests/test_decide.py::test_truncation_recorded_and_end_to_end_within_alpha")
 def test_particle_cap_also_marks_unknown_support(monkeypatch):
     # Keep every discrete hypothesis through screening, then truncate particles.
     monkeypatch.setattr(T, "K_SCREEN", np.inf)

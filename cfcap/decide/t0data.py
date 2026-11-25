@@ -39,6 +39,9 @@ from . import problem as Pb
 SIZES = (2, 3, 4)
 M_NUIS = 8
 P_MAX = 192
+EPS_MASS = 1e-6           # posterior mass that may be pruned (accounted in the risk budget)
+BUDGET_ABSTAIN = False    # N1 (2026-11-25): over-budget truncation is recorded (mass_dropped) and absorbed by end-to-end
+                          # calibration / the Mondrian difficulty bins, not a hard abstention; True = the earlier guard
 K_SCREEN = 5.0
 SD_INFLATE = 1.5         # extra factor on the screen / v2-likelihood sd (nuisance marginalisation is approximate)
 N_MERGE = 4
@@ -144,11 +147,20 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
     lw = log_prior(pm, n) + ll
     w = np.exp(lw - lw.max())
     w /= w.sum()
-    if len(w) > p_max:                                            # over budget: never truncate silently
-        unknown = unknown or "budget"
-        keep = np.argsort(-w)[:p_max]                             # (kept only to bound compute; bounds are -inf)
-        pm, pg, pj, ph, w = pm[keep], pg[keep], pj[keep], ph[keep], w[keep] / w[keep].sum()
-        het = [h[keep] for h in het]
+    # mass-accounted pruning: drop at most EPS_MASS of posterior mass (recorded; it enters the risk budget as
+    # alpha + alpha_s + EPS_MASS); if the remaining set still exceeds the budget, the support is unknown (abstain)
+    o = np.argsort(-w)
+    k = int(np.searchsorted(np.cumsum(w[o]), 1.0 - EPS_MASS) + 1)
+    k = min(k, len(w))
+    mass_dropped = float(w[o[k:]].sum())
+    if k > p_max:
+        if BUDGET_ABSTAIN:
+            unknown = unknown or "budget"
+        k = p_max
+    keep = o[:k]
+    mass_dropped = float(w[o[k:]].sum())
+    pm, pg, pj, ph, w = pm[keep], pg[keep], pj[keep], ph[keep], w[keep] / w[keep].sum()
+    het = [h[keep] for h in het]
     ess = float(1.0 / (w ** 2).sum())
     P = len(w)
 
@@ -226,7 +238,7 @@ def episode(seed, sizes=SIZES, M=M_NUIS, p_max=P_MAX, n_merge=N_MERGE, faulted=N
     post = DP.DecisionPosterior(w, rho, ph, probes, unknown=bool(unknown))
     meta = dict(seed=seed, parent_size=m, n_wheels=n, n_faults=nf, n_hyp=len(HM), n_screen=U, truth_in=int(truth_in),
                 truth_in_final=int(truth_in and not unknown and bool(np.isin(ti, alive[uh]))), unknown=unknown,
-                z_true=z_true, k_screen=K_SCREEN,
+                z_true=z_true, k_screen=K_SCREEN, mass_dropped=mass_dropped,
                 P=P, ess=ess, C=C, n_children=len(kids), n_merges=len(merges), gen_s=time.time() - t0)
     return dict(inst=inst, post=post, rho_true=rho_true, rho_nom=rho_nom, has_fault=has_fault, meta=meta,
                 legs=qs.LEG_NAMES)

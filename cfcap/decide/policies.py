@@ -19,6 +19,8 @@ the certified option (or abstains). Policies:
           argmax EVOI(u)/t_u among probes with EVOI(u) > t_u and stops when none qualifies.
   always_split  one diagnostic split of the child with the largest summed binary entropy of P(capable for task t)
           over the tasks (ties: the larger child), then decide.
+  <p>@<s> any of random / eig / epig / evoi under a probe-time budget of s seconds (matched-time comparison):
+          only affordable probes; evoi@s probes while EVOI > 0 (time is charged in the utility, not in the stop rule).
 Every expectation over y uses S predictive draws (common random numbers across probes).
 """
 from __future__ import annotations
@@ -133,18 +135,20 @@ def run(policy, inst, tasks, post, cert, rng, max_probes=2, S=16, eps=1e-3, allo
             t_probe += post.observe(n)
             used.append(n)
     elif policy != "v2":
-        for _ in range(max_probes):
-            if not post.probes or post.P <= 1 or post.unknown:
+        base, _, bud = policy.partition("@")           # "<policy>@<seconds>": probe-time budget, probe while useful
+        budget = float(bud) if bud else np.inf
+        for _ in range(max_probes if not bud else 8):
+            names = [k for k, v in post.probes.items() if v.t_s <= budget - t_probe + 1e-9]
+            if not names or post.P <= 1 or post.unknown:
                 break
-            if policy != "evoi" and not _unserved(inst, tasks, post, cert):
+            if base != "evoi" and not _unserved(inst, tasks, post, cert):
                 break
-            if policy == "random":
-                names = list(post.probes)
+            if base == "random":
                 n = names[int(rng.integers(len(names)))]
             else:
-                sc, net = scores(policy, inst, tasks, post, cert, rng, S)
-                if policy == "evoi":
-                    ok = {k: v for k, v in sc.items() if net[k] > 0}
+                sc, net = scores(base, inst, tasks, post, cert, rng, S, names=names)
+                if base == "evoi":
+                    ok = {k: v for k, v in sc.items() if (net[k] > 0 if not bud else v > 0)}
                     if not ok:
                         break
                     n = max(ok, key=ok.get)

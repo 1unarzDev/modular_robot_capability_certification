@@ -18,6 +18,9 @@ labels of its own fold, also not through the in-loop q that steers adaptive prob
           normalised score with scale' fitted on the other half (so sigma_min is a fixed function when q is fitted).
           A collapsed posterior (sd at the 0.02 floor, nuisance-biased point) can then never inflate q beyond
           margin / sigma_min ~ 1. In-loop lookahead uses the same certifier fitted on the v2 posteriors.
+  simM    Mondrian (N1): sim0.1 fitted per bin of observable inference difficulty: meta mass_dropped in
+          {0, (0, 1e-3], > 1e-3} x meta n_screen tercile (terciles from the calibration folds); a bin with fewer than
+          M_FLOOR calibration episodes is merged across terciles within its mass bin, then pooled.
   simA    unnormalised score (scale = 1): lower = point - q.
   raw     q = 0 (plug-in posterior mean; no guarantee).
   bayes05 the raw posterior 5 % quantile (uncalibrated Bayes lower bound; no guarantee).
@@ -106,6 +109,40 @@ def _run_one(job):
     return dict(point=pt, scale=sc, probe_s=tp, used=used, w=post.w, unknown=post.unknown)
 
 
+M_FLOOR = 60
+MASS_EDGES = (0.0, 1e-3)
+
+
+def difficulty(e):
+    """(mass bin 0/1/2, n_screen) from episode meta (observable; no labels)."""
+    md = float(e["meta"].get("mass_dropped", 0.0))
+    mb = 0 if md <= MASS_EDGES[0] else (1 if md <= MASS_EDGES[1] else 2)
+    return mb, float(e["meta"].get("n_screen", 0))
+
+
+def mondrian_bins(eps, ca, te):
+    """Bin label per episode in ca and te: (mass bin, tercile) with the merge rule; terciles from ca only."""
+    ns = np.array([difficulty(eps[i])[1] for i in ca])
+    cuts = np.quantile(ns, [1 / 3, 2 / 3]) if len(ns) else np.array([0.0, 0.0])
+    lab = lambda i: (difficulty(eps[i])[0], int(np.searchsorted(cuts, difficulty(eps[i])[1], side="right")))
+    raw = {int(i): lab(i) for i in np.r_[ca, te].astype(int)}
+    cnt = {}
+    for i in ca:
+        cnt[raw[int(i)]] = cnt.get(raw[int(i)], 0) + 1
+    mass_cnt = {}
+    for (mb, t), c in cnt.items():
+        mass_cnt[mb] = mass_cnt.get(mb, 0) + c
+    out = {}
+    for i, (mb, t) in raw.items():
+        if cnt.get((mb, t), 0) >= M_FLOOR:
+            out[i] = (mb, t)
+        elif mass_cnt.get(mb, 0) >= M_FLOOR:
+            out[i] = (mb, -1)
+        else:
+            out[i] = (-1, -1)
+    return out
+
+
 def fold_plan(folds):
     """Cross-fit plan without label leakage. For each test fold f: an in-loop fold h (its v2 posteriors fit the q the
     policy uses for lookahead and stopping) and calibration folds C (their *final* posteriors, run with h's q, fit the
@@ -164,6 +201,11 @@ def run_policies(eps, policies, alpha=0.1, alpha_crc=(0.1, 0.05), S=16, max_prob
             ptl, scl_ = [pts.get(i) for i in range(len(eps))], [scs.get(i) for i in range(len(eps))]
             qF = fit_floor(ptl, scl_, eps, ca, alpha)
             qA = fit_q(L(pts, ca), [np.ones_like(scs[i]) for i in ca], [eps[i] for i in ca], alpha)
+            bins = mondrian_bins(eps, ca, idx[f])
+            qM = {}
+            for b in set(bins[int(i)] for i in idx[f]):
+                cb = [int(i) for i in ca if bins[int(i)] == b]
+                qM[b] = fit_q([pts[i] for i in cb], [scs[i] for i in cb], [eps[i] for i in cb], alpha)
             lam = {}
             if alpha_crc:
                 curves = {int(i): episode_loss_curve(eps[i], pts[i], scs[i]) for i in ca}
@@ -174,7 +216,7 @@ def run_policies(eps, policies, alpha=0.1, alpha_crc=(0.1, 0.05), S=16, max_prob
             for i in idx[f]:
                 e, fr = eps[i], fin[int(i)]
                 one = np.ones_like(fr["scale"])
-                certs = {f"sim{alpha}": (q_end, fr["scale"]),
+                certs = {f"sim{alpha}": (q_end, fr["scale"]), f"simM{alpha}": (qM[bins[int(i)]], fr["scale"]),
                          f"simF{alpha}": (qF[0], np.maximum(fr["scale"], qF[1])),
                          f"simA{alpha}": (qA, one), "raw": (0.0, fr["scale"]),
                          **{f"crc{a_}": (lam[a_], fr["scale"]) for a_ in alpha_crc}}
@@ -239,7 +281,9 @@ def pair_counts(e, lower, w0, w1, rho):
 def _row(e, pred, pol, cname, q, ch, tc, tp, used, orc, lower, w0, w1, rho):
     o = Pb.outcome(e["inst"], e["tasks"], ch, tc, e["rho_true"], tp)
     o.update(pair_counts(e, lower, w0, w1, rho))
-    return dict(eid=e["meta"]["seed"], fold=e["fold"], parent_size=e["meta"]["parent_size"],
+    mb, ns = difficulty(e)
+    return dict(eid=e["meta"]["seed"], fold=e["fold"], parent_size=e["meta"]["parent_size"], mass_bin=mb, n_screen=ns,
+                unknown=str(e["meta"].get("unknown", "")),
                 n_faults=e["meta"]["n_faults"], truth_in=e["meta"].get("truth_in", 1), predictor=pred, policy=pol,
                 cert=cname, q=float(q), n_probes=len(used), n_split=sum(u.startswith("split:") for u in used),
                 probes="+".join(used), oracle_U=orc["U"], oracle_served=orc["n_served"], regret=orc["U"] - o["U"],

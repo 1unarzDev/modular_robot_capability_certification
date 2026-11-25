@@ -253,3 +253,50 @@ def test_fold_plan_never_uses_own_fold():
     plan2 = Ev.fold_plan(np.arange(10) % 2)
     for f, (h, C) in plan2.items():
         assert h != f and f not in C
+
+
+# ----------------------------------------------------------------------------- truncation (N1)
+def test_truncation_recorded_not_abstained(monkeypatch):
+    pytest.importorskip("capxfer")
+    from cfcap.decide import t0data as T
+    monkeypatch.setattr(T, "K_SCREEN", np.inf)
+    e = T.episode(909000, sizes=(2,), M=1, p_max=1, n_merge=0)
+    assert e["meta"]["mass_dropped"] > 0 and e["meta"]["unknown"] == ""
+    assert e["post"].P == 1 and not e["post"].unknown
+
+
+def _truncated_bank(E=600, p_drop=0.15, seed=3):
+    """Posterior = 6 discrete states; in a p_drop share of episodes the truncation removes the true state (and the
+    survivors are renormalised), so the raw posterior is confidently wrong there."""
+    rng = np.random.default_rng(seed)
+    inst = line_instance(2, merges=1)
+    C = inst.C
+    eps = []
+    for i in range(E):
+        base = rng.uniform(0.85, 1.0, (C, L))
+        states = np.repeat(base[None], 6, 0)
+        for k in range(1, 6):
+            states[k, k % C] *= 0.45 + 0.08 * k
+        kt = int(rng.integers(6))
+        keep = np.arange(6)
+        dropped = rng.random() < p_drop and kt != 0
+        if dropped:
+            keep = keep[keep != kt]
+        w = np.ones(len(keep))
+        w[keep == 0] = 3.0                                   # the healthy state is a priori likelier
+        post = DP.DecisionPosterior(w, states[keep] + rng.normal(0, 0.01, (len(keep), C, L)), keep)
+        eps.append(dict(inst=inst, post=post, rho_true=states[kt], rho_nom=np.ones((C, L)),
+                        has_fault=np.zeros(C, bool), tasks=Pb.make_tasks(rng, LEGS), fold=i % 3,
+                        meta=dict(seed=i, parent_size=2, n_faults=int(kt > 0), mass_dropped=float(dropped),
+                                  n_screen=len(keep))))
+    return eps
+
+
+def test_truncation_recorded_and_end_to_end_within_alpha():
+    eps = _truncated_bank()
+    rows = [r for r in Ev.run_policies(eps, ["v2"], alpha=0.1, alpha_crc=()) if r["predictor"] == "posterior"]
+    rate = lambda c: np.mean([r["n_unsafe"] > 0 for r in rows if r["cert"] == c])
+    assert rate("raw") > 0.03                                # truncation makes the plug-in unsafe
+    assert rate("sim0.1") <= 0.1 + 0.03                      # end-to-end calibration absorbs it
+    assert rate("simM0.1") <= 0.1 + 0.03
+    assert all("mass_bin" in r for r in rows)
