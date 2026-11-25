@@ -47,3 +47,12 @@ session (`certified-counterfactual-self-models`).
   - Start condition: the Stage B–D result CSVs in `docs/board/paper.md` exist, and `scripts/analysis/make_all.py`
     has run on real data.
   - Then run the multi-round, multi-perspective review and refinement loop exactly as the playbook says.
+
+## Loop structure (owner, 2026-11-25 ~20:00Z: science over compute management)
+- **ops** owns all cluster work: submissions, failures, output collection and the STATUS.md table. Roles put campaign
+  plans in `scripts/campaigns/` and do not chase jobs.
+- **research lead** keeps `docs/HYPOTHESES.md` current (which hypotheses hold, failed or are open) and keeps the
+  ranked idea and experiment queue in `docs/board/research.md`.
+- **independent critics** review the draft without seeing our conclusions (`docs/reviews/`).
+- The coordinator turns the research lead's ranking and the critics' top fixes into role assignments. Every role
+  reads HYPOTHESES.md before starting new work.
