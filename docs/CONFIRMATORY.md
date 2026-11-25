@@ -149,15 +149,26 @@ do not count as passing.
   - `raw`;
   - `pi`: the model-free identified-set bound;
   - `gate`: q_gate and the margin fitted on exploratory knee episodes (E1 / t2-knee exploratory seeds), pooled over
-    severities;
+    severities. The gate statistic is whichever single statistic the theory/stress roles commit by 22:15Z: the
+    trace misfit D, or the A5y capability-tracking residual |probe ratio_T2 − T1 prediction|. The latter is
+    post-hoc, with AUC 0.83 on only 10 flips. Only one statistic may be used; no choosing after the data;
   - `detector_gated`.
   - Probes: v2, and v2+clamp.
-- **Cells.** certifier × s × probe × dominance class {dominated, undominated} (closed-form Prop. 2b flag per
-  decision).
+- **Cells.** certifier × s × probe × size class {≥ 3-module children (primary), singles + pairs (secondary)} ×
+  dominance class {dominated, undominated}. The dominance class is the closed-form Prop. 2b flag per decision.
+- **Amendment (20:55Z, before any confirmatory data).** Exploratory N3 (`results/stress/N3_flips.csv`) showed that
+  singles and pairs flip on *dominated* legs as well (axis 3–6 %). That is the H8 friction/kernel scatter, which
+  exists without any motor-law change, not extrapolation. So the extrapolation bar is stated on ≥ 3-module
+  children, where the exploratory dominated flips are 0 %. Singles and pairs are reported in their own cell against
+  the size-aware margin (N7). This restriction comes from a mechanism stated in advance (Prop. 2b: for ≥ 3 modules,
+  surge/sway are dominated and diagonals/yaw are not). It is named here so that it is not read as a post-hoc
+  subgroup at scoring time.
 - **Bars.**
-  1. **H12, silent extrapolation (P5).** At s = 3, v2: E_dec(raw) and E_dec(par) on *undominated* stratum decisions
-     > 2 % with lower 95 % > 1 %. On *dominated* decisions, E_dec ≤ 1 % (upper ≤ 1.3 % if powered). Holm on the
-     undominated part.
+  1. **H12, silent extrapolation (P5).** ≥ 3-module children, at s = 3, v2:
+     - E_dec(raw) and E_dec(par) on *undominated* stratum decisions > 2 %, with lower 95 % > 1 %;
+     - on *dominated* decisions, E_dec ≤ 1 % (upper ≤ 1.3 % if powered).
+
+     Holm on the undominated part. Singles + pairs: descriptive.
   2. **H13, the gate.**
      - At s = 0: CF(gate) ≥ CF(par) − 2 pts.
      - At every s: E_dec(gate) ≤ 1 % (upper ≤ 1.3 %, power rule; otherwise E_ep(gate) ≤ 0.10).
