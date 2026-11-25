@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 22:40Z: box 62567770 is unreachable and holds 3 done gen-ref2 shards (plated-cal.s001, plated-test.s000, plateless-test.s000). They are rerun as cfcap-gen-ref4 (same refs, priority 20). The manual pull brought back 20 other stranded outputs (t2-eps, models-b1, theory-ride, nuis2 …).
 - **22:37Z OUTPUTS READY: cfcap-gen-scaling16r** (7/7, H4b 11–16 modules) at `~/.cache/vast-out/*/crane/cfcap-gen-scaling16r.*`. gen-hetero2 is 4/5. Ops is also pulling done outputs that never left the old boxes (t2-eps, models-b1, theory-ride), using a read-only rsync into vast-out.
 - 22:37Z: GPU slots are underused again (11/20 boxes at 1/3 jobs, 8 at 0% GPU) while 8 GB jobs wait as "outranked". Sent to the compute session. Burn is $3.04/h and spend $10.24, so the projection is ~$24.
 - **22:30Z gen-ref2: 19/19 done, but 2 outputs were lost.** plated-H3.s000 and H4.s000 sat on box 62570123, which was destroyed before its outputs were pulled (sent to the compute session). They are rerun as cfcap-gen-ref3 (same f70d265 refs, priority 20). Three more shards (plated-cal.s001, plated-test.s000, plateless-test.s000) are being rsynced from a live old box. Every other shard is in `~/.cache/vast-out/*/crane/cfcap-gen-ref2.*`. Outputs-ready note for the generator once all are present.
