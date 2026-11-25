@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **23:52Z: eval2 is LEASED.** cfcap-models-eval2h has its canary and 3 eval2-het shards running. cfcap-models-b1r.s000 (the st-n6-1 retrain) is leased too.
 - 23:50Z: the runner now mirrors complete outputs (files ≤ 95 MB, ≤ 400 MB per job) to `$CRANE_RUN_DIR/artifacts/out`, so the coordinator keeps them if a box dies (dbc0a28, tests 30 pass). It applies to jobs emitted from now on, starting with eval2 main.
 - **23:40Z: models_eval2, part 1 submitted.**
   - The compute session recovered 4 of the 5 missing weight sets, so their reruns are cancelled. Re-export: 74 train runs; bb-n6-1, sth-het-1 and bbh-het-1 are now staged.
