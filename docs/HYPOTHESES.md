@@ -333,3 +333,18 @@ unmeasured: the small SMC campaign plus models eval2.
   - 30 % of episodes have an empty screen: 2 / 7 / 40 / 75 % at knee severity 0 / 1 / 2 / 3.
   - Where the screen is non-empty, EVOI is 94.6 % useful.
 - Next: a knee-tolerant screen (threshold calibrated on exploratory knee episodes), on fresh seeds 3900+.
+
+**H3 + calibrated knee-tolerant screen: SUPPORTED (decision, 11-25 ~22:45Z; pre-written bars; calibration seeds
+5000–5599, evaluation fresh 3900–4499, 585 episodes; exploratory T0).**
+- Screen threshold K = 28.7 (split-conformal on exploratory knee episodes). Empty screens fall 30.1 % → 0.5 % overall
+  (severity 3: 80 % → 1.5 %).
+- EVOI: useful 64.9 % → 93.1 %, episode-unsafe 0.34 %, regret 16.9 s at 1.71 s of probing.
+- vs always-clamp: useful 93.5 %, regret 22.9 s, 8.8 s of probing; vs the dominance trigger: regret 18.8 s, 4.5 s.
+- Paired regret: EVOI − clamp −6.0 [−6.9, −4.9]; EVOI − dominance −1.9 [−2.8, −0.95].
+- Caveats:
+  - truth is in the kept hypothesis set only 52 % of the time, so end-to-end calibration carries the guarantee;
+  - the uncalibrated bound is 12.5 % unsafe on large-child yaw legs, and the calibrated one 0–4 %;
+  - the convergence filter still under-represents severe knees on large bodies.
+- Contribution statement: *a screen calibrated on misspecified-law episodes, plus end-to-end calibration, gives a
+  posterior that stays useful when the motor law is wrong; decision-aware probing then saves 3–4× probe time over
+  fixed or heuristic probing at equal usefulness.*
