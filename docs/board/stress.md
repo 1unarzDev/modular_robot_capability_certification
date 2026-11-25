@@ -340,3 +340,22 @@ compares the oracle-latent composition (b) against the truth.
 - Lane cpu, riding torch, with crane_ml staged; `emit` validates.
 - `t2_adv` is cancelled (it measured the plant gap against an oracle certifier, not a method failure).
   `scripts/campaigns/t2_adv.json` is left unsubmitted.
+
+## A5y targets: child-rate yaw probe (written 2026-11-25 before the run; exploratory)
+- **Probe `yawc`** (`cfcap/t2/misfit.py:yaw_rate_table`). It is a yaw command at the child's own decision-leg yaw
+  rate: the IK wheel rates of the child, with W_NOM scaled so the farthest wheel reaches WHEEL_SPEED_CAP, as in
+  `t1.capability.leg_twists`. The schedule is a lead U(0, 0.5) s, a 0.3 s ramp to +w, a 1.5 s hold, a 0.6 s ramp to
+  −w, a 1.5 s hold, a 0.3 s ramp to 0 and a 1 s tail. Like v2 and clamp in A5m, it is run on the child body, with
+  latents known.
+- **Design.** L3, square and 2x3, 200 episodes each, seeds 908000, HET_FULL, 0–2 faults, T2 `all+motor` against T1,
+  ρ_dec with each plant's own reference, τ ∈ {0.7, 0.8}.
+- **Statistics.** The misfit is the A5m statistic D_imu per probe. "clamp+yaw" means D_imu_clamp + D_imu_yawc.
+- **Targets.**
+  - (a) Positives are episodes with a yaw-leg flip or a yaw-leg |Δρ_dec| > 0.05; negatives are the other episodes
+    of the same shapes.
+  - (b) Pooled: positives are episodes with any flip or any |Δρ_dec| > 0.05 on any leg.
+  - AUC is reported for v2, clamp, yawc and clamp+yaw. Flips-only versions use faulted non-flipped negatives.
+- **Bar:** child-rate yaw AUC ≥ 0.75 on (a), the 3+-module yaw shifts. Below that, "the theory names the probe" is
+  not supported for yaw.
+- Caveat stated in advance: run on the child itself, `yawc` probes the decision operating point. On hardware it
+  stands for a parent probe at the child's wheel rates.
