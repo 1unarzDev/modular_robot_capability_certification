@@ -1,5 +1,148 @@
 # research lead (science state, frontier ideas, next experiments)
 
+## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 20:50Z
+Hypothesis numbers follow the ledger. My proposals H11–H14 of 20:15Z are renumbered **H12–H15**, because the
+ledger's H11 is the conformalised screen.
+
+**N1. Fix the inference-difficulty abstention (decides H11; owner: decision; CPU, offline, $0, < 1 h).**
+- **Evidence** (`results/decision/t0_k5_meta.csv`, `t0_k5_summary.csv`, my analysis): after the screen fix,
+  35 % of episodes abstain.
+  - `unknown=budget` fires on 74/240 episodes, `empty_screen` on 11.
+  - 85 % of *healthy* episodes abstain. A healthy body is consistent with many near-healthy hypotheses (weak
+    g ≥ 0.85 ≈ motor spread), so the 2048-particle cap truncates.
+  - Useful commits fall to 65 % (raw/sim). The guard is sound but throws away the easiest bodies.
+- **Spec.** Drop budget-abstention as a hard rule. Keep `empty_screen` abstention. Then:
+  - (a) end-to-end calibration of the full screened/truncated procedure, which is marginally valid by
+    exchangeability whatever the truncation;
+  - (b) a **Mondrian quantile by observable inference difficulty**: bins on truncated posterior mass {0, (0, 1e-3],
+    > 1e-3} × n_screen tercile, with a ≥ 60-episode-per-bin floor (merge bins otherwise).
+
+  Rerun `scripts/decide_pilot.py` on the same 240 + 360 T0 episodes; certifiers `sim0.1`, `simM0.1` (Mondrian) and
+  `raw`.
+- **Bar.**
+  - `simM0.1`: per-bin ep_any_unsafe ≤ 0.1 (episode bootstrap upper CI ≤ 0.15);
+  - healthy-episode abstention ≤ 5 %;
+  - useful commits ≥ 95 %.
+  - If (b) fails its bins but (a) holds marginally, report the marginal claim only. H11 then becomes "end-to-end
+    calibration absorbs approximate inference", and the screen threshold is a compute knob, not a safety knob.
+
+**N2. Rerun E1 at full size and refuse verdicts on smoke data (decides H12/H13; owner: theory; ops submits).**
+- **Evidence.** `results/theory/gate_cert.csv` has **4 episodes per law** (n_episodes = 4), with q_gate = −1 and an
+  infinite margin. Every calibrated certifier (`par`, `pi_cal`, `gate`, `nominal`) certifies 0 %, so
+  `gate_verdict.txt`'s "KILL True" is an artefact and is **void**.
+- **Spec.**
+  - (1) Commit `cfcap/theory_task.py` (GATE) + `cfcap/t0/envelope.py` (the ops alert says they are uncommitted, so
+    the run is HELD).
+  - (2) `theory_gate.py analyze` must write "INSUFFICIENT" unless every (law, severity, probe) cell has
+    ≥ 100 episodes and finite q.
+  - (3) Run the full 1,200 parents on the ride-along plan (6 jobs).
+- **Hint from the smoke, to pre-register now.** Under knee severity 2 the raw certificate had 0 unsafe in 28
+  incapable decisions. If the full run confirms that T0's knee law does not bite, the regime-2 evidence must come
+  from T2 `all+motor` (N3), not from T0.
+- **Bar.** As pre-registered (theory board §E1).
+
+**N3. Fixed-reference relabelling of the misspecification tests (decides H12, silent extrapolation; owner: stress;
+CPU, offline if ρ_abs is stored, else ≈ 1.5 CPU-h).**
+- **Confound.** A5m reports 0 % flips on healthy candidates under every condition. But each plant's ρ_dec is divided
+  by *that plant's own* nominal healthy reference.
+  - Under the motor law the T2 reference itself drops (square yaw 0.892 → 0.821, −8 %), so the label absorbs the
+    misspecification for every body that looks nominal.
+  - The robot only has its T1 reference table. A task requirement is absolute: it is τ·ρ_ref^T1, not τ·ρ_ref^T2.
+- **Spec.**
+  - Re-score `A5m_rows.csv` (and A5, A5y, E2) with ρ_dec^fixed = ρ_abs^T2 / ρ_ref^T1(shape, leg).
+  - If ρ_abs is not stored, recompute ρ_ref^T2 per (shape, leg) with `t2.capability.rho_ref` (8 nuisance draws, as
+    now) and multiply back.
+  - Report flips and |d| > 0.05 by shape × leg type × dominance class, both labels side by side.
+- **Bar (H12).** Under all+motor with the fixed reference:
+  - flips on *undominated* decisions (diagonals; yaw of ≥ 3-module children) > 1 % (upper CI);
+  - flips on dominated surge/sway decisions ≤ 0.5 %.
+  - If both hold, regime 2 exists in a plant we did not tune, and the gate experiment moves to T2.
+  - If undominated flips stay ≤ 1 %, H12 is FALSIFIED. The paper then says "extrapolation through the motor law is
+    safe for these misspecifications" (a robustness result) and drops the gate as a method.
+
+**N4. Merge certificate with inferred latents: the actual headline (decides H14; owner: baselines + stress; local
+GPU ≤ 1 h or 1 box-h ≈ $0.2).**
+- **Evidence** (`results/stress/A4_merge.csv`).
+  - δ_comp flips are 0.11 % (CI 0.03–0.24) in T1 and 0.13 % (0.05–0.25) in T2: merges are plug-in at the decision
+    level (H14 part 1 SUPPORTED).
+  - The T1-calibrated per-pair margin miscovers 43–47 % of pairs in T2.
+  - **My check** (A4_merge_rows): the mean signed T2 − composition error is only −0.002 per leg, and de-meaning by leg
+    leaves 46 % miscoverage. So it is *spread*, not a reference offset. The spread sits in 2-module merges (sd 0.047
+    vs 0.008 for ≥ 3).
+  - The size-aware margin (`q_pert_by_nmod`, from T1 perturbations) gives T2 miscov 0.02 with CF 98 %.
+  - All of this uses **oracle latents**, so it measures only δ_comp.
+- **Spec.**
+  - Route (c): enum_known (or nuisance-SMC) posterior from each G_j's *own* v2 probe (the assemblies probed
+    separately), composed to every merge.
+  - Margins: (i) the T1 cross-fit conformal margin and (ii) the size-aware margin.
+  - Same 500 pairs × 2 arms; truth T1 and T2 (fixed reference per N3). Also add `copy_parent` (min of the two
+    parents' ρ) and `detector_gated` as merge baselines.
+  - Rows go to `results/stress/paper/dec_merge.csv` (method `comp_enum`, `comp_enum_size`).
+- **Bar.**
+  - CF on capable decision-stratum merges ≥ 85 % at realised unsafe ≤ 1 %;
+  - per-pair miscov ≤ 0.1 in T1 (cross-fit) and ≤ 0.15 in T2 with the size-aware margin;
+  - CF beats `copy_parent` by ≥ 10 pts.
+- **Note.** State the size-aware margin as an *empirical* robustness margin (it comes from T1 perturbations), not a
+  guarantee.
+
+**N5. Child-rate yaw probe, made feasible on the parent (decides "the theory names the probe" for yaw; owner:
+stress; ≈ 1 CPU-h).**
+- **Evidence.** Clamp misfit AUC is 0.82 pooled, but 0.27–0.33 on ≥ 3-module yaw: inverted, and the knee is never
+  visited. A5y (`yawc`) is running *on the child body*, so it probes the decision point itself and is an **upper
+  bound**, not a parent probe.
+- **Spec.** Add `wheelrate`: a parent probe built from per-wheel speed commands (the firmware supports them).
+  - Each wheel's reference ramps to the maximum |ω| that any ≥ 3-module child of this parent needs on its yaw legs
+    (closed form, Prop. 2b).
+  - The commands are split into antagonistic pairs, so the parent's net twist stays small (least squares on the
+    twist).
+  - Misfit as D_imu + D_duty. Same 600 A5y episodes, AUC on target (a).
+- **Bar.**
+  - `wheelrate` AUC ≥ 0.75 → the claim stands with a feasible probe;
+  - `yawc` ≥ 0.75 but `wheelrate` < 0.75 → claim only "the child's own yaw test" (i.e. after a split), which is the
+    split-to-see case;
+  - both < 0.75 → drop the yaw-probe claim.
+
+**N6. E3 trivial / identified-set baselines (decides H15; owner: baselines).** Unchanged spec (§4 E3). Waiting for
+the generator-eid b2 rows. Re-check after the scorer-audit fixes. The `base.py` AND-vs-OR stratum bug means every
+earlier stratum number from baselines is void.
+
+**N7. Size-aware two-simulator margin for singles and pairs (F4; owner: stress; offline).** It now has a template:
+the E2 `q_pert_by_nmod` approach. Apply it to children: q by cand_size from T1 perturbations, scored on T2 with the
+fixed reference. **Bar:** T2 single-child unsafe ≤ 2·U* at CF loss ≤ 5 pts against T1-only.
+
+**Dropped or deprioritised.**
+- E4 real corpus: not feasible. 0 scorable faulted lone targets; `achieved_gain` is ODOM, not TRUTH
+  (`docs/codex/e4_pairs.md`). Use the 11-24 B1/B2 data when it lands.
+- t2-adv: cancelled (it attacked the oracle certifier).
+- EVOI as a headline. In `t0_k5`, EVOI and EPIG run 0 probes and EIG 0.09/episode; `all` costs 16 s for no
+  safety gain.
+
+### Critique log (newest first)
+- **20:50Z, decision t0_k5 after the scorer fixes.**
+  - The old T0 pilot headline (99.4 % useful at 0.54 % unsafe) is **superseded**: it came from the leaky cross-fit,
+    a missing Gaussian normaliser and the healthy fallback on an empty screen.
+  - New (240 episodes): sim0.1 gives 0.36 % unsafe per assignment and 0.42 % ep_any_unsafe, but only **65 % useful
+    commits** and 35 % abstention. The oracle serves 93 %.
+  - Regret 66–100 s against oracle U 186 s.
+  - n = 240 gives a per-episode unsafe CI of about ±0.8 pts. That is enough for "≤ α = 0.1", not for comparisons at
+    0.5 %.
+  - H7 is now at risk on T0 until N1 lands.
+- **20:45Z, E1 smoke.** Void (see N2). Also: `raw` certifies 99.8 % under knee 1–2 with 0 unsafe, which hints that
+  T0's knee is too mild or binds on non-decision legs. Request per-leg knee-binding diagnostics in the full run.
+- **20:40Z, E2/A4.** Decision-level success. Per-pair coverage fails in T2 because of 2-module-merge spread, not a
+  reference offset (checked). The size-aware margin works empirically. Every result so far uses oracle latents (N4).
+- **20:35Z, A5m.**
+  - Healthy flips 0 % are confounded by own-plant references (N3).
+  - Motor-only |d| > 0.05 on ≥ 3-module yaw is 13–21 %, yet flips are ≤ 0.45 %. Those decisions sit far from τ.
+  - Clamp's inverted AUC (0.27–0.33) on ≥ 3-module yaw matches the Prop. 2b prediction (an undominated operating
+    point). Positive for C1.
+- **20:30Z, codex scorer audit** (19 failing tests; most were fixed in 02a70d9, b08d5d5, 9008146, 2f6c236).
+  - Every number produced before those commits is void: the decide cross-fit, the baselines stratum and the analysis
+    matched margin.
+  - Re-derive before citing.
+  - The `capxfer_cert.py` empty-support refusal is fixed in b08d5d5. Any capxfer row from before it is void.
+
+
 **Status (2026-11-25 ~19:55Z, about 7 h of rented window left, about $10 headroom):** this note re-reads every board,
 THEORY_cfcap, the ledger, capxfer THEORY/NOVELTY_CHECK and LIT_CRITIC. It ranks what to run next. The research lead
 runs no compute. Every number cited is exploratory and simulation-only. Literature marks: [S] = seen in search

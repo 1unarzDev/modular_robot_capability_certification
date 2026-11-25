@@ -99,6 +99,33 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 4. A T2 motor-law misspecification (current limits, derating); the adversarial search; the merge error term.
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
+## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **20:50Z H7. AT RISK on T0.** The old pilot (99.4 % useful at 0.54 % unsafe) is superseded by the scorer-audit
+  fixes: leaky cross-fit, Gaussian normaliser, empty-screen healthy fallback.
+  - `results/decision/t0_k5_summary.csv`, 240 episodes: sim0.1 gives 0.42 % ep_any_unsafe but only 65 % useful,
+    with 35 % abstention.
+- **20:50Z H11 (screen). PARTIAL.** The k = 5 screen equals the 0.95 quantile of the truth's z
+  (`screen_calibration.csv`).
+  - The budget-abstention guard fires on 85 % of healthy episodes (`t0_k5_meta.csv`). Sound but wasteful.
+  - Fix: end-to-end + Mondrian-by-difficulty (research NEXT N1).
+- **20:45Z H12 / H13 (silent extrapolation / gate). NO EVIDENCE YET.** `results/theory/gate_verdict.txt` is void: 4
+  episodes per law, degenerate calibration (q_gate −1, margin ∞), and every calibrated certifier at 0 %. It must be
+  rerun at full size (N2).
+- **20:40Z H14 (merges plug-in). SUPPORTED at decision level; coverage transfer FAILED; size-aware margin WORKS
+  (empirical).** Source `results/stress/A4_merge.csv`, oracle latents only.
+  - δ_comp flips: 0.11 % (CI 0.03–0.24) in T1, 0.13 % (0.05–0.25) in T2.
+  - The T1 margin miscovers 43–47 % of T2 pairs. The cause is 2-module-merge spread, not a reference offset (mean
+    signed error −0.002; 46 % after de-meaning).
+  - The size-aware margin gives T2 miscov 0.02 with CF 98 %.
+  - Inferred-latent route pending (N4).
+- **20:35Z H12 mechanism (A5m). CONSISTENT, CONFOUNDED.** Sources `results/stress/A5m_flips.csv`, `A5m_clamp.csv`.
+  - Motor-only |d| > 0.05 on ≥ 3-module yaw is 13–21 %, and clamp AUC there is 0.27–0.33 (inverted), as Prop. 2b
+    predicts.
+  - But labels use each plant's own reference, which absorbs the law shift for healthy bodies (0 % healthy flips).
+    Fixed-reference re-score: N3.
+- **20:30Z, all stratum and decide numbers before the codex fixes are VOID** (`docs/codex/scorer_audit.md`, fixes
+  in 02a70d9 / b08d5d5 / 9008146 / 2f6c236).
+
 ## Open questions and ideas queue (ranked by the research lead; see docs/board/research.md)
 Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and kill lines are in research.md.
 
@@ -111,20 +138,20 @@ Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and 
   - law-misspecified: plug-in fails silently, and the trust-gated certificate holds;
   - never-existed merges.
 
-**Proposed new hypotheses** (pre-registered; status OPEN):
-- **H11. Silent extrapolation failure.** Under a knee/current-limit motor truth, parametric and raw certificates
+**Proposed new hypotheses** (pre-registered; renumbered H12–H15 at 20:50Z because the ledger's H11 is the screen):
+- **H12. Silent extrapolation failure.** Under a knee/current-limit motor truth, parametric and raw certificates
   exceed U* = 1 % unsafe on undominated decisions, while dominated decisions stay ≤ U*. (E1; stress T2 motor-law
   arm.)
-- **H12. Trust-gated certificate.**
+- **H13. Trust-gated certificate.**
   - Under the two-constant truth: CF ≥ parametric − 2 pts.
   - Under the knee truth: unsafe ≤ 1 % and CF ≥ model-free + 5 pts (v2 only). (E1.)
-- **H13. Merges are plug-in.** δ_comp decision flips < 1 % (T1) and < 2 % (T2). The compositional certificate's
+- **H14. Merges are plug-in.** δ_comp decision flips < 1 % (T1) and < 2 % (T2). The compositional certificate's
   simultaneous miscoverage per pair is ≤ α. (E2.)
-- **H14. Learning beats strong non-learned baselines.**
+- **H15. Learning beats strong non-learned baselines.**
   - The best posterior method is ≥ 10 pts CF@U* over detector-gated, ĝ-physics, copy-parent, metadata_nf and
     min-over-members.
   - It is ≥ 5 pts over the identified-set bound with v2 only. (E3.)
-  - If H14 fails, C3 is reworded to latency, v2-only and gating.
+  - If H15 fails, C3 is reworded to latency, v2-only and gating.
 
 **Ranked queue.**
 1. E1: trust-gated certificate on T0 under a misspecified motor law. Theory role, CPU, $0. Uses the ENVELOPE task.
