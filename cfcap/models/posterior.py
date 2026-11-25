@@ -81,9 +81,14 @@ def _block(h, heads):
 
 
 class MorphPosterior(nn.Module):
-    def __init__(self, h=96, layers=3, heads=4, cf_layers=1, direct=True, n_legs=N_LEGS, quantiles=QUANTILES):
+    def __init__(self, h=96, layers=3, heads=4, cf_layers=1, direct=True, n_legs=N_LEGS, quantiles=QUANTILES,
+                 n_types=0):
         super().__init__()
         self.h = h
+        self.n_types = n_types
+        if n_types:                     # observable module type (mecanum 0 / conventional 1 / omni 2), zero-initialised
+            self.type_tok = nn.Embedding(n_types, h)
+            nn.init.zeros_(self.type_tok.weight)
         self.wheel_tcn = TCN(3, h)
         self.asm_tcn = TCN(6, h)
         self.geom = mlp(GEOM_DIM, h, h)
@@ -106,11 +111,14 @@ class MorphPosterior(nn.Module):
             self.cf_out = mlp(2 * h, h, len(quantiles))
 
     # ------------------------------------------------------------------ encoder
-    def encode(self, wf, af, geom, mask):
-        """wf (B,T,n,3), af (B,T,6), geom (B,n,G), mask (B,n) bool -> wheel tokens (B,n,h), assembly token (B,h)."""
+    def encode(self, wf, af, geom, mask, wtype=None):
+        """wf (B,T,n,3), af (B,T,6), geom (B,n,G), mask (B,n) bool[, wtype (B,n) long] -> wheel tokens (B,n,h),
+        assembly token (B,h)."""
         B, T, n, _ = wf.shape
         x = wf.permute(0, 2, 3, 1).reshape(B * n, 3, T)
         tw = self.wheel_tcn(x).reshape(B, n, -1) + self.geom(geom) + self.type_emb[0]
+        if self.n_types and wtype is not None:
+            tw = tw + self.type_tok(wtype.clamp(0, self.n_types - 1))
         ta = self.asm_tcn(af.permute(0, 2, 1)) + self.type_emb[1]
         tok = torch.cat([ta[:, None], tw], 1)
         pad = torch.cat([torch.zeros(B, 1, dtype=torch.bool, device=mask.device), ~mask], 1)
@@ -133,12 +141,14 @@ class MorphPosterior(nn.Module):
         nu = self.nuis_head(torch.cat([zm, za[:, None].expand_as(zm)], -1))
         return logits, ab, nu
 
-    def counterfactual(self, zw, member, cgeom, za=None):
+    def counterfactual(self, zw, member, cgeom, za=None, ctype=None):
         """Direct head. zw (B,n,h) wheel tokens (any token set, e.g. two parents concatenated for a merge),
         member (B,C,n) bool: wheels in candidate c, cgeom (B,C,n,G): wheel geometry in the candidate's frame.
         -> rho_rel quantiles (B,C,L,Q), non-decreasing in Q."""
         B, C, n = member.shape
         x = zw[:, None].expand(B, C, n, self.h) + self.cf_geom(cgeom)
+        if ctype is not None and self.n_types:
+            x = x + self.type_tok(ctype.clamp(0, self.n_types - 1))
         x = x.reshape(B * C, n, self.h)
         m = member.reshape(B * C, n)
         x = self.cf_enc(x, src_key_padding_mask=~m)
@@ -151,8 +161,8 @@ class MorphPosterior(nn.Module):
         out = torch.cat([base, base + torch.cumsum(inc, -1)], -1)
         return out.reshape(B, C, -1, len(self.quantiles))
 
-    def forward(self, wf, af, geom, wm, mask, n_mod, member=None, cgeom=None):
-        zw, za = self.encode(wf, af, geom, mask)
+    def forward(self, wf, af, geom, wm, mask, n_mod, member=None, cgeom=None, wtype=None):
+        zw, za = self.encode(wf, af, geom, mask, wtype)
         logits, ab, nu = self.latent_heads(zw, za, wm, mask, n_mod)
         out = dict(logits=logits, ab=ab, nuis=nu)
         if self.direct and member is not None:

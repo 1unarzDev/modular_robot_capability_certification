@@ -131,6 +131,8 @@ class GenSet:
         self.cmd = t(D["obs_v2_cmd"]).float()                                 # (A, T, 3)
         self.imu = t(D["obs_v2_imu"]).float()                                 # (A, T, 3)
         self.mode = t(D["wheel_mode"], torch.long)
+        mt = D["mod_type"] if "mod_type" in D else np.zeros(int(mo[-1]), np.int8)
+        self.wtype = t(np.repeat(mt, 4), torch.long)                               # observable module type per wheel
         self.g = t(D["wheel_g"])
         dom = D["ep_dom"]
         K = {k: i for i, k in enumerate(E.DOM_KEYS)}
@@ -221,6 +223,7 @@ class GenSet:
         mod_valid = np.arange(mmax)[None, :] < self.asm_m[asms][:, None]
         mrt = torch.as_tensor(np.where(mod_valid, mod_rows, 0), device=dev)
         b = dict(wf=wf, af=af, geom=self.geom[rows_t] * mask[..., None], wm=torch.where(mask, self.wmod[rows_t], 0),
+                 wtype=torch.where(mask, self.wtype[rows_t], 0),
                  mask=mask, n_mod=mmax, mode=torch.where(mask, self.mode[rows_t], 0), g=self.g[rows_t],
                  nuis=self.nuis[mrt], mod_mask=torch.as_tensor(mod_valid, device=dev).float(), asms=asms, cands=cands)
         # candidate tokens: global wheel row -> flat position (assembly in batch, local wheel)
@@ -241,7 +244,7 @@ class GenSet:
 def forward(model, b):
     """Model outputs for a GenSet batch: per-wheel / per-module heads on the assemblies, direct-head quantiles for
     every candidate (tokens gathered across assemblies, so merges see both parents)."""
-    zw, za = model.encode(b["wf"], b["af"], b["geom"], b["mask"])
+    zw, za = model.encode(b["wf"], b["af"], b["geom"], b["mask"], b.get("wtype"))
     logits, ab, nu = model.latent_heads(zw, za, b["wm"], b["mask"], b["n_mod"])
     out = dict(logits=logits, ab=ab, nuis=nu)
     if len(b["cands"]):

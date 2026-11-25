@@ -35,18 +35,26 @@ def add_args(p):
     p.add_argument("--compose-every", type=int, default=1)
     p.add_argument("--compose-select", default="st-n6-1", help="models that also run the compositional route")
     p.add_argument("--plate", default="plated")
+    p.add_argument("--reserve-shard0", action="store_true",
+                   help="shard 0 gets no units (the confirmatory scorer excludes shard 0, the canary's)")
+    p.add_argument("--blind-splits", default="het_cal,het_test,H1,H2,conf_het_test,conf_H1,conf_H2",
+                   help="splits where the compositional route also runs type-blind (module type withheld)")
 
 
 def _items(a):
+    """--splits name:n (indices 0..n-1) or name:lo:hi, comma separated."""
     out = []
     for s in a.splits.split(","):
-        name, n = s.split(":")
-        out += chunk_units(name, range(0, int(n)), a.per_unit)
+        f = s.split(":")
+        lo, hi = (0, int(f[1])) if len(f) == 2 else (int(f[1]), int(f[2]))
+        out += chunk_units(f[0], range(lo, hi), a.per_unit)
     return out
 
 
 def units(a, shard, n_shards):
     it = _items(a)
+    if a.reserve_shard0 and n_shards > 1:
+        return [] if shard == 0 else [it[i] for i in shard_range(len(it), shard - 1, n_shards - 1)]
     return [it[i] for i in shard_range(len(it), shard, n_shards)]
 
 
@@ -101,7 +109,7 @@ def run_unit(unit, ctx):
     from cfcap.models import posterior as M
     from cfcap.models import train as TR
     a = ctx.args
-    split = unit.split("-")[0]
+    split = unit.rsplit("-", 2)[0]
     idx = list(parse_chunk(unit))
     if split not in E.SPLITS:
         raise InputMissing(f"split {split!r} is not in this generator version ({sorted(E.SPLITS)})")
@@ -123,12 +131,14 @@ def run_unit(unit, ctx):
                 parent_topo=np.repeat(D["asm_topo"][D["ep_asm_off"][:-1]][ce], L),
                 leg=np.tile(np.arange(L), gs.C), truth=D["cand_rho_dec"].reshape(-1),
                 truth_rel=D["cand_rho_rel"].reshape(-1))
+    blind = split in a.blind_splits.split(",")
     cols = {k: [] for k in list(base) + ["model"] + list(QCOLS) + ["c" + q for q in QCOLS] +
-            ["sec_direct", "sec_comp", "sec_gen"]}
+            ["b" + q for q in QCOLS] + ["sec_direct", "sec_comp", "sec_gen", "shard"]}
     for mi, (tag, (model, cfg)) in enumerate(models.items()):
         bb = TR.ARCHS[cfg["arch"]].get("blackbox")
         cf = np.full((gs.C, L, 5), np.nan, np.float32)
         comp = np.full((gs.C, L, 5), np.nan, np.float32)
+        compb = np.full((gs.C, L, 5), np.nan, np.float32)
         s_dir = np.full(gs.E, np.nan)
         s_comp = np.full(gs.E, np.nan)
         for e in range(gs.E):
@@ -166,6 +176,10 @@ def run_unit(unit, ctx):
             s_comp[e] = time.perf_counter() - t1
             for c, (qq, _) in zip(cs, res):
                 comp[c] = qq
+            if blind:                       # module type withheld: every wheel composed as mecanum
+                jb = [(ca, {k: v for k, v in lat.items() if k != "wtype"}) for ca, lat in jobs]
+                for c, (qq, _) in zip(cs, CO.compositional_quantiles(jb, par, ref=gs.ref[cs])):
+                    compb[c] = qq
             ctx.progress((mi * gs.E + e + 1) / (len(models) * gs.E), f"{tag}")
         for k, v in base.items():
             cols[k].append(v)
@@ -173,9 +187,11 @@ def run_unit(unit, ctx):
         for k, qn in enumerate(QCOLS):
             cols[qn].append(cf[..., k].reshape(-1))
             cols["c" + qn].append(comp[..., k].reshape(-1))
+            cols["b" + qn].append(compb[..., k].reshape(-1))
         cols["sec_direct"].append(np.repeat(s_dir[ce], L))
         cols["sec_comp"].append(np.repeat(s_comp[ce], L))
         cols["sec_gen"].append(np.full(gs.C * L, sec_gen))
+        cols["shard"].append(np.full(gs.C * L, ctx.runner.args.shard))
         ctx.meta[f"{tag}/sec_direct_median"] = float(np.nanmedian(s_dir))
         if np.isfinite(s_comp).any():
             ctx.meta[f"{tag}/sec_comp_median"] = float(np.nanmedian(s_comp))

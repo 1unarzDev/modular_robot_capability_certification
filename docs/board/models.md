@@ -3,8 +3,10 @@
 **Status:** the pilot is done (own T1 data, ρ_rel label, local 4070).
 - Stage B training, `scripts/campaigns/models_b1.json`: 48 jobs plus a canary, 43.2 box-h, $7.78. Emitted and
   validated; not submitted yet.
-- Stage 2 eval, extension and T2, `scripts/campaigns/models_eval2.json`: 32 jobs plus canaries, 7.9 box-h, $1.42.
-  Validated; it needs the b1 outputs before it can run, and the extension also needs the generator's new splits.
+- Stage 2, `scripts/campaigns/models_eval2.json`: exploratory evals, H4b, het, the confirmatory rows and T2. 70 jobs
+  plus canaries, 17.7 box-h, $3.19. Validated; it needs the b1 and het weights before it can run.
+- Heterogeneous-module training, `scripts/campaigns/models_het.json`: 4 jobs, 3.6 box-h, $0.65. Validated and
+  submittable now.
 
 ## Model (`cfcap/models/posterior.py`)
 - **Architecture.** A set transformer over wheel tokens. Defaults: h = 96, 3 pre-norm layers, 0.97 M parameters,
@@ -143,23 +145,32 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - **Export.** `dec_models.csv.gz` with `seconds` = end-to-end, keyed by `eid`/`cand`/`leg`, so it joins the
     baselines on eid. Also `latency_models.csv` (`end_to_end` = 1, hardware = GPU name), and the T1-cal constants
     `results/models/calib/calib_<tag>.json`.
-- **models-eval2-ext** (plan §2b/§2c; 14 jobs, 2.9 box-h, $0.52).
-  - It runs the same task on the generator's new splits: H4b (11–16 modules), H1 (an unseen module type), H2 (unseen
-    type combinations) and the confirmatory split. The models were trained on mecanum modules only, ≤ 6 per assembly.
-  - The split names are placeholders until `docs/board/generator.md` defines them. The task exits 3 on a missing
-    split, and `conf` must be renamed to the generator's name for the confirmatory split.
-  - Module types enter the direct model only through wheel geometry, via `gendata._build` when the generator carries
-    `mod_type`.
-  - The compositional route now builds candidate latents on the generator's own plant latents
-    (`compose.sample_from_episode`). Module-type physics is kept, and the unknown domain, motor spread, yaw errors and
-    faults are replaced by prior or posterior draws. This is the test of whether composition degrades less than the
-    direct head on H1/H2.
-  - `scripts/models_scaling.py` writes `results/models/paper/scaling.csv`, from the test, H4 and H4b rows plus the
-    per-split rows:
-    - coverage, conformal entry coverage, certified fraction and unsafe commit, against parent N = 1…16 and per
-      split;
-    - direct vs compositional, overall and on the decision-relevant stratum;
-    - episode-bootstrap 95 % CIs (B = 1000).
+- **Broadening and confirmatory** (plan §2b/§2c, docs/CONFIRMATORY.md; split names from generator schema v3).
+  - **models-eval2-scale**: st/bb n6 on H4b (11–16 modules); 6 jobs, 0.9 box-h.
+  - **models-eval2-het**: the het models on het_cal (their cal), het_test, H1 (omni) and H2 (mixed). The compositional
+    route also runs type-blind there (`bq*` columns); 12 jobs, 3.3 box-h.
+  - **models-conf-main-scale**: confirmatory rows for C-MAIN (conf_test 40–3039) and C-SCALE (conf_H4 0–1499,
+    conf_H4b 0–1399) from st-n6-1 and bb-n6-1; 21 jobs, 4.4 box-h.
+  - **models-conf-het**: confirmatory rows for C-HET (conf_het_test, conf_H1, conf_H2, 0–999 each); 13 jobs, 4.2 box-h.
+  - Both confirmatory groups use `--reserve-shard0`, so shard 0, which the scorer excludes, holds no rows.
+- **Confirmatory labels stay closed until 2026-11-26 01:45Z.** `models_export.py` and `models_scaling.py` drop
+  `conf_*` splits. `models_export.py --confirmatory` refuses to run before then.
+  - After 01:45Z it writes `results/models/confirmatory/dec_conf_models.csv.gz` with the §5a columns plus `claim`,
+    `shard`, `parent_n`, `variant` and `lower_marg`.
+  - `truth` is ρ_dec with the fixed T1 reference, from the generator's columns.
+  - The exploratory cal rows carry `split = cal` and `status = exploratory`: `cal` for C-MAIN and C-SCALE, `het_cal`
+    for C-HET.
+  - Method names: `amortized_comp`, `amortized_comp_blind`, `st_direct` and `blackbox_gnn`.
+- **C-HET models** (`scripts/campaigns/models_het.json`, grid `het`; 4 jobs, 3.6 box-h, $0.65).
+  - The generator's `het_train` only. `sth` is the set transformer with a zero-initialised module-type embedding
+    (type is observable metadata). `bbh` is its black-box twin.
+  - Composition takes the true per-wheel type from the generator's plant latents (`compose.sample_from_episode`); the
+    blind variant drops `wtype`.
+  - It must finish before models-eval2-het and models-conf-het, and its weights must be staged with the b1 weights.
+- `scripts/models_scaling.py` writes `results/models/paper/scaling.csv`, from the test, H4, H4b and per-split rows:
+  - coverage, conformal entry coverage, certified fraction and unsafe commit, against N = 1…16 and per split;
+  - direct vs compositional, overall and on the decision-relevant stratum;
+  - episode-bootstrap 95 % CIs.
 - **models-t2** (stage 3; 8 jobs, 2.1 box-h, $0.37).
   - Runs stress's `t2_eval --mode evaluate --predictor cfcap.models.predict:predict` on the T2 test episodes. It uses
     st-n6-1's weights plus `calib.json` (T1 cal only).
@@ -174,8 +185,7 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
 - **stress:** T2 evaluation of the pulled `weights.pt` (stage 2).
 - **baselines:** SMC and capxfer on the same generator eids (cal 0–1999, test 0–1999). Also a matched-compute SMC whose
   wall budget per decision equals our median `sec_comp` (from models-eval2).
-- **generator:** the split names and the `mod_type` column (with `episode.build(..., types=)`) for H4b, H1, H2 and
-  the confirmatory split.
+- **generator:** none now. Schema v3 split names and `mod_type` are wired in.
 - **stress:** T2 simulate outputs staged at `$CFCAP_OUT/compute/stage2/b1-t2eps` for models-t2.
 - **paper:** filter by `stratum` if `strata/` is used.
 

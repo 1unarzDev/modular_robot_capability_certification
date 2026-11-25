@@ -39,6 +39,8 @@ ARCHS = {
     "stl": dict(h=128, layers=4),                # larger set transformer
     "ds": dict(h=96, layers=0),                  # DeepSets ablation (capxfer-like pooled context)
     "bb": dict(h=96, layers=3, blackbox=True),   # black-box direct counterfactual only (cf loss only)
+    "sth": dict(h=96, layers=3, n_types=3),      # set transformer told the module type (heterogeneous modules)
+    "bbh": dict(h=96, layers=3, n_types=3, blackbox=True),
 }
 # Training diversity = parent filter on the generator's train split (max parent modules, allowed topologies).
 DIVERSITY = {
@@ -47,6 +49,9 @@ DIVERSITY = {
     "n4": dict(max_n=4),
     "n6c": dict(max_n=6, topologies=("single", "chain", "grid")),
     "n6": dict(max_n=6),
+    # heterogeneous module types (plan 2c / C-HET): the generator's het_train split (single-type assemblies,
+    # mecanum or conventional), evaluated on het_cal / het_test / H1 (omni) / H2 (mixed)
+    "het": dict(max_n=6, split="het_train", eval=("het_cal", "het_test", "H1", "H2")),
 }
 EVAL_SPLITS = ("cal", "test", "H3", "H4")
 QCOLS = ("q05", "q25", "q50", "q75", "q95")
@@ -62,6 +67,9 @@ def grid(name):
                     out.append(dict(arch=arch, div=div, seed=seed))
             out.append(dict(arch="stl", div="n6", seed=seed))
         return out
+    if name == "het":
+        return [dict(arch=a, div="het", seed=s) for s in (1, 2, 3) for a in ("sth",)] + [dict(arch="bbh", div="het",
+                                                                                               seed=1)]
     if name == "smoke":
         return [dict(arch="st", div="n4", seed=1), dict(arch="bb", div="n2", seed=1)]
     raise ValueError(f"unknown grid {name}")
@@ -79,13 +87,22 @@ def parent_ok(div, split, index):
     from cfcap.gen import episode as E
     from cfcap.gen import families as F
     d = DIVERSITY[div]
+    split = d.get("split", split)
     rule = E.RULES[split]
     sh = F.sample_shape(E.episode_rng(PLATE, split, index), rule.parent_size_w, rule.parent_split)
     return len(sh) <= d["max_n"] and (d.get("topologies") is None or F.topology(sh) in d["topologies"])
 
 
+def train_split(div):
+    return DIVERSITY[div].get("split", "train")
+
+
+def eval_splits(div):
+    return DIVERSITY[div].get("eval", EVAL_SPLITS)
+
+
 def train_indices(div, chunk, n, stride=10_000_000):
-    """The first n train-split indices of chunk `chunk`'s index block that pass the diversity filter."""
+    """The first n training-split indices of chunk `chunk`'s index block that pass the diversity filter."""
     out, i = [], chunk * stride
     while len(out) < n and i < (chunk + 1) * stride:
         if parent_ok(div, "train", i):
@@ -119,7 +136,7 @@ def units(args, shard, n_shards):
         raise ValueError(f"grid {args.grid} has {len(g)} entries; shard {shard} / n_shards {n_shards} out of range")
     if args.smoke:
         return ["smoke"]
-    return [f"train-{i:02d}" for i in range(args.chunks)] + [f"eval-{s}" for s in EVAL_SPLITS]
+    return [f"train-{i:02d}" for i in range(args.chunks)] + [f"eval-{s}" for s in eval_splits(g[shard]["div"])]
 
 
 def _cfg(ctx):
@@ -129,7 +146,7 @@ def _cfg(ctx):
 def build_model(cfg):
     from cfcap.models import posterior as M
     a = ARCHS[cfg["arch"]]
-    return M.MorphPosterior(h=a["h"], layers=a["layers"], direct=True)
+    return M.MorphPosterior(h=a["h"], layers=a["layers"], direct=True, n_types=a.get("n_types", 0))
 
 
 def loss_weights(cfg):
@@ -153,7 +170,7 @@ def pool(div, chunk, n_max, cand_cap, n_exact=None, time_budget=None, log=None):
     key = (div, chunk)
     if key not in _POOLS:
         idx = train_indices(div, chunk, n_exact or n_max)
-        gs, st = make_set("train", idx, log, cand_cap, None if n_exact else time_budget)
+        gs, st = make_set(train_split(div), idx, log, cand_cap, None if n_exact else time_budget)
         _POOLS[key] = gs
     return _POOLS[key]
 
@@ -178,7 +195,7 @@ def run_unit(unit, ctx):
         ctx.args.chunks = 1
         m = dict(_train_chunk(0, ctx) and ctx.meta)
         out = None
-        for s in EVAL_SPLITS:
+        for s in eval_splits(_cfg(ctx)["div"]):
             ctx.meta = {}
             out = _eval(s, ctx)
             m.update({f"{s}/{k}": v for k, v in ctx.meta.items()})
@@ -296,7 +313,7 @@ def _eval(split, ctx):
     model = build_model(cfg).cuda()
     model.load_state_dict(ck["model"])
     model.eval()
-    if split == "cal":
+    if split in ("cal", "het_cal"):
         ctx.meta["weights_mb"] = round(_save(ctx.out_dir / "weights.pt",
                                              dict(state=model.state_dict(), cfg=cfg, arch=ARCHS[cfg["arch"]])) / 2 ** 20,
                                        2)
@@ -338,8 +355,8 @@ def _eval(split, ctx):
     # compositional route (posterior samples -> T1 rollouts of each candidate), cal/test, first compose_n episodes
     comp = np.full((gs.C, 10, 5), np.nan, np.float32)
     comp_s = np.full(gs.E, np.nan)
-    if split in ("cal", "test") and a.compose_n > 0 and not ARCHS[cfg["arch"]].get("blackbox"):
-        comp, comp_s = _compose(gs, post, a.compose_n, a.compose_S, ctx)
+    if split in ("cal", "test", "het_cal", "het_test") and a.compose_n > 0 and not ARCHS[cfg["arch"]].get("blackbox"):
+        comp, comp_s = _compose(gs, post, a.compose_n, a.compose_S, ctx, split)
     # rows: one per (episode, candidate, leg)
     L = 10
     cf = post["cf"].cpu().numpy()
@@ -374,7 +391,7 @@ def _eval(split, ctx):
     return out
 
 
-def _compose(gs, post, n_ep, S, ctx):
+def _compose(gs, post, n_ep, S, ctx, split):
     import torch
     from cfcap.gen import episode as E
     from cfcap.models import compose as CO
@@ -390,17 +407,13 @@ def _compose(gs, post, n_ep, S, ctx):
         jobs, idx = [], []
         t0 = time.time()
         for e in range(e0, min(e0 + 25, n_ep, gs.E)):
-            for c in gs.ep_cand[e]:
+            ep = E.make_episode(PLATE, split, int(D["ep_index"][e]))
+            for ci, c in enumerate(gs.ep_cand[e]):
                 k0, k1 = D["cand_cm_off"][c:c + 2]
                 mods = D["cm_mod"][k0:k1]
-                ca = E.build("cand", D["cm_cell"][k0:k1], D["cm_yaw"][k0:k1], ["M1"] * len(mods), PLATE)
                 widx = (4 * mods[:, None] + np.arange(4)).reshape(-1)
-                lat = CO.sample_child_latents(ca, widx, post, S, rng, dr, mods=list(mods))
-                pm = D["cand_payload"][c]
-                if pm[0] > 0:
-                    f = lambda v: torch.full((S,), float(v), device="cuda")
-                    lat["payload"] = dict(mass=f(pm[0]), x=f(pm[1]), y=f(pm[2]))
-                jobs.append((ca, lat))
+                cd = ep.cands[ci]
+                jobs.append((cd.asm, CO.sample_from_episode(ep, cd, post, widx, list(mods), S, rng, dr)))
                 idx.append(c)
         res = CO.compositional_quantiles(jobs, par, ref=gs.ref[idx])
         dt = time.time() - t0

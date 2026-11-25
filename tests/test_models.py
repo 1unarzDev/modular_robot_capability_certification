@@ -141,11 +141,17 @@ def test_deepsets_equivariance(square):
 
 def test_train_task_grid_and_filters():
     import argparse
+    pytest.importorskip("cfcap.gen.episode")
     from cfcap.gen import episode as E
     from cfcap.models import train as TR
     g = TR.grid("b1")
     assert len(g) == len({(c["arch"], c["div"], c["seed"]) for c in g})          # no duplicate runs
-    assert {c["arch"] for c in g} == set(TR.ARCHS) and {c["div"] for c in g} == set(TR.DIVERSITY)
+    assert {c["arch"] for c in g} == {"st", "stl", "bb", "ds"} and {c["div"] for c in g} == set(TR.DIVERSITY) - {"het"}
+    gh = TR.grid("het")
+    assert {c["div"] for c in gh} == {"het"} and TR.units(argparse.Namespace(grid="het", chunks=2, smoke=False), 0,
+                                                       len(gh))[-4:] == ["eval-het_cal", "eval-het_test", "eval-H1",
+                                                                         "eval-H2"]
+    assert TR.train_split("het") == "het_train" and TR.parent_ok("het", "train", 0) in (True, False)
     p = argparse.ArgumentParser()
     TR.add_args(p)
     a = p.parse_args([])
@@ -282,3 +288,40 @@ def test_scaling_curve(tmp_path):
     assert set(s.route) == {"direct_sim", "compositional"} and {"test", "H4b"} <= set(s.split)
     assert ((s.lo <= s.value + 1e-9) & (s.value <= s.hi + 1e-9)).all()
     assert "12" in set(s.test_n.astype(str))
+
+
+def test_confirmatory_export_guard_and_columns(tmp_path):
+    import json
+    import subprocess
+    import sys
+    import pandas as pd
+    rng = np.random.default_rng(3)
+    d = tmp_path / "e2"
+    (d / "units").mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=1, task_argv=[])))
+    for split, eid0 in (("cal", 0), ("conf_test", 30), ("conf_H4b", 0)):
+        f = _fake_eval(rng, eid0=eid0)
+        k = len(f["eid"])
+        f.update(model=np.zeros(k, int), sec_direct=np.full(k, 0.01, np.float32), sec_comp=np.ones(k, np.float32),
+                 sec_gen=np.zeros(k, np.float32), shard=np.ones(k, np.int64))
+        for q in ("q05", "q25", "q50", "q75", "q95"):
+            f["b" + q] = f["c" + q]
+        u = f"{split}-0000000-0000030"
+        np.savez(d / "units" / f"{u}.npz", **f)
+        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1"))))
+    cmd = [sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(tmp_path / "p"), "--calib-out",
+           str(tmp_path / "c"), "--confirmatory", "--conf-out", str(tmp_path / "conf.csv.gz")]
+    import datetime as dt
+    if dt.datetime.now(dt.timezone.utc) < dt.datetime(2026, 11, 26, 1, 45, tzinfo=dt.timezone.utc):
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        assert r.returncode != 0 and "closed" in (r.stderr + r.stdout)
+    r = subprocess.run(cmd + ["--allow-early"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    c = pd.read_csv(tmp_path / "conf.csv.gz")
+    for col in ("claim", "shard", "parent_n", "truth", "lower", "lower_marg", "method", "split", "status", "eid"):
+        assert col in c.columns
+    assert set(c.claim) == {"C-MAIN", "C-SCALE"}
+    main = c[(c.claim == "C-MAIN") & (c.split != "cal")]
+    assert main.eid.min() >= 40 and (main.status == "confirmatory").all()
+    assert (c[c.split == "cal"].status == "exploratory").all()
+    p = pd.read_csv(tmp_path / "p" / "latency_models.csv") if (tmp_path / "p" / "latency_models.csv").exists() else None

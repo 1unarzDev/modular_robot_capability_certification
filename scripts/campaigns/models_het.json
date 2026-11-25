@@ -1,0 +1,63 @@
+{
+ "campaign": "cfcap-models-het",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the 4 heterogeneous-module training runs (grid het: sth x seeds 1-3, bbh x seed 1) or at the owner's daily cap.",
+ "_doc": "Role models, plan \u00a72c / CONFIRMATORY C-HET (models trained on het_train only). Same task and chunk budget as cfcap-models-b1 (cfcap/models/train.py:TASK, grid het): generator split het_train (single-type assemblies, mecanum or conventional, schema v3 mod_type), arch sth = set transformer with a zero-initialised module-type embedding on every wheel token (type is observable metadata), bbh = its black-box direct-only twin; train-split diversity n6-like (parents <= 6). Eval units: het_cal, het_test, H1 (omni parent), H2 (mixed mecanum + conventional). The compositional route uses the generator's own plant latents (compose.sample_from_episode), so the per-wheel channel model carries the true module type. unit_s as models_b1 (time-budgeted chunks; eval units estimated).",
+ "groups": [
+  {
+   "name": "models-het-train",
+   "task": "train",
+   "stage": 1,
+   "lane": "rented",
+   "profile": "torch",
+   "shards": 4,
+   "units_per_shard": 12,
+   "unit_s": 260,
+   "overhead_s": 120,
+   "vram_gb": 8,
+   "priority": 12,
+   "seed": 0,
+   "task_args": [
+    "--grid",
+    "het",
+    "--chunks",
+    "8",
+    "--gen-s",
+    "120",
+    "--train-s",
+    "120",
+    "--buffer",
+    "4",
+    "--max-cand",
+    "8",
+    "--eval-n",
+    "300",
+    "--compose-n",
+    "100",
+    "--compose-S",
+    "16"
+   ],
+   "canary_task_args": [
+    "--grid",
+    "het",
+    "--smoke",
+    "--gen-s",
+    "20",
+    "--train-s",
+    "20",
+    "--eval-n",
+    "12",
+    "--compose-n",
+    "4",
+    "--compose-S",
+    "4"
+   ],
+   "canary_est_s": 420,
+   "pilot": "local 4070 Ti SUPER (shared, GPU at 99 % from other roles): python -m cfcap.runner train --grid smoke --chunks 2 --steps 200 --pool 200 ($CFCAP_OUT/runs/train/smoke/units/train-0*.json): generator episodes with all candidates 0.80 s/episode (160 s / 200), training 5.8 steps/s at 1536 wheels/step, peak VRAM 1.3 GB; own-data pilot (scripts/models_pilot_train.py, uncontended) 35 steps/s, 6.6k episodes/s, weights 3.9 MB. Chunks are now wall-time budgeted (gen 120 s + train 120 s), so unit_s for training units is fixed by construction; eval units are estimates.",
+   "role": "models",
+   "purpose": "Train the heterogeneous-module amortized capability models (set transformer told the module type, 3 seeds, plus a black-box direct model) on the generator's het_train split for the module-type claim, then evaluate them on het_cal, het_test, H1 and H2."
+  }
+ ]
+}

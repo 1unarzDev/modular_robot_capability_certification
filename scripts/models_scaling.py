@@ -73,6 +73,8 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "results/models/paper/scaling.csv"))
     a = ap.parse_args()
     e2 = X.load_eval2(a.roots)
+    # confirmatory splits stay closed here (they are scored only by scripts/analysis/confirmatory.py after 01:45Z)
+    e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
     rows = []
     for tag in a.tags.split(","):
         by = e2.get(tag)

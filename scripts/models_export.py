@@ -153,7 +153,7 @@ def load_eval2(roots):
                 tags = str(meta.get("models", "")).split(",")
                 with np.load(f) as z:
                     df = pd.DataFrame({k: z[k] for k in z.files})
-                split = f.stem.split("-")[0]
+                split = f.stem.rsplit("-", 2)[0]
                 for mi, g in df.groupby("model"):
                     parts.setdefault(tags[int(mi)], {}).setdefault(split, []).append(
                         g.drop(columns="model").assign(_hw=meta.get("hardware", "")))
@@ -203,6 +203,73 @@ def headline_from_eval2(e2, status, calib_out=None):
     return dec, lat
 
 
+# ------------------------------------------------------------------ confirmatory (docs/board/paper.md §5a)
+CONF_OPEN = "2026-11-26T01:45:00Z"
+CLAIM_OF = {"conf_test": "C-MAIN", "conf_H4": "C-SCALE", "conf_H4b": "C-SCALE", "conf_het_test": "C-HET",
+            "conf_H1": "C-HET", "conf_H2": "C-HET"}
+CAL_OF = {"C-MAIN": "cal", "C-SCALE": "cal", "C-HET": "het_cal"}
+# (claim, method) -> (model tag, quantile column prefix: "" direct, "c" compositional, "b" type-blind compositional)
+CONF_METHODS = {
+    ("C-MAIN", "amortized_comp"): ("st-n6-1", "c"),
+    ("C-SCALE", "amortized_comp"): ("st-n6-1", "c"), ("C-SCALE", "st_direct"): ("st-n6-1", ""),
+    ("C-SCALE", "blackbox_gnn"): ("bb-n6-1", ""),
+    ("C-HET", "amortized_comp"): ("sth-het-1", "c"), ("C-HET", "amortized_comp_blind"): ("sth-het-1", "b"),
+    ("C-HET", "st_direct"): ("sth-het-1", ""), ("C-HET", "blackbox_gnn"): ("bbh-het-1", ""),
+}
+
+
+def _qfn(prefix):
+    return lambda df: (df[prefix + "q50"].to_numpy(float),
+                       np.maximum(df[prefix + "q50"] - df[prefix + "q05"], 1e-3).to_numpy(float))
+
+
+def confirmatory_rows(e2, now=None, allow_early=False):
+    """dec_conf_models rows: per (claim, method) the T1-cal (exploratory) rows and the conf_* rows with lower
+    (simultaneous) and lower_marg (marginal), fixed-T1-reference rho_dec truth, claim, shard, parent_n, variant."""
+    import datetime as dt
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if not allow_early and now < dt.datetime(2026, 11, 26, 1, 45, tzinfo=dt.timezone.utc):
+        raise SystemExit(f"confirmatory labels stay closed until {CONF_OPEN} (now {now:%Y-%m-%dT%H:%MZ})")
+    out = []
+    for (claim, method), (tag, pre) in CONF_METHODS.items():
+        by = e2.get(tag)
+        cal_split = CAL_OF[claim]
+        if not by or cal_split not in by:
+            print(f"confirmatory: {claim}/{method}: no {tag} {cal_split} rows, skipped")
+            continue
+        tests = [(s, df) for s, df in by.items() if CLAIM_OF.get(s) == claim]
+        if claim == "C-MAIN":
+            tests = [(s, df[(df.eid >= 40) & (df.eid < 3040)]) for s, df in tests]
+        if not tests:
+            continue
+        cal = by[cal_split]
+        fn = _qfn(pre)
+        if not np.isfinite(fn(cal)[0]).any():
+            continue
+        evs = [("cal", cal)] + tests
+        sim_lo, q = lowers(cal, [df for _, df in evs], fn, "simultaneous")
+        mar_lo, _ = lowers(cal, [df for _, df in evs], fn, "marginal")
+        secs = (lambda split, df: df.sec_comp.to_numpy()) if pre else (lambda split, df: df.sec_direct.to_numpy())
+        for (split, df), lo, lm in zip(evs, sim_lo, mar_lo):
+            p_, s_ = fn(df)
+            keep = np.isfinite(p_)
+            d = df[keep]
+            st = "exploratory" if split == "cal" else "confirmatory"
+            out.append(pd.DataFrame(dict(
+                claim=claim, method=method, variant=f"{tag}:{'comp' if pre == 'c' else 'comp_blind' if pre == 'b' else 'direct'}"
+                                                    f"+simultaneous(q={q:.3f})",
+                route="compositional" if pre else "simultaneous", posterior="amortized", train="T1", test_plant="T1",
+                split=split, status=st, eid=d.eid.to_numpy(), shard=d["shard"].to_numpy() if "shard" in d else -1,
+                shape=[shape_name(t, n) for t, n in zip(d.parent_topo, d.parent_n)], parent_n=d.parent_n.to_numpy(),
+                family=d.cand_family.to_numpy(), cand=d.cand.to_numpy(), kind=d.kind.map(KIND).to_numpy(),
+                cand_size=d.cand_size.to_numpy(), has_fault=d.has_fault.to_numpy(), leg=d.leg.to_numpy(),
+                truth=d.truth.to_numpy(), point=p_[keep], scale=s_[keep],
+                lower=np.where(np.isfinite(lo[keep]), lo[keep], -np.inf),
+                lower_marg=np.where(np.isfinite(lm[keep]), lm[keep], -np.inf), alpha=ALPHA,
+                seconds=secs(split, d))))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("roots", nargs="+")
@@ -212,6 +279,10 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "results/models/paper"))
     ap.add_argument("--stage-weights", default=None,
                     help="also copy each train run's manifest.json + weights.pt to DIR/<arch>-<div>-<seed>/ (stage-2 input)")
+    ap.add_argument("--confirmatory", action="store_true",
+                    help="write results/models/confirmatory/dec_conf_models.csv.gz (refused before 2026-11-26 01:45Z)")
+    ap.add_argument("--allow-early", action="store_true", help="(mock data only) skip the 01:45Z guard")
+    ap.add_argument("--conf-out", default=str(ROOT / "results/models/confirmatory/dec_conf_models.csv.gz"))
     ap.add_argument("--calib-out", default=str(ROOT / "results/models/calib"),
                     help="T1-cal conformal constants per stage-2 model (calib_<tag>.json, for cfcap.models.predict)")
     a = ap.parse_args()
@@ -317,6 +388,16 @@ def main():
         dec += dec_rows("ensemble", "simultaneous", "amortized", base, e_lo, direct,
                         lambda s, df: np.full(len(df), np.nan), a.status)
     e2 = load_eval2(a.roots)
+    if a.confirmatory:
+        rows = confirmatory_rows(e2, allow_early=a.allow_early)
+        f = pathlib.Path(a.conf_out)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        if rows:
+            pd.concat(rows).to_csv(f, index=False)
+        print(f"confirmatory rows {sum(len(r) for r in rows)} -> {f}")
+        e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
+    else:                                   # never look at confirmatory rows in the exploratory export
+        e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
     if e2:                                  # stage-2 (same eids, end-to-end timing) supersedes the train-run rows
         print(f"stage-2 evaluations: {sorted(e2)}")
         dec2, lat2 = headline_from_eval2(e2, a.status, a.calib_out)
