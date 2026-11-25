@@ -202,7 +202,6 @@ Either failing is reported as a failure of the learned method's claim, not tuned
     - `cfBH`: conformal selection at FDR 0.1 on enum_known. Its lower is the largest τ at which the entry was
       selected, or −inf;
     - `oracle`;
-    - `nuisance_smc`: the first 200 indices, separate plan.
   - **C-SCALE:** `capxfer`, `metadata_nf`.
   - **C-HET:** `metadata_nf`.
   - **Not produced here:** `raw` (amortized posterior, q = 0, which is models') and `dominance_pi` (theory).
@@ -212,16 +211,16 @@ Either failing is reported as a failure of the learned method's claim, not tuned
 - **Shard 0 is unscored by the scorer**, so every test group's shard 0 is a sacrificial block:
   - conf-main: exactly conf_test 0–39 (76 shards × 40);
   - other groups: ids ≥ 5000, outside the claim ranges.
-- **Plans** (lineage cfcap-baselines):
+- **Plan** (lineage cfcap-baselines), trimmed by the coordinator's ruling: `baselines_conf.json`, 86 jobs,
+  33 box-h, ~$6.0.
+  - conf-cal: exploratory cal 0–1999;
+  - conf-main: conf_test 40–3,039, 21 shards × 150; shard 0 = 0–39 + 5000–5109;
+  - conf-scale-H4 / H4b: 0–599 each. About 5.4k incapable stratum decisions per split, below the 20k power rule, so
+    E_dec is expected UNDERPOWERED and E_ep is reported;
+  - conf-het ×3: 0–999 each.
 
-  | file | jobs | box-h | $ |
-  |---|---|---|---|
-  | `baselines_conf.json` | 276 | 53.5 | 9.6 |
-  | `baselines_conf_smc.json` (optional, descriptive SMC on conf_test 40–239, 256 particles) | 42 | 41.9 | 7.5 |
-
-  `baselines_conf.json` covers conf-cal (exploratory cal 0–1999), conf-main, conf-scale-H4 / H4b (0–1199 each) and
-  conf-het ×3 (0–999 each). conf-cal replaces b2-cheap-cal, so calibration comes from one code version. b2-cheap-test
-  now covers test 0–1999.
+  The optional SMC conf plan is dropped (coordinator: descriptive; smc_small covers T3). `raw` is models';
+  `dominance_pi` is theory's.
 - **Unit times are estimates.** The H4 / H4b estimate (~35 s per episode) is the least certain.
 
 ## Full-scale proposal (estimates until the canary lands)
