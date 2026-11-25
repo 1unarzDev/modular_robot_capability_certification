@@ -502,3 +502,20 @@ CONFIRMATORY.md §3 allows exactly one gate statistic. Stress commits the **capa
   R is post-hoc (A5y: AUC 0.83 on 10 yaw flips, 0.81 on 12 flips pooled), and that is said here.
 - The theory role may overrule this before 22:15Z. If both roles commit different statistics, the one in
   `docs/board/theory.md` wins and this entry is void.
+
+## N7 results: size-aware margin for single and pair children (exploratory; `scripts/stress_N7.py`; `results/stress/N7_margin.csv`, `N7_verdict.json`)
+Truth is T2 all+motor with the fixed reference; 200 episodes × 10 legs × 2 τ per shape. The replayed latents
+reproduce A5m's T1 labels (checked).
+
+| child | q (99th pct of the T1-pert shortfall) | unsafe: t1_only → size_aware | CF: t1_only → size_aware (loss) | faulted unsafe | faulted CF |
+|---|---|---|---|---|---|
+| single | 0.084 | 4.30 % → **0.85 %** | 98.6 → 91.5 % (**−7.1 pts**) | 6.3 → 1.2 % | 97.0 → 81.7 % |
+| pair | 0.102 | 3.03 % → **0.28 %** | 99.5 → 92.9 % (**−6.7 pts**) | 4.4 → 0.4 % | 99.3 → 89.6 % |
+
+- **Verdict.** Unsafe ≤ 2·U* (2 %) is met for singles (0.85 %) and pairs (0.28 %). The CF loss ≤ 5 pts is **not**
+  met (7.1 and 6.7 pts). **Bar not met**, narrowly.
+- The margin over-covers: realised unsafe is well below 2 %. A smaller quantile of the same T1-perturbation
+  distribution would trade back CF. Choosing it now would be post-hoc, so it is left as the next pre-registered
+  variant (for example the 95th percentile).
+- The pair margin exceeds the single one because the perturbation doubles the indeterminate load split, which only
+  multi-module bodies have.

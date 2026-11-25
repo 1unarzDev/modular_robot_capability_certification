@@ -1,0 +1,20 @@
+{
+ "single": {
+  "q": 0.08429627120494843,
+  "unsafe_t1_only": 0.043,
+  "unsafe_size_aware": 0.0085,
+  "cf_t1_only": 0.9859329747621017,
+  "cf_size_aware": 0.9151841125362019,
+  "cf_loss_pts": 7.074886222589982,
+  "bar_met": false
+ },
+ "pair": {
+  "q": 0.10160591453313828,
+  "unsafe_t1_only": 0.03025,
+  "unsafe_size_aware": 0.00275,
+  "cf_t1_only": 0.9954496788008566,
+  "cf_size_aware": 0.9288008565310493,
+  "cf_loss_pts": 6.664882226980728,
+  "bar_met": false
+ }
+}
