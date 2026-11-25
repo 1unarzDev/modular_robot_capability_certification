@@ -135,7 +135,15 @@ on top of any type. Test `test_conventional_module_cannot_sway`: a lone conventi
 - Columns: `mod_type` (M,) int8 per module (wheel w's type = `mod_type[w // 4]`; candidate types via `cm_mod`).
 - `cfcap.gen.episode.build(name, cells, yaws, ids, plate, types=None)` sets `asm.meta["types"]` (m,) and
   `asm.meta["wheel_type"]` (n,); `w_hat`/`r_hat` stay the mecanum geometry (the type acts through the plant latent).
-- ρ_ref is per type: keys append `,type` for non-mecanum modules (`"i,j,yaw,type"`), so mecanum keys are unchanged.
+- ρ_ref per type: keys append `,type` for non-mecanum modules (`"i,j,yaw,type"`; mecanum keys unchanged), stored as
+  `cand_rho_ref_type`. **Deviation, flagged:** `cand_rho_dec` divides by the *mecanum* reference of the same shape
+  (`cand_rho_ref`) for every type. The per-type reference is ~0 on legs a type cannot do (skid sway): pilot2 measured
+  ρ_dec down to −4e21 with the per-type divisor. A requirement is absolute (CONFIRMATORY §0.3), so the mecanum scale is
+  the requirement scale; a skid module then has ρ_dec(sway) ≈ 0 = incapable, as it should be.
+- Pilot2 (local 4070, `scripts/gen_pilot2.py` -> `results/generator/pilot2.csv`, exploratory; before the reference
+  fix): steady episodes/s het_test 26.7, H1 14.9, H2 19.2, **H4b 2.56** (0.39 s/episode at mean N = 13.4, 46.9
+  candidates, max 16 modules; 143 KB/episode; label share 73 %); het ~67 KB/episode. 3090 rates used: het 11,
+  H4b 2.0 eps/s.
 
 **conf_* episodes touched before docs/CONFIRMATORY.md was committed (8ffc33a, ~21:10Z), to be excluded per §0.1:**
 `conf_test` indices 0–39 and 3 were *constructed* (make_episode only: parent, latents, candidates; no simulation, no

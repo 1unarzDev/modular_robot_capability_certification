@@ -239,3 +239,12 @@ def test_label_conditions_matches_labels_and_responds_to_mu():
     np.testing.assert_allclose(out["rho"][0], lab["rho"][0], atol=1e-4)
     np.testing.assert_allclose(out["rho_ref"][0], lab["rho_ref"][0])
     assert not np.allclose(out["rho"][1], out["rho"][0], atol=1e-3)
+
+
+@cuda
+def test_hetero_rho_dec_finite_with_mecanum_reference():
+    from cfcap.gen import simrun as S
+    eps = [E.make_episode("plated", s, i) for s in ("het_test", "H2") for i in range(4)]
+    for ep, l in zip(eps, S.label_episodes(eps, engine="graph")):
+        assert np.isfinite(l["rho_dec"]).all() and (np.abs(l["rho_dec"]) < 1.5).all()
+        assert (l["rho_ref"] > 0.5).all()

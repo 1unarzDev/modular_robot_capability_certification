@@ -22,7 +22,7 @@ from cfcap.gen import families as F
 from cfcap.gen import simrun as S
 from cfcap.t1 import capability as cap
 
-SCHEMA = "cfcap.gen/v3"           # v2: + cand_rho_ref, cand_rho_dec (decision label); v3: + mod_type
+SCHEMA = "cfcap.gen/v3"           # v2: + cand_rho_ref, cand_rho_dec (decision label); v3: + mod_type, cand_rho_ref_type
 
 
 def config(kinds):
@@ -45,7 +45,7 @@ def _assemble(eps, obs, labs, kinds):
         "wheel_mode", "wheel_g", "wheel_stall", "wheel_noload", "wheel_yaw_err", "wheel_load_z",
         "cand_ep", "cand_kind", "cand_family", "cand_topo", "cand_fam_split", "cand_n_mod", "cand_payload",
         "cand_n_fault", "cand_char_length", "cand_rho", "cand_rho_healthy", "cand_rho_rel", "cand_drift",
-        "cand_rho_ref", "cand_rho_dec",
+        "cand_rho_ref", "cand_rho_dec", "cand_rho_ref_type",
         "cm_mod", "cm_cell", "cm_yaw", "cw_load_z")}
     for k in kinds:
         for f in ("imu", "cmd", "amp", "lead", "duty", "dcnt") + (("ref",) if k == "tug" else ()):
@@ -108,7 +108,7 @@ def _assemble(eps, obs, labs, kinds):
             nf = sum(int((ep.asms[r].mode[4 * k:4 * k + 4] != 0).sum()) for r, k in cd.modules)
             c["cand_n_fault"].append(nf)
             c["cand_char_length"].append(cd.asm.char_length())
-            for f in ("rho", "rho_healthy", "rho_rel", "drift", "rho_ref", "rho_dec"):
+            for f in ("rho", "rho_healthy", "rho_rel", "drift", "rho_ref", "rho_dec", "rho_ref_type"):
                 c[f"cand_{f}"].append(lab[f][ci])
             for (r, k), (_, i, j, y) in zip(cd.modules, cd.asm.modules):
                 c["cm_mod"].append(mod_row0[r] + k)
@@ -140,7 +140,7 @@ def _assemble(eps, obs, labs, kinds):
         cm_yaw=np.array(c["cm_yaw"], np.int8), cw_load_z=np.concatenate(c["cw_load_z"]).astype(np.float32))
     for f in ("wheel_g", "wheel_stall", "wheel_noload", "wheel_yaw_err", "wheel_load_z"):
         D[f] = np.concatenate(c[f]).astype(np.float32)
-    for f in ("rho", "rho_healthy", "rho_rel", "drift", "rho_ref", "rho_dec"):
+    for f in ("rho", "rho_healthy", "rho_rel", "drift", "rho_ref", "rho_dec", "rho_ref_type"):
         D[f"cand_{f}"] = np.array(c[f"cand_{f}"], np.float32).reshape(-1, len(cap.LEGS))
     off = lambda cnt: np.concatenate([[0], np.cumsum(cnt)]).astype(np.int32)
     D["ep_asm_off"] = off(c["ep_n_asm"])

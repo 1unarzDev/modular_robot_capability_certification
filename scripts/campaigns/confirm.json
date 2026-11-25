@@ -81,7 +81,7 @@
    "profile": "torch",
    "shards": 3,
    "units_per_shard": 1,
-   "unit_s": 389,
+   "unit_s": 350,
    "overhead_s": 180,
    "vram_gb": 8,
    "priority": 52,

@@ -1,0 +1,5 @@
+gpu,split,episodes,block,wall_s,s_per_episode_steady,episodes_per_s_steady,first_block_s,label_share,bytes_per_episode,cands_per_episode,parent_modules_mean,max_cand_modules,rho_dec_lt_0p8,rho_dec_min,peak_vram_gb,types_present
+NVIDIA GeForce RTX 4070 Ti SUPER,het_test,400,200,31.2,0.0375,26.67,21.9,0.535,67834,16.72,4.33,6,0.1919,-4.139925794686004e+21,0.93,01
+NVIDIA GeForce RTX 4070 Ti SUPER,H1,200,100,15.8,0.067,14.93,8.2,0.684,66600,19.73,4.25,6,0.0464,0.037,0.97,012
+NVIDIA GeForce RTX 4070 Ti SUPER,H2,200,100,14.1,0.052,19.23,8.0,0.787,69605,19.91,4.36,6,0.193,-2.6230467306181404e+21,0.97,01
+NVIDIA GeForce RTX 4070 Ti SUPER,H4b,120,40,100.0,0.3912,2.56,67.2,0.733,142621,46.93,13.38,16,0.0007,0.206,0.97,0

@@ -272,7 +272,10 @@ def rho_rows(xr, tw, Lc):
 
 def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=True, stats=None):
     """Closed-loop rho on the 10 decision legs for every candidate, with its paired fault-free rollout (D17 relative
-    capability). A candidate without a faulted wheel has rho_healthy = rho exactly, so its twin is skipped unless
+    capability). rho_ref is the MECANUM nominal reference of the candidate's shape for every module type (a task
+    requirement is absolute; a per-type reference is ~0 on legs a type cannot do, e.g. skid sway, and the ratio blows
+    up), rho_ref_type the per-type nominal reference. A candidate without a faulted wheel has rho_healthy = rho
+    exactly, so its twin is skipped unless
     skip_healthy_twin=False. Decision label rho_dec = rho / rho_ref(shape, leg), the nominal healthy reference
     (cfcap.gen.rho_ref; keys not yet cached are simulated in the same runs). Returns per episode a dict of (n_cand, L)
     float32 arrays rho, rho_healthy, rho_rel, rho_ref, rho_dec, drift."""
@@ -293,7 +296,7 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
     n_cand_jobs = len(jobs)
     ref_keys = []
     for plate in E.PLATES:
-        asms = [(c.asm, c.types) for ep in eps if ep.plate == plate for c in ep.cands]
+        asms = [x for ep in eps if ep.plate == plate for c in ep.cands for x in ((c.asm, None), (c.asm, c.types))]
         rj, rk, rtw, rlc = RR.jobs_for(plate, asms, E.params(plate))
         jobs += rj
         ref_keys += [(plate, k) for k in rk]
@@ -318,8 +321,10 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
             o += len(tw)
     for ep, d in zip(eps, out):
         d["rho_rel"] = d["rho"] / d["rho_healthy"]
-        d["rho_ref"] = np.stack([RR.get(ep.plate, RR.key(c.asm, c.types)) for c in ep.cands]).astype(np.float32) \
-            if ep.cands else np.zeros((0, L), np.float32)
+        ref = lambda types: (np.stack([RR.get(ep.plate, RR.key(c.asm, types(c))) for c in ep.cands]).astype(
+            np.float32) if ep.cands else np.zeros((0, L), np.float32))
+        d["rho_ref"] = ref(lambda c: None)              # mecanum reference of the shape: the absolute requirement scale
+        d["rho_ref_type"] = ref(lambda c: c.types)      # per-type nominal reference (= rho_ref for mecanum bodies)
         d["rho_dec"] = d["rho"] / d["rho_ref"]
     return out
 
@@ -342,8 +347,9 @@ def label_conditions(items, engine="compile", max_wheels=1 << 17, stats=None):
     n_items = len(jobs)
     ref_keys = []
     for plate in E.PLATES:
-        rj, rk, rtw, rlc = RR.jobs_for(plate, [(it["cand"].asm, it["cand"].types) for it in items
-                                               if it["ep"].plate == plate], E.params(plate))
+        rj, rk, rtw, rlc = RR.jobs_for(plate, [x for it in items if it["ep"].plate == plate
+                                               for x in ((it["cand"].asm, None), (it["cand"].asm, it["cand"].types))],
+                                       E.params(plate))
         jobs += rj
         ref_keys += [(plate, k) for k in rk]
         meta += list(zip(rtw, rlc))
@@ -354,5 +360,5 @@ def label_conditions(items, engine="compile", max_wheels=1 << 17, stats=None):
     rho = rho.numpy().reshape(-1, L)
     for (plate, k), r in zip(ref_keys, rho[n_items:]):
         RR.put(plate, k, r)
-    ref = np.stack([RR.get(it["ep"].plate, RR.key(it["cand"].asm, it["cand"].types)) for it in items])
+    ref = np.stack([RR.get(it["ep"].plate, RR.key(it["cand"].asm)) for it in items])
     return dict(rho=rho[:n_items], rho_ref=ref, rho_dec=rho[:n_items] / ref)

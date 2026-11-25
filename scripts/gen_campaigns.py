@@ -11,7 +11,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # 3090 steady episodes/s by split. Basis: local 4070 pilot (results/generator/pilot.csv, pilot2.csv) x 14/17.9 (3090 vs
 # 4070, coordinator's 3090 rate for train-like episodes), /1.3 for nominal rho_ref rows where not measured.
-RATE = dict(train=11.0, het=11.0, H4=4.0, H4b=1.8)
+RATE = dict(train=11.0, het=11.0, H4=4.0, H4b=2.0)   # pilot2: het 14.9-26.7, H4b 2.56 eps/s on the 4070
 PILOT = ("local 4070 Ti S: scripts/gen_pilot.py (train 17.9 eps/s steady, results/generator/pilot.csv) and "
          "scripts/gen_pilot2.py (het/H1/H2/H4b, results/generator/pilot2.csv), scaled to a 3090 by 14/17.9")
 OVERHEAD = 180
