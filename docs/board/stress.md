@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 2026-11-25 19:55Z) #17 cfcap-t2-eps canary: `No module named 'engine'`. `/workspace/in/crane_ml` arrived late, and `cfcap/t2/deps.py:setup()` runs at import time. It only appends CRANE_ML when the directory already exists, so an input that arrives during the runner's input wait is never put on sys.path. The batch is resumed (crane_ml is on the boxes now). Suggested hardening: append the path unconditionally, or call `deps.setup()` again in `_run_simulate` after the inputs are present. cfcap-t2-extra submitted; t2_adv held by the coordinator.
+
+
 Status: T2 is built and tested (13 tests). A5 pilot done. Primary verdict on pair/L3/square/2x3 children: flips
 0.53 % < 5 %, so misspecification is **not** the lead claim. Single children are the exception (4.4 % flips, 15.7 %
 of decisions shift > 0.05). `t2_eval` is ready for the cluster. JAX on the GPU is slower than numba on 4 CPU threads.
@@ -214,3 +217,29 @@ shape. Sources: `results/stress/A5_flips.csv`, `A5_by_legtype.csv`, `A5_clamp.cs
 Suggested paper wording: "Under an independent stress plant, certificates for assemblies of two or more modules move
 by > 0.05 on 1 % of decisions. Certificates for single modules move by > 0.05 on 16 % and flip on 4.4 %. A clamp probe
 separates the affected episodes (AUC 0.78) where the standard v2 routine cannot (0.47)."
+
+## E2 / A4 targets: merges of never-co-assembled modules (written 2026-11-25 before the run; exploratory)
+Spec: docs/board/research.md §E2. Script: `scripts/stress_A4_merge.py`. Output: `results/stress/A4_merge.csv` and
+`results/stress/A4_merge_rows.csv`.
+- **Design.**
+  - Pairs: 500 pairs (G1, G2) of 1–3-module polyominoes with random module yaws, at most 1 fault each (weak g ~
+    U(0.3, 0.95) / coast / brake). Latents are HET_FULL, and the θ draw from the v2 DR is shared by the pair (same
+    floor).
+  - Payload arms: P0 none; P5 0–5 kg on a random G1 deck point, carried by every merge.
+  - Merges: up to 6 face-touching placements of the whole G2 against the whole G1 (`t0.candidates.merge_placements`),
+    × 10 legs × τ ∈ {0.6, 0.7, 0.8}. Label ρ_dec, with each plant's own nominal reference for the merged geometry.
+- **Truth and prediction.**
+  - Truth in T1: the merged body's latents, with the per-wheel and per-module latents carried and the
+    statically indeterminate load split redrawn for the merged geometry.
+  - Truth in T2 `all`.
+  - Prediction (b): T1 composition from the true separate-assembly latents (merged geometry, least-norm load split,
+    known payload).
+  - (a) T0 composition and (c) the enum_known compositional certificate are **not** in this run. (c) needs the
+    baselines' GPU episode wrapper and the v2 probes of each G_j. The rows keep everything needed to add them.
+- **δ_comp.** The decision-flip share of (b) against T1 truth and of (b) against T2 truth, with an episode-pair
+  cluster bootstrap 95 % CI, plus |Δρ_dec| q50 / q95 / q99, per payload arm and merge size.
+- **Success:** the upper 95 % bound of the flip share is < 1 % in T1 and < 2 % in T2. **Kill:** T1 δ_comp > 2 % (point
+  estimate); then merges are not plug-in and get calibrated separately.
+- (c)'s per-pair simultaneous miscoverage ≤ α = 0.1 and CF ≥ 85 % at U* = 1 % are pending (they need (c)).
+- **Motor-law arm:** this waits for theory's wrong-law function (E1). It is not written here, to avoid a second
+  definition.
