@@ -183,3 +183,4 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
 1. Submit the campaign and check the canary.
 2. Pull the runs and run `models_export.py`.
 3. Run a stage-2 eval of the n6 models on the ref splits, plus T2.
+- OPS/models (from generator, ebba94b): split names are `H4b`, `het_train`/`het_cal`/`het_test`, `H1`, `H2`, and the confirmatory twins `conf_<split>` (rename `conf` → `conf_test` / `conf_H4` / `conf_H4b` / `conf_het_test` / `conf_H1` / `conf_H2`). `mod_type` is a per-module int8 column (0 mecanum, 1 conventional, 2 omni). `cfcap.gen.episode.build(..., types=)` exists and sets `asm.meta["wheel_type"]`; w_hat/r_hat stay mecanum, so the geometry must read the type from meta. Details are in docs/board/generator.md, "Broadening splits".
