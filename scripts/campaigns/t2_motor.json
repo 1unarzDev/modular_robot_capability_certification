@@ -1,0 +1,75 @@
+{
+ "campaign": "cfcap-t2-motor",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the 4000 plated T2 test episodes under the misspecified motor law and the 1000-episode misfit subset are simulated or the owner cap is reached.",
+ "groups": [
+  {
+   "name": "t2-motor",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 8,
+   "units_per_shard": 10,
+   "unit_s": 300,
+   "overhead_s": 300,
+   "priority": 0,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--split",
+    "test",
+    "--episodes",
+    "4000",
+    "--per-unit",
+    "50",
+    "--backend",
+    "auto",
+    "--conds",
+    "all+motor,motor"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp1 --mode simulate --split test --episodes 20 --per-unit 20 --conds all+motor,motor (NUMBA_NUM_THREADS=4, 4070 host shared with another heavy job, CPU only): 5.53 s/episode (17 candidates/episode, 2 conditions, parent v2 obs under all+motor, per-candidate features); a 50-episode unit = ~280 s at 4 threads; RSS < 1 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Simulate the T2 test episodes under the misspecified motor law (current limit, speed and torque knee, thermal and voltage derating), with and without the other T2 effects, to test certificates that trust T1's linear motor law.",
+   "ride": "torch"
+  },
+  {
+   "name": "t2-motor-misfit",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 14,
+   "units_per_shard": 12,
+   "unit_s": 290,
+   "overhead_s": 300,
+   "priority": 10,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--split",
+    "test",
+    "--episodes",
+    "1000",
+    "--per-unit",
+    "6",
+    "--backend",
+    "auto",
+    "--conds",
+    "all+motor",
+    "--misfit",
+    "--no-obs"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp2 --mode simulate --split test --episodes 4 --per-unit 4 --conds all+motor --misfit --no-obs (NUMBA_NUM_THREADS=4, CPU only, host shared): 45.2 s/episode (20 candidates/episode; per-candidate v2 and clamp misfit = T1 torch-CPU + T2 probe runs); a 6-episode unit = ~270 s at 4 threads; RSS < 1.5 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Per-candidate v2 and clamp probe misfit of T2 (motor law) against T1 with latents known on 1000 test episodes, to validate a clamp-gated certificate for singles and the child-rate yaw gap.",
+   "ride": "torch"
+  }
+ ]
+}

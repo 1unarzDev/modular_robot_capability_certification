@@ -202,9 +202,17 @@ def analyze():
                 tr = z[f"{plant}_truth"]
                 tp = np.unique(pair[test])
                 mis = np.array([(tr[pair == p] < lower[pair == p]).any() for p in tp])
+                # cross-fit: swap calibration and test halves, report the mean of the two directions too
+                cal2 = up[(up % 2) == 1]
+                sc2 = np.sort([short[p] for p in cal2])
+                q2 = float(sc2[min(int(np.ceil((len(sc2) + 1) * (1 - ALPHA))), len(sc2)) - 1]) if marg else 0.0
+                tp2 = np.unique(pair[np.isin(pair, cal)])
+                mis2 = np.array([(tr[pair == p] < (z["T1_comp"] - q2)[pair == p]).any() for p in tp2])
                 for r in summ:
                     if r["arm"] == arm and r["plant"] == plant and r["group"] == "all":
                         r[f"miscov_pair_{meth}"] = float(mis.mean())
+                        r[f"miscov_pair_{meth}_swap"] = float(mis2.mean())
+                        r[f"miscov_pair_{meth}_crossfit"] = float(0.5 * (mis.mean() + mis2.mean()))
                         r[f"q_{meth}"] = marg
                         r["alpha"] = ALPHA
                         r["test_pairs"] = len(tp)

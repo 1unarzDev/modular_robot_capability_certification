@@ -302,3 +302,41 @@ Spec: docs/board/research.md §E2. Script: `scripts/stress_A4_merge.py`. Output:
   - Point 3 holds for pairs and for the pooled set.
   - For singles the clamp separation is weak (AUC 0.68).
   - Under a wrong motor law the ≥ 3-module yaw flips (few) are not flagged by clamp.
+
+## E2 / A4 results: never-co-assembled merges (exploratory; `scripts/stress_A4_merge.py`; `results/stress/A4_merge.csv`, `A4_merge_rows.csv`, `paper/dec_merge.csv`)
+500 pairs per arm, 2880 (P0) and 2884 (P5) merges of 2–6 modules × 10 legs × τ ∈ {0.6, 0.7, 0.8}. δ_comp
+compares the oracle-latent composition (b) against the truth.
+
+| arm | plant | flips (95 % CI) | \|Δρ_dec\| q95 / q99 | share > 0.05 | merges of ≤ 3 modules | merges of 4–6 modules |
+|---|---|---|---|---|---|---|
+| P0 | T1 | 0.11 % (0.03–0.24) | 0.007 / 0.015 | 0.18 % | 0.31 % | 0.007 % |
+| P0 | T2 | 0.13 % (0.05–0.25) | 0.017 / 0.030 | 0.40 % | 0.39 % | 0.009 % |
+| P5 | T1 | 0.08 % (0.03–0.17) | 0.007 / 0.015 | 0.16 % | 0.23 % | 0.02 % |
+| P5 | T2 | 0.12 % (0.05–0.25) | 0.017 / 0.029 | 0.34 % | 0.40 % | 0.005 % |
+
+- **Verdict against the targets.** The upper bound is < 1 % in T1 and < 2 % in T2 in both arms: **SUCCESS**, and the
+  kill (T1 > 2 %) is not met. Merges are plug-in at the decision level. Payload does not change this.
+- **The merge certificate** (`comp_conformal`, α = 0.1, T1-calibrated margin q ≈ 0.011):
+  - `miscov_pair` in T1 is 0.18 / 0.03 for the two calibration directions (cross-fit 0.11) in P0, and 0.14 / 0.08
+    (cross-fit 0.11) in P5. That is at the nominal α up to split variance.
+  - In T2 it is cross-fit 0.43 (P0) and 0.47 (P5): the T1-calibrated margin is thinner than the T2 plant gap
+    (q95 0.017).
+  - So simultaneous per-pair coverage does **not** transfer to T2, although decision flips stay at 0.13 %. The
+    violations are small and sit far from τ.
+  - `comp_raw` (q = 0) miscovers 100 % of T1 pairs.
+- **Not done.** (a) the T0 composition, (c) enum_known from each G_j's v2 probes, and CF at U* = 1 % (needs (c)).
+  The motor-law arm waits for theory's wrong-law function.
+
+## T2 motor-law campaign plan (`scripts/campaigns/t2_motor.json`, not submitted)
+- `t2-motor`:
+  - 4000 plated test episodes;
+  - `--conds all+motor,motor`, with the parent v2 obs under all+motor and the per-candidate features;
+  - 8 shards × 10 units × 300 s (pilot 5.5 s/episode at 4 threads), about 7.3 box-h, $1.3.
+- `t2-motor-misfit`:
+  - 1000 episodes, `--conds all+motor --misfit --no-obs`, giving per-candidate v2 and clamp misfit against T1 with
+    the latents known;
+  - 14 shards × 12 units × 290 s (pilot 45 s/episode), about 14.7 box-h, $2.65.
+  - It validates a clamp-gated certificate for singles and the child-rate yaw gap.
+- Lane cpu, riding torch, with crane_ml staged; `emit` validates.
+- `t2_adv` is cancelled (it measured the plant gap against an oracle certifier, not a method failure).
+  `scripts/campaigns/t2_adv.json` is left unsubmitted.
