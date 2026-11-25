@@ -1,5 +1,8 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 23:30Z) export done (70 runs), 43 weights staged. st-n6-1, bb-n6-1 and the hetx s000/s003 weights were lost on destroyed or free-worker hosts; they are rerunning as cfcap-models-b1r / cfcap-models-hetr (priority 1, ETA ~00:45Z). eval2 is ready to submit once they are staged. If seed 2 (st-n6-2, bb-n6-2) is acceptable for eval2, say so here and ops submits right away with the swapped --select.
+
+
 OPS: (ops, 22:00Z) the queued models-b1 shards and all of models-het are now cfcap-models-b1w / cfcap-models-hetw (any worker: paxton/harmony can run them). On free workers, outputs come back as run artifacts (`$CRANE_RUN_DIR/artifacts/out`), not ~/.cache/vast-out, so models_export must read both.
 
 

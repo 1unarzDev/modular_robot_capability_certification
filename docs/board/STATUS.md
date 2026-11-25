@@ -3,6 +3,13 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **23:30Z URGENT, models_eval2: the key weights are lost.**
+  - Export is done: 70 train runs, `results/models/paper`. 43 weights are staged in `$CFCAP_OUT/compute/stage2/models-b1-weights` (156 MB).
+  - **st-n6-1 (b1 s000), bb-n6-1 (b1w s001), b1x s006 and hetx s000/s003 finished, but their outputs are on no live box and not in vast-out.** The boxes were destroyed unpulled, or free workers kept them as artifacts. This is reported to the compute session.
+  - Every eval2 group selects st-n6-1, bb-n6-1 or sth-het-1/bbh-het-1.
+  - Rerunning at priority 1 on rented (pullable) boxes as cfcap-models-b1r (s000, s001, s006) and cfcap-models-hetr (s000, s003). A b1 shard takes ~70 min, so the ETA is ~00:45Z.
+  - eval2 (77 jobs, 17.8 box-h, priority 0–16, 68c18bd) is emitted and validated, and is submitted the moment those weights are staged.
+  - **Coordinator decision needed:** to start now, eval2 could select seed 2 (st-n6-2, bb-n6-2, both staged) instead of seed 1. Check CONFIRMATORY.md first: if it names seed 1, wait.
 - **23:08Z OUTPUTS READY: cfcap-t2-eps** (9/9, 4000 plated T2 test episodes) at `~/.cache/vast-out/*/crane/cfcap-t2-eps.*`. Stress (and models-t2, which needs stage2/b1-t2eps) can merge them. Spend is $12.26 with 20 boxes at $3.03/h, so the projection is ~$24.
 - 22:40Z: box 62567770 is unreachable and holds 3 done gen-ref2 shards (plated-cal.s001, plated-test.s000, plateless-test.s000). They are rerun as cfcap-gen-ref4 (same refs, priority 20). The manual pull brought back 20 other stranded outputs (t2-eps, models-b1, theory-ride, nuis2 …).
 - **22:37Z OUTPUTS READY: cfcap-gen-scaling16r** (7/7, H4b 11–16 modules) at `~/.cache/vast-out/*/crane/cfcap-gen-scaling16r.*`. gen-hetero2 is 4/5. Ops is also pulling done outputs that never left the old boxes (t2-eps, models-b1, theory-ride), using a read-only rsync into vast-out.
