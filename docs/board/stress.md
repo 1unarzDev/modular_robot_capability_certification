@@ -256,3 +256,49 @@ Spec: docs/board/research.md §E2. Script: `scripts/stress_A4_merge.py`. Output:
     against the same 0.1.
   - Rows go to `results/stress/paper/dec_merge.csv` in the paper §1a columns: method comp_raw / comp_conformal,
     posterior oracle, kind merge, split merge_<arm>, eid = pair id, cand = merge index.
+
+## A5m: misspecified motor law (exploratory; `scripts/stress_A5m.py`; `results/stress/A5m_rows.csv`, `A5m_flips.csv`, `A5m_clamp.csv`)
+- **Motor mode.** `build.Effects(motor=True)` is OFF by default and is not part of `all`. It is listed as the
+  ablations `motor` and `all+motor`, and tested: numpy = numba, and it changes the plant. Per wheel:
+  - a current limit c_I ∈ [0.5, 0.9] τ_s below stall;
+  - a speed knee (the theory ENVELOPE form) at 0.55–0.95 of the no-load speed, and a torque knee at 0.1–0.4 τ_s;
+  - thermal derating from prior heat E0 ~ U(0, 1) (τ_th 30 s);
+  - per-module voltage sag 5–20 % at full load.
+
+  It is applied as the true torque at the previous step's wheel speed, with crane's local back-EMF slope kept around
+  it. At nominal θ the healthy reference drops on diag and yaw legs (square yaw 0.892 → 0.821).
+- **Design.** 200 episodes per shape (single, pair, L3, square, 2x3), seeds 906000, HET_FULL, 0–2 faults, ρ_dec with
+  each plant's own reference (T2 references average 8 nuisance draws), τ ∈ {0.7, 0.8}. One row per (episode, leg)
+  with features (faults, min g, friction / drag factors, motor draws, margins, v2 / clamp misfit).
+- **Flips, T1 → T2** (all decisions; **healthy candidates flip 0 % in every cell; every flip is a faulted
+  candidate**):
+
+  | condition | single | pair | L3 | square | 2x3 | children (pair–2x3) |
+  |---|---|---|---|---|---|---|
+  | all (A5 plant) | 4.28 % (d05 15.7 %) | 2.13 % | 0.13 % | 0 | 0 | 0.56 % (d05 1.0 %) |
+  | motor only | 2.35 % (d05 10.9 %) | 1.27 % | 0.45 % | 0.10 % | 0.15 % | 0.49 % (d05 3.2 %) |
+  | all+motor | 4.65 % (d05 18.3 %) | 2.57 % | 0.32 % | 0.08 % | 0.05 % | 0.76 % (d05 4.4 %) |
+
+- **By leg** (all+motor):
+  - single: axis 5.8 %, diag 3.0 %, yaw 5.8 % flips; ρ_dec shift q01 −0.60 on yaw;
+  - pair: axis 2.9 %, diag 2.9 %, yaw 1.1 %;
+  - L3: yaw 1.1 %; square: yaw 0.37 %; 2x3: yaw 0.25 %; axis 0 for ≥ 3 modules.
+- **The motor law produces the shift theory predicted on ≥ 3-module yaw.** Under `motor` alone the share with
+  |d| > 0.05 is L3 yaw 13.5 %, square yaw 21.2 %, 2x3 yaw 4.5 %. It rarely flips decisions: those decisions sit far
+  from τ unless faulted.
+- **Does the clamp misfit still flag the flips?** AUC of the episode misfit, flipped vs faulted non-flipped:
+
+  | condition | singles: v2 IMU | singles: clamp IMU | pairs: clamp IMU | ≥ 3 modules: clamp IMU | pooled: v2 | pooled: clamp |
+  |---|---|---|---|---|---|---|
+  | all | 0.63 | 0.68 | 0.77 | | 0.58 | 0.85 |
+  | motor | | | 0.69 | **0.27** (v2 0.11) | | 0.73 |
+  | all+motor | 0.64 | 0.68 | 0.76 | 0.33 | 0.55 | 0.82 |
+
+  For singles clamp is only weakly better than v2. For pairs it separates the flips. For ≥ 3-module motor-law flips
+  it points the wrong way: the flipped episodes have *smaller* probe misfit. The knee is reached only at the child's
+  yaw rate, which neither v2 nor clamp visits. This supports theory's "child-rate yaw probe" for ≥ 3-module yaw. The
+  clamp gate is not enough there.
+- **Claim C-stress-1 update.**
+  - Point 3 holds for pairs and for the pooled set.
+  - For singles the clamp separation is weak (AUC 0.68).
+  - Under a wrong motor law the ≥ 3-module yaw flips (few) are not flagged by clamp.
