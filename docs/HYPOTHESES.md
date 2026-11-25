@@ -217,3 +217,39 @@ Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and 
 (the pilot2 canary), against 3.4 ms per episode for the amortized encoder (models pilot). Composition adds
 18–31 ms per candidate. If SMC's accuracy is comparable, the latency side of H4 is decisive. Accuracy is still
 unmeasured: the small SMC campaign plus models eval2.
+
+**Update 11-25 ~21:30Z: E1 (theory) and decision envelope-class probing (exploratory, T0).**
+- **E1 trust gate: both pre-registered SUCCESS bars FAIL; KILL not met.** (results/theory/gate_cert.csv, gate_verdict.txt;
+  1,200 parents, ~57k decisions per law × probe; 2-fold cross-fit after a fold/law correlation was fixed before scoring.)
+  - **H12, silent failure, SUPPORTED.** Trusting the motor law fails silently: physics-trusting episode-unsafe rises
+    4 % → 74 % at knee 3 (v2); uncalibrated 11 % → 89 %.
+  - **Calibrating over episodes that include wrong laws restores ≈α validity**, but conservatively: par_pooled CF
+    78.9 / 73.6.
+  - **The misfit gate as a method: FALSIFIED (F1 killed).** It adds little over the calibrated model-free bound once
+    clamp has run. What survives is "use dominance after clamp".
+  - **Clamp buys certified share back:** model-free calibrated CF 72.4 → 90.7 % at the correct law, 66.9 → 79.0 % at
+    knee 3, at ≤ 0.4 % unsafe.
+  - **Extrapolated share of decisions the physics-trusting certificate approves:** 63 % with v2, 21 % with v2+clamp.
+- **Extrapolated share grows with size (dominance_vs_N.csv, speed side, N up to 16).**
+  - v2: 53 % → 57 % → 59 % (N = 4 / 8 / 16).
+  - v2+clamp: 6 % → 14 % → 17 %, all yaw: child yaw legs 31 → 70 → 85 % extrapolated, because larger parents yaw
+    slower.
+  - v2+clamp+2×yaw: 0 → 5 → 8 %.
+  - A generalizable, size-dependent statement.
+- **H3 probing: SUPPORTED in regime 2** (decision, results/decision/envelope_*.csv; 463 usable E1 episodes, true fault
+  modes known, so this isolates motor-law uncertainty).
+
+  | policy | useful | regret | probe time |
+  |---|---|---|---|
+  | v2 | 83 % | 31.4 s | 0 |
+  | always clamp | 95 % | 19.4 s | 8.8 s |
+  | decision-EVOI | 95 % | 14.3 s | 2.05 s (probes 23 % of episodes) |
+
+  - EVOI matches always-clamp on usefulness, with 27 % less regret and 4× less probe time. Probing becomes a headline
+    in regime 2 only.
+- **N1 PASS (decision):** simM0.1 per-bin episode-unsafe ≤ 1.0 % (upper ≤ 2.4 %), healthy abstention 0 %, useful
+  95.4 %.
+  - Monotonicity is fixed: certified pairs are flat along nested probe sets (10,636 → 10,631). The cause was the probe
+    likelihood's per-particle nuisance.
+  - The conformalized screen is a compute knob (misses 5.2 → 2.5 %, 3× cost); end-to-end calibration carries the
+    safety.
