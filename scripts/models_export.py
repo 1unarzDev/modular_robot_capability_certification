@@ -289,25 +289,66 @@ def load_env(roots):
     return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
 
-def env_lowers(env, q_comp, out_dir, conf):
-    """Per-row lower bounds for scripts/env_score.py --lower NAME=PATH (columns family, mission, cand, seg, lower):
-    raw = posterior median (q = 0); amortized_comp = q50 - q_comp * (q50 - q05), q_comp the T1-cal simultaneous
-    constant of the env model's compositional route (no mission-level refit)."""
+ENV_FLOOR = 0.01                     # scale floor = label resolution (CONFIRMATORY A-ENV 2, the H9 fix)
+
+
+def env_truth(dirs):
+    """Exploratory ID env truth rows (family test, missions 0-399) from pulled env_missions runs; conf families are
+    never read here."""
+    from cfcap.env import buildings as B
+    parts = []
+    for d in dirs:
+        for f in sorted(pathlib.Path(d).rglob("units/env-test-*.npz")):
+            with np.load(f) as z:
+                parts.append(pd.DataFrame({k: z[k] for k in ("family", "mission", "cand", "seg", "truth", "fp_ok",
+                                                              "load_ok")}))
+    if not parts:
+        return pd.DataFrame()
+    t = pd.concat(parts, ignore_index=True)
+    return t[(t.family == B.FAM_CODE["test"]) & (t.mission < 400)]
+
+
+def q_envcal(env, truth):
+    """CONFIRMATORY A-ENV 4: q_env = conformal (1 - alpha) quantile of the per-mission max normalised shortfall
+    (q50 - truth) / max(q50 - q05, floor) over feasible (candidate, segment) entries of the 400 exploratory ID
+    missions."""
+    from cfcap.env import buildings as B
+    e = env[(env.status_conf == 0) & (env.family == B.FAM_CODE["test"]) & (env.mission < 400)]
+    m = e.merge(truth, on=["family", "mission", "cand", "seg"])
+    m = m[m.fp_ok.astype(bool) & m.load_ok.astype(bool)]
+    if m.empty:
+        return None, 0
+    r = (m.q50 - m.truth) / np.maximum(m.q50 - m.q05, ENV_FLOOR)
+    sc = r.groupby(m.mission).max().to_numpy()
+    return float(core.split_quantile(sc, ALPHA)), len(sc)
+
+
+def env_lowers(env, q_comp, out_dir, conf, q_env=None):
+    """Per-row bounds for scripts/env_score.py --lower NAME=PATH (columns family, mission, cand, seg, lower):
+      raw                    plug-in posterior median (q = 0): a point, NOT a bound (bound_kind plugin_median)
+      amortized_comp         q50 - q_comp * max(q50 - q05, 0.01), q_comp the T1-cal simultaneous compositional
+                             constant (primary C-ENV certifier; empirical transfer, no mission-level guarantee)
+      amortized_comp_envcal  the same quantiles with q_env fitted on the 400 exploratory ID missions (secondary)
+    conf-ID mission 1499 is dropped (CONFIRMATORY A-ENV 1)."""
+    from cfcap.env import buildings as B
     d = env[env.status_conf == int(conf)]
+    d = d[~((d.family == B.FAM_CODE.get("conf-ID", -1)) & (d.mission == 1499))]
     if d.empty:
         return []
     out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     keep = ["family", "mission", "building", "cand", "seg", "leg", "cond", "shard"]
+    sc = np.maximum(d.q50 - d.q05, ENV_FLOOR)
+    meths = [("raw", d.q50, "plugin_median"), ("amortized_comp", d.q50 - q_comp * sc, f"bound_q_comp={q_comp:.4f}")]
+    if q_env is not None:
+        meths.append(("amortized_comp_envcal", d.q50 - q_env * sc, f"bound_q_env={q_env:.4f}"))
     files = []
-    for name, lo in (("raw", d.q50), ("amortized_comp", d.q50 - q_comp * np.maximum(d.q50 - d.q05, 1e-3))):
+    for name, lo, kind in meths:
         f = out_dir / f"{'env_conf' if conf else 'env'}_lower_{name}.csv.gz"
-        d[keep].assign(lower=np.where(np.isfinite(lo), lo, -np.inf), point=d.q50,
-                       scale=np.maximum(d.q50 - d.q05, 1e-3), method=name,
-                       status="confirmatory" if conf else "exploratory").to_csv(f, index=False)
+        d[keep].assign(lower=np.where(np.isfinite(lo), lo, -np.inf), point=d.q50, scale=sc, method=name,
+                       bound_kind=kind, status="confirmatory" if conf else "exploratory").to_csv(f, index=False)
         files.append(f)
     return files
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -321,6 +362,8 @@ def main():
     ap.add_argument("--confirmatory", action="store_true",
                     help="write results/models/confirmatory/dec_conf_models.csv.gz (refused before 2026-11-26 01:45Z)")
     ap.add_argument("--env-model", default="st-n6-1")
+    ap.add_argument("--env-truth", nargs="*", default=[],
+                    help="pulled env_missions run dirs (exploratory test family) for the envcal constant q_env")
     ap.add_argument("--env-out", default=str(ROOT / "results/models"), help="env/ and confirmatory/ go under it")
     ap.add_argument("--allow-early", action="store_true", help="(mock data only) skip the 01:45Z guard")
     ap.add_argument("--conf-out", default=str(ROOT / "results/models/confirmatory/dec_conf_models.csv.gz"))
@@ -469,10 +512,17 @@ def main():
         if q_comp is None:
             print(f"env: no q_comp in {cf}; run with the env model's stage-2 cal rows first")
         else:
-            fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False)
+            q_env = None
+            if a.env_truth:
+                q_env, n_m = q_envcal(env, env_truth(a.env_truth))
+                print(f"env: q_env {q_env} from {n_m} exploratory ID missions")
+                if q_env is not None:
+                    (pathlib.Path(a.calib_out) / f"calib_env_{a.env_model}.json").write_text(
+                        json.dumps(dict(alpha=ALPHA, q_env=q_env, n_missions=n_m, floor=ENV_FLOOR), indent=1))
+            fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False, q_env=q_env)
             if a.confirmatory:
                 confirmatory_rows({}, allow_early=a.allow_early)          # the 01:45Z guard
-                fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True)
+                fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True, q_env=q_env)
             print("env lower files:", [str(f) for f in fs])
     print(f"dec rows {sum(len(x) for x in dec)}  diversity rows {len(div)}  latency rows {len(lat)}  -> {out}")
 

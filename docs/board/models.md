@@ -155,7 +155,7 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - **models-conf-het**: confirmatory rows for C-HET (conf_het_test, conf_H1, conf_H2, 0–999 each); 13 jobs, 4.2 box-h.
   - Both confirmatory groups use `--reserve-shard0`, so shard 0, which the scorer excludes, holds no rows.
 - **C-ENV** (docs/board/env.md): models-env (exploratory test 400 + E-H1..4 200 each; 4 jobs, 0.5 box-h) and
-  models-conf-env (conf-ID 0–1499, conf-E-H1..4 0–749, `--reserve-shard0`; 10 jobs, 1.7 box-h). Together $0.38.
+  models-conf-env (conf-ID 0–1498, conf-E-H1..4 0–749, `--reserve-shard0`; 10 jobs, 1.7 box-h). Together $0.38.
   - For each mission, st-n6-1's posterior is computed on the body episode, from v2 probes of every assembly. No labels
     are simulated.
   - The compositional ρ_dec quantiles of each segment's leg are computed under that segment's condition: the μ
@@ -163,8 +163,14 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - `models_export.py` writes `results/models/env/env_lower_{raw,amortized_comp}.csv.gz` (family, mission, cand, seg,
     lower) for `scripts/env_score.py --lower`. With `--confirmatory`, after 01:45Z, it also writes
     `results/models/confirmatory/env_conf_lower_*.csv.gz`.
-  - raw = posterior median (q = 0). amortized_comp = q50 − q_comp·(q50 − q05), using st-n6-1's T1-cal compositional
-    constant, with no mission-level refit.
+  - CONFIRMATORY A-ENV (0dc1aec) is implemented.
+    - `raw` is a **plug-in median, not a bound** (`bound_kind = plugin_median`).
+    - The primary certifier is `amortized_comp` = q50 − q_comp·max(q50 − q05, 0.01), with q_comp the T1-cal
+      compositional constant. Its validity is an empirical transfer, not a guarantee.
+    - The secondary certifier is `amortized_comp_envcal`. q_env is the (1 − α) conformal quantile of the per-mission
+      maximum normalised shortfall over feasible entries. It is fitted only on the 400 exploratory ID missions
+      (`--env-truth <pulled env_missions dirs>`) and applied unchanged to conf ID and every E-H family.
+    - conf-ID uses missions 0–1498; 1499 is excluded.
   - Disclosure: while checking unit ids I constructed one conf building mission, `make_mission("conf-ID", 1499)`
     (geometry only; no simulation, no labels).
 - **Confirmatory labels stay closed until 2026-11-26 01:45Z.** `models_export.py` and `models_scaling.py` drop

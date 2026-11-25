@@ -354,3 +354,15 @@ def test_env_lower_export(tmp_path):
     raw = pd.read_csv(root / "env_lower_raw.csv.gz")
     assert {"family", "mission", "cand", "seg", "lower"} <= set(comp.columns)
     assert np.allclose(raw.lower, 0.9) and np.allclose(comp.lower, 0.9 - 2.0 * 0.1, atol=1e-5)
+    assert (raw.bound_kind == "plugin_median").all()
+    # envcal: truth rows of the exploratory ID missions -> q_env, a third file
+    t = tmp_path / "envrun" / "units"
+    t.mkdir(parents=True)
+    np.savez(t / "env-test-000000-000004.npz", family=rows["family"], mission=rows["mission"], cand=rows["cand"],
+             seg=rows["seg"], truth=np.full(n, 0.85, np.float32), fp_ok=np.ones(n, bool), load_ok=np.ones(n, bool))
+    r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path / "e2"), "--out", str(tmp_path / "p"),
+                        "--calib-out", str(cal), "--env-out", str(tmp_path / "m"), "--env-truth",
+                        str(tmp_path / "envrun")], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    ec = pd.read_csv(root / "env_lower_amortized_comp_envcal.csv.gz")
+    assert np.isfinite(ec.lower).all() or np.isinf(ec.lower).all()
