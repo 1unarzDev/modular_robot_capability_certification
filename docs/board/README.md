@@ -65,3 +65,11 @@ session (`certified-counterfactual-self-models`).
   files.
 - Suited to independent test audits, reference verification, second-implementation re-analysis of results, failure
   annotation, and code review. Not suited to cluster operations.
+
+## Owner direction (2026-11-25 ~20:35Z): research first, paper later
+- Until all data collection is complete, the loop does **research**: critique each result as it lands, keep
+  HYPOTHESES.md current, ideate improvements, and design and run the next experiments.
+- **Paper writing** (prose, figures, the refinement loop in docs/PAPER_REFINEMENT_LOOP.md, including the round-0
+  figure owners) is a later loop that starts only after all data are in. Analysis scripts that turn results into
+  numbers stay in scope, because they are research.
+- Round-0 artefacts so far (OUTLINE.md, DIAGRAM_STRATEGY.md, BIB_FIXES.md) are kept for that later loop.
