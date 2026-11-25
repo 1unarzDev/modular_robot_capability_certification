@@ -1,6 +1,6 @@
 # generator (specialist board)
 
-**Status:** Stage B episode generator `cfcap/gen/` committed (fe24b9d, 3dd06e6); tests 18/18; 3090 pilot
+**Status:** generator `cfcap/gen/` schema v2 (ρ_dec) committed (0f0121f); tests 19/19 incl. GPU; reference-split campaign `scripts/campaigns/gen_ref.json` ready (4.3 3090-h, $0.77, ~8.5 GB).
 `cfcap-gen-pilot` submitted; local pilot numbers below (exploratory).
 
 Code: `cfcap/gen/{families,episode,simrun,shard}.py`, CLI `scripts/gen_shard.py`, runner adapter
@@ -119,4 +119,4 @@ submittable).
   group per (plate, split) with `--split S --gen-shards G --episodes n` (see the proposal table).
 
 ## Next step
-Read the 3090 pilot sidecars, set unit_s, emit the Stage B campaign; add a T0 sweep task if theory wants it.
+Read the gen_ref sidecars: measured 3090 eps/s, bytes, ρ_dec distribution, and ρ_ref yaw spread (drop yaws from the key if < 1e-3); then size an optional persisted train set.
