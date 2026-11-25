@@ -130,6 +130,25 @@ def stage_t2(arm, n, shard, conds=CONDS, backend="numba"):
     np.savez_compressed(OUT / f"A5_{arm}_n{n}_s{shard}_t2_{tag}.npz", **out)
 
 
+def refs(device="cpu"):
+    """Nominal healthy references rho_ref(shape, leg) of each plant (T1; T2 per condition) -> OUT/A5_refs.npz."""
+    from cfcap.t1 import capability as cap1, params as P, plant
+    from cfcap.t2 import build, capability as cap2
+    par = P.base_params("plated")
+    th = P.load_theta("plated")
+    out = {}
+    for s in SHAPES:
+        asm = P.named_assembly(s, par)
+        lat = plant.sample_latents(asm, 1, np.random.default_rng(0), plant.HET_OFF, domain=P.point_domain(th, 1, device),
+                                   device=device)
+        out[f"{s}/T1"] = cap1.capability([(asm, lat)], par, device=device)[0]["rho"].cpu().numpy()[0]
+        for c in CONDS:
+            out[f"{s}/{c}"] = cap2.rho_ref(asm, par, "plated", build.ABLATIONS[c])
+        print(s, out[f"{s}/T1"].round(3), out[f"{s}/all"].round(3), flush=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    np.savez(OUT / "A5_refs.npz", **out)
+
+
 def _load(arm):
     data = {}
     for f1 in sorted(glob.glob(str(OUT / f"A5_{arm}_*_t1.npz"))):
@@ -157,12 +176,19 @@ def _boot(flip, nboot=1000, seed=0):
 def analyze():
     import csv
     RES.mkdir(parents=True, exist_ok=True)
-    rows, qrows = [], []
+    rows, qrows, trows = [], [], []
     verdict = {}
-    for arm in ("P0", "P1"):
-        D = _load(arm)
-        if not D:
+    R = np.load(OUT / "A5_refs.npz")
+    for arm, label in (("P0", "rho_dec"), ("P0", "rho_rel"), ("P1", "rho_dec"), ("P1", "rho_rel")):
+        D0 = _load(arm)
+        if not D0:
             continue
+        D = dict(D0)
+        if label == "rho_dec":
+            for k in D0:
+                if k.endswith("/rho"):
+                    s_, c_ = k.split("/")[:2]
+                    D[f"{s_}/{c_}/rho_rel"] = D0[k] / R[f"{s_}/{c_}"][None]
         conds = sorted({k.split("/")[1] for k in D if k.endswith("/rho_rel") and "/T1/" not in k}, key=CONDS.index)
         for c in conds:
             for sub in ("children",) + SHAPES:
@@ -180,13 +206,13 @@ def analyze():
                     d = np.concatenate(ds, 0)
                     lo, hi = _boot(fl.astype(float))
                     q = np.percentile(d, [1, 5, 50, 95, 99])
-                    rows.append(dict(arm=arm, cond=c, child=sub, sel=fsel, episodes=fl.shape[0], decisions=fl.size,
+                    rows.append(dict(arm=arm, label=label, cond=c, child=sub, sel=fsel, episodes=fl.shape[0], decisions=fl.size,
                                      flip=fl.mean(), flip_lo=lo, flip_hi=hi, share_d05=(np.abs(d) > 0.05).mean(),
                                      share_d02=(np.abs(d) > 0.02).mean(), d_mean=d.mean(),
                                      d_q01=q[0], d_q05=q[1], d_q50=q[2], d_q95=q[3], d_q99=q[4],
                                      d_absmax=np.abs(d).max()))
                     if sub == "children" and fsel == "all" and c == "all":
-                        verdict[arm] = dict(flip=float(fl.mean()), flip_ci=[float(lo), float(hi)],
+                        verdict[f"{arm}/{label}"] = dict(flip=float(fl.mean()), flip_ci=[float(lo), float(hi)],
                                             share_d05=float((np.abs(d) > 0.05).mean()))
         # per-leg shift (all, children)
         from cfcap.t1.capability import LEGS
@@ -196,15 +222,31 @@ def analyze():
                                     for s in ("pair", "L3", "square", "2x3")])
                 f = np.concatenate([np.stack([(D[f"{s}/T1/rho_rel"][:, li] >= t) != (D[f"{s}/{c}/rho_rel"][:, li] >= t)
                                               for t in TAUS], 1) for s in ("pair", "L3", "square", "2x3")])
-                qrows.append(dict(arm=arm, cond=c, leg=leg, flip=f.mean(), share_d05=(np.abs(d) > 0.05).mean(),
+                qrows.append(dict(arm=arm, label=label, cond=c, leg=leg, flip=f.mean(), share_d05=(np.abs(d) > 0.05).mean(),
                                   d_q05=np.percentile(d, 5), d_q50=np.median(d), d_q95=np.percentile(d, 95)))
-    for name, rr in (("A5_flips.csv", rows), ("A5_by_leg.csv", qrows)):
+        # leg type x child size (theory: diagonals and yaw of >= 3-module children are the weak spots), all conds
+        from cfcap.t1.capability import LEGS as _L
+        ltype = np.array(["yaw" if l.startswith("yaw") else "diag" if l.startswith("diag") else "axis" for l in _L])
+        for c in conds:
+            for grp, shapes in (("2mod", ("pair",)), ("3+mod", ("L3", "square", "2x3"))):
+                r1 = np.concatenate([D[f"{s}/T1/rho_rel"] for s in shapes])
+                r2 = np.concatenate([D[f"{s}/{c}/rho_rel"] for s in shapes])
+                for lt in ("axis", "diag", "yaw"):
+                    m = ltype == lt
+                    a1, a2 = r1[:, m], r2[:, m]
+                    fl = np.stack([(a1 >= t) != (a2 >= t) for t in TAUS])
+                    near = np.stack([np.abs(a1 - t) < 0.05 for t in TAUS])
+                    trows.append(dict(arm=arm, label=label, cond=c, size=grp, leg_type=lt, decisions=fl.size,
+                                      flips=int(fl.sum()), flip=fl.mean(), near=int(near.sum()),
+                                      flip_given_near=(fl & near).sum() / max(1, near.sum()),
+                                      share_d05=(np.abs(a2 - a1) > 0.05).mean()))
+    for name, rr in (("A5_flips.csv", rows), ("A5_by_leg.csv", qrows), ("A5_by_legtype.csv", trows)):
         with open(RES / name, "w", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=list(rr[0]))
             w.writeheader()
             for r in rr:
                 w.writerow({k: (f"{v:.5g}" if isinstance(v, float) else v) for k, v in r.items()})
-    v = verdict.get("P0")
+    v = verdict.get("P0/rho_dec")
     if v:
         v["lead_misspecification"] = v["flip"] > 0.05
         v["secondary_d05_gt_5pct"] = v["share_d05"] > 0.05
@@ -215,7 +257,7 @@ def analyze():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("t1", "t2", "analyze"))
+    ap.add_argument("cmd", choices=("t1", "t2", "refs", "analyze"))
     ap.add_argument("--arm", default="P0", choices=("P0", "P1"))
     ap.add_argument("--n", type=int, default=100)
     ap.add_argument("--shard", type=int, default=0)
@@ -226,5 +268,7 @@ if __name__ == "__main__":
         stage_t1(a.arm, a.n, a.shard, a.device)
     elif a.cmd == "t2":
         stage_t2(a.arm, a.n, a.shard, tuple(a.conds.split(",")))
+    elif a.cmd == "refs":
+        refs()
     else:
         analyze()

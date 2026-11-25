@@ -7,10 +7,10 @@
  "_doc": "DRAFT for Stage B/C on <=8 interruptible 3090s. Every unit_s below is an ESTIMATE from A0 (results/stageA/A0_throughput.csv, 4070 Ti SUPER, 3090 assumed 1.25x slower) until the owning role pastes its pilot line into `pilot`. make_jobs.py refuses to emit submittable jobs for a group without `pilot`. Stage 2 groups need the stage-1 outputs pulled back (extra_inputs) and fresh boxes (inputs are pushed once per box).",
  "groups": [
   {"name": "t2-episodes", "task": "t2_eval", "stage": 1, "lane": "rented", "profile": "torch", "shards": 4,
-   "units_per_shard": 10, "unit_s": 155, "overhead_s": 300, "vram_gb": 1, "priority": 0,
-   "task_args": ["--mode", "simulate", "--split", "test", "--episodes", "4000", "--per-unit", "100", "--backend", "numba"],
+   "units_per_shard": 10, "unit_s": 300, "overhead_s": 300, "vram_gb": 1, "priority": 0,
+   "task_args": ["--mode", "simulate", "--split", "test", "--episodes", "4000", "--per-unit", "100", "--backend", "auto"],
    "extra_inputs": ["~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"],
-   "pilot": "stress 2026-11-25: NUMBA_NUM_THREADS=4 python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/t2ev --mode simulate --split test --episodes 3 --per-unit 3 on the 4070 host (i7, 4 numba threads): 1.52 s/episode (23 candidates/episode, labels + parent v2 obs), peak RSS 0.66 GB, no GPU; unit of 100 episodes = 152 s at 4 threads (a box with more cores is faster). Needs torch (CPU imports) + numba 0.68 + input crane_ml (scripts/stage_crane_t2.sh).", "role": "stress",
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/t2ev3 --mode simulate --split test --episodes 40 --per-unit 20 (NUMBA_NUM_THREADS=4, 4070 host, CPU only): 2.44 and 3.42 s/episode (17-22 candidates/episode; labels rho/rho_rel/rho_dec with T2 rho_ref + parent v2 obs), peak RSS 0.66 GB, VRAM 0; a 100-episode unit = ~300 s at 4 threads. Needs torch (CPU imports) + numba (backend auto falls back to jax, then numpy) + input crane_ml.", "role": "stress",
    "purpose": "Simulate the T2 closed-loop test episodes (same episode specs as the T1 test split) that the 2x2 SMC/amortized by T1/T2 grid evaluates."},
   {"name": "train", "task": "train", "stage": 1, "lane": "rented", "profile": "torch", "shards": 29,
    "units_per_shard": 9, "unit_s": 300, "overhead_s": 180, "vram_gb": 10, "priority": 10,

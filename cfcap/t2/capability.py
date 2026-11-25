@@ -125,3 +125,26 @@ def observe(R, lat, seed=0, cpr=None):
     return dict(pre_duty=duty, speed=spd, gz=R["gz"] + IMU_NOISE[0] * rng.normal(size=(B, T)) + gb,
                 ax=R["ax"] + IMU_NOISE[1] * rng.normal(size=(B, T)) + ab[:, 0:1],
                 ay=R["ay"] + IMU_NOISE[2] * rng.normal(size=(B, T)) + ab[:, 1:2])
+
+
+_REF_CACHE = {}
+
+
+def rho_ref(asm, params, plate="plated", effects=build.NONE, n_draws=8, backend="numba", seed=12345):
+    """T2's nominal healthy reference rho_ref(shape, leg) (L,) for the decision label rho_dec = rho / rho_ref
+    (docs/board/README.md, 2026-11-25): rho at the identified theta of the plate state (cfcap.t1.params.point_domain),
+    no heterogeneity, no fault, no mounting-yaw error; averaged over `n_draws` draws of the effect nuisances (compliance
+    stiffnesses, COM heights, roller-drag factors), which have no nominal value. Cached per geometry and effects."""
+    import torch  # noqa: F401  (T1 latent helpers)
+    from cfcap.t1 import params as P
+    from cfcap.t1 import plant
+    key = (plate, effects, n_draws, seed, np.round(np.asarray(asm.wheel_pos), 6).tobytes(),
+           np.round(np.asarray(asm.r_hat), 6).tobytes(), float(asm.mass))
+    if key not in _REF_CACHE:
+        th = P.load_theta(plate)
+        lat = plant.sample_latents(asm, n_draws, np.random.default_rng(0), plant.HET_OFF,
+                                   domain=P.point_domain(th, n_draws, "cpu"), device="cpu")
+        lat["yaw_err"] = None
+        o = capability([(asm, lat)], params, effects, backend=backend, seed=seed)[0]
+        _REF_CACHE[key] = o["rho"].mean(0)
+    return _REF_CACHE[key]

@@ -7,8 +7,9 @@ evaluation of a predictor against them. EVALUATION ONLY: nothing here may feed t
 
 simulate. Episodes are the generator's (cfcap.gen.episode.make_episode(plate, split, index): numpy seeds on the CPU,
 so the same episode on every host as the T1 split). One unit = `--per-unit` consecutive episode indices. For every
-candidate (self, children, merges) the T2 plant (`--conds`, default `all`) gives rho, rho_healthy, rho_rel on the 10
-decision legs; a candidate without a faulted wheel has rho_healthy = rho (no twin run, as the generator does).
+candidate (self, children, merges) the T2 plant (`--conds`, default `all`) gives rho, rho_healthy, rho_rel and the
+primary decision label rho_dec = rho / rho_ref (T2's own nominal healthy reference of that morphology,
+cfcap.t2.capability.rho_ref) on the 10 decision legs; a candidate without a faulted wheel has rho_healthy = rho (no twin run, as the generator does).
 Rows = candidates (columnar units/<unit>.npz): plate, split, ep_index, cand, kind, n_mod, n_wheel, n_fault, and
 `<cond>.rho_rel.<leg index>` etc. The parent's v2 probe under T2 `all` (the generator's probe command and RNG
 stream, robot-visible channels as cfcap.gen.simrun.observe_np) goes to OUT/obs/<unit>.npz (ragged, with offsets).
@@ -43,12 +44,15 @@ def _args(p):
     p.add_argument("--episodes", type=int, default=4000, help="episode indices 0..episodes-1 of the split")
     p.add_argument("--per-unit", type=int, default=20)
     p.add_argument("--conds", default="all", help="comma list of cfcap.t2.build.ABLATIONS names")
-    p.add_argument("--backend", default="numba", choices=("numba", "jax", "numpy"))
+    p.add_argument("--backend", default="auto", choices=("auto", "numba", "jax", "numpy"),
+                   help="auto: numba if importable, else jax, else numpy (no torch.compile anywhere in T2)")
     p.add_argument("--no-obs", action="store_true", help="skip the parent's v2 probe observation")
     p.add_argument("--episodes-dir", default=None)
     p.add_argument("--predictor", default=None, help="module:function (evaluate)")
     p.add_argument("--models", default=None)
     p.add_argument("--taus", default="0.6,0.7,0.8")
+    p.add_argument("--label", default="rho_dec", choices=("rho_dec", "rho_rel"),
+                   help="truth of evaluate: rho_dec = rho / rho_ref (primary, board 2026-11-25) or rho_rel")
 
 
 def _units(a, shard, n_shards):
@@ -93,7 +97,8 @@ def simulate_episode(ep, conds, backend="numba", obs=True):
             for k, i in enumerate(idx):
                 rho[i] = o[k]["rho"][0]
                 rh[i] = o[k]["rho_healthy"][0] if rel else o[k]["rho"][0]
-        out[cond] = dict(rho=rho, rho_healthy=rh, rho_rel=rho / rh)
+        ref = np.stack([cap2.rho_ref(c.asm, par, ep.plate, eff, n_draws=1, backend=backend) for c in ep.cands])
+        out[cond] = dict(rho=rho, rho_healthy=rh, rho_rel=rho / rh, rho_ref=ref, rho_dec=rho / ref)
     ob = None
     if obs:
         a = ep.parent
@@ -190,7 +195,7 @@ def _run_simulate(unit, ctx):
             r = dict(plate=E.PLATES.index(a.plate), split=E.SPLITS[a.split], ep_index=ei, cand=ci, kind=c.kind,
                      n_mod=len(c.modules), n_wheel=c.asm.n, n_fault=int(faulted[ci]))
             for cond in conds:
-                for key in ("rho", "rho_healthy", "rho_rel"):
+                for key in ("rho", "rho_healthy", "rho_rel", "rho_ref", "rho_dec"):
                     for li, v in enumerate(lab[cond][key][ci]):
                         r[f"{cond}.{key}.{li}"] = float(v)
             st["rows"].append(r)
@@ -273,7 +278,7 @@ def _run_evaluate(unit, ctx):
         t0 = time.time()
         meths = _as_methods(pred(a.models, ep, obs.get(int(ei))))
         sec = (time.time() - t0) / max(1, len(ep.cands))
-        rr = np.stack([z[f"{cond}.rho_rel.{l}"][m] for l in range(L)], 1)
+        rr = np.stack([z[f"{cond}.{a.label}.{l}"][m] for l in range(L)], 1)
         cand, nf = z["cand"][m], z["n_fault"][m]
         shape = ep.parent.topo
         for meth, d in meths.items():
@@ -322,7 +327,19 @@ def export_dec_csv(out_dirs, path):
     return len(files)
 
 
+def resolve_backend(b):
+    if b != "auto":
+        return b
+    import importlib.util
+    for name in ("numba", "jax"):
+        if importlib.util.find_spec(name) is not None:
+            return name
+    return "numpy"
+
+
 def _run(unit, ctx):
+    ctx.args.backend = resolve_backend(ctx.args.backend)
+    ctx.meta["backend"] = ctx.args.backend
     return _run_simulate(unit, ctx) if ctx.args.mode == "simulate" else _run_evaluate(unit, ctx)
 
 
@@ -339,7 +356,7 @@ def _summary(recs, a):
             "t2.certified_frac": sum(x.get("go_capable", 0) for x in m) / max(1, cap_)}
 
 
-TASK = Task("t2_eval", _units, _run, _args, _summary, ("numpy", "torch", "numba"),
+TASK = Task("t2_eval", _units, _run, _args, _summary, ("numpy", "torch"),
             "T2 stress-plant labels + v2 observations of generator episodes (simulate), predictor evaluation (evaluate)")
 
 
