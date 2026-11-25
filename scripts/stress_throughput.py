@@ -23,14 +23,14 @@ def main(backend):
     K = 150
     rows = []
     sizes = {"numba": (256, 1024), "jax": (4096, 16384)}[backend]
-    for name in (("pair", "square", "2x3") if backend == "numba" else ("square", "2x3")):
+    for name in (("pair", "square", "2x3") if backend == "numba" else ("square",)):
         asm = P.named_assembly(name, par)
         tabs, _ = cap1.leg_tables(asm, par)
         for E in sizes:
             rng = np.random.default_rng(0)
             lat = plant.sample_latents(asm, E, rng, plant.HET_FULL, dr=dr, faults=plant.random_faults(E, asm.n, rng),
                                        device="cpu")
-            for eff in ("base", "all"):
+            for eff in (("base", "all") if backend == "numba" else ("all",)):
                 S = build.episode_specs(asm, lat, par, build.ABLATIONS[eff], seed=0)
                 which = np.arange(E) % 10
                 kernel.run(dict(S, **{k: v[:8] for k, v in S.items() if k not in build.FLAGS}), tabs.astype(float),
@@ -44,13 +44,17 @@ def main(backend):
                          shape=name, wheels=asm.n, E=E, effects=eff, seconds=round(dt, 3), legs_per_s=round(E / dt, 1))
                 print(r, flush=True)
                 rows.append(r)
+                _append(r)
+
+
+def _append(r):
     f = ROOT / "results/stress/T2_throughput.csv"
     new = not f.exists()
     with open(f, "a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w = csv.DictWriter(fh, fieldnames=list(r))
         if new:
             w.writeheader()
-        w.writerows(rows)
+        w.writerow(r)
 
 
 if __name__ == "__main__":
