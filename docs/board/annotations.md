@@ -108,10 +108,58 @@ Readings:
 - **For decision:** use the named `r_<leg>` columns (NaN = not required) and `min_modules`. Map them by name: the T0
   and T1 leg orders differ.
 
-**A. Failure taxonomy.** Not annotated yet.
-- `docs/annotations/TAXONOMY.md` v1: 13 categories + `other`, each with a deterministic signature.
-- It is provisional: it was frozen before the pilot because of the quota outage.
-- It is replaced if > 15 % of the pilot's free labels, or of the full run's `other`, fall outside it.
+**A. Failure-mode taxonomy (exploratory; T0 pilot, A2, A5).**
+- Files: `results/annotations/a_taxonomy_by_category.csv`, `a_taxonomy_validated.csv`, `a_taxonomy_claims.csv`,
+  `a_taxonomy_by_claim_kind.csv`, `a_taxonomy_table.csv`. Taxonomy: `docs/annotations/TAXONOMY.md` v1.
+- Run: 1181/1181 cases annotated by luna (60 calls, 0 failures).
+- Claims: 4522, of which 4491 are checkable against ground truth; **95.7 % true**.
+- The pilot (50 cases, free labels) gave 222/225 true claims. Its labels map onto v1 with ≤ 3/50 unmapped ("fault
+  outside the candidate"). `other` is 1.3 % in the full run. Both are below the 15 % rule, so **v1 stands**.
+
+| category | n | claim acc | signature holds | validated | sources |
+|---|---|---|---|---|---|
+| near_threshold | 327 | 0.964 | 0.859 | **yes** | T0, A2, A5 |
+| probe_overconfidence | 150 | 0.983 | 0.887 | **yes** | T0 |
+| conformal_margin_slack | 126 | 0.969 | 0.976 | **yes** | T0 |
+| passive_wheel_hidden | 89 | 0.991 | 0.921 | **yes** | T0, A2 |
+| mode_confusion | 71 | 0.993 | 0.901 | **yes** | T0, A2 |
+| spread_masked_weak | 13 | 0.945 | 0.923 | **yes** | T0, A2, A5 |
+| screen_miss | 24 | 0.990 | 0.792 | no (just below 0.8; 19/21 on unsafe certificates) | T0 |
+| friction_scatter | 141 | 0.947 | 0.780 | no | A5 |
+| genuine_shortfall | 57 | 0.971 | 0.474 | no | all |
+| kernel_numerics | 64 | 0.821 | 0.250 | no | A5 |
+| dock_effects | 85 | 0.900 | **0.047** | no | A5 |
+| unexcited_envelope / split_needed | 11 / 8 | 0.98 / 0.96 | 0.64 / 0.00 | no (n small) | A2, T0 |
+| other | 15 | — | — | no | — |
+
+Readings:
+1. **Why T0 certificates fail or abstain (validated categories only, `a_taxonomy_table.csv`).**
+   - Refused-capable pairs: conformal_margin_slack 110 and probe_overconfidence 132 of 265. The refusals are
+     calibration effects, not posterior errors.
+   - Ambiguous pairs: near_threshold and passive_wheel_hidden dominate.
+   - A2 oracle ambiguity: mode_confusion 58, passive_wheel_hidden 54 and near_threshold 26 of 160. These are coast /
+     brake wheels on single-module children that v2 cannot tell apart.
+2. **Unsafe certificates.** Ground truth: 23/43 certified-but-incapable pairs are screen misses (truth_in_screen = 0;
+   decision.md saw this for the 6 *committed* ones).
+   - Codex labels them screen_miss with 19/21 correct.
+   - The other unsafe certificates are hidden passive wheels (9, signature 1.0) and near-threshold labels (6).
+   - So a second unsafe mechanism exists besides the screen: a coast or brake wheel in the child that v2 does not
+     excite.
+3. **The validator caught plausible but wrong LLM physics on A5.** Codex's misspecification attributions fail the
+   ablation check:
+   - its condition_flip claims are 156/286 true (55 %);
+   - "dock effects" holds for 4.7 % of the cases it labelled;
+   - "kernel numerics" holds for 25 %.
+
+   The deterministic ablation itself gives the attribution (`a5_truth.jsonl`, 595 flips):
+   - 566 (95 %) also flip with the roller-friction scatter alone (`aniso_mu`);
+   - removing the scatter removes 391 (66 %);
+   - the bare kernel flips 204 (34 %).
+
+   This matches stress.md C-stress-1. So for A5 the paper table should cite the ablation, not the LLM category.
+4. Claim kinds (`a_taxonomy_by_claim_kind.csv`):
+   - factual claims (wheel_mode, leg_truth, leg_t1, post_mean, truth_mass) are ≥ 99 % true;
+   - inferential claims are weaker: leg_margin 90 %, probe_resolves 10/16 checkable, condition_flip 55 %.
 
 ## Throughput and cost (`*_calls.csv`, `codex_annotate.py summary`)
 | run | calls | valid items | wall | items/min | median call | max slots | input tok (cached) | output tok |
@@ -119,6 +167,8 @@ Readings:
 | tasks_gen | 24 | 600 | 1013 s | 35.6 | 129 s | 9 | 438k (260k) | 212k |
 | c_explain | 22 | 528 | 178 s for the first 503 (the last chunk ran after the outage) | 170 | 45 s | 9 | 573k (213k) | 63k |
 | tasks_rederive (terra) | 24 | 600 | 119 s | 303 | 20 s | 6 | 497k (401k) | 49k |
+| a_pilot (luna; 1 call lost to the quota outage) | 6 | 50 | — | — | 37 s | 5 | 130k (0) | 13k |
+| a_taxonomy (luna) | 60 | 1181 | 623 s | 114 | 56 s | 6 | 2.12M (505k) | 267k |
 
 - No call failed before the quota hit.
 - There is a long tail: one generation call took 757 s. AIMD reached 9 slots with no errors.
@@ -127,19 +177,15 @@ Readings:
 
 Note: `results/annotations/t0_cases.jsonl` (7 MB) is not committed. Regenerate it in about 4 s with `validate_annotations.py cases-t0` (needs `$CFCAP_OUT/annotations/t0_truth.pkl`).
 
-## Pending (detached driver; relaunched 21:17Z with the owner's models)
-- `$CFCAP_OUT/annotations/run_pending.sh`, log `run_pending.log`. Concurrency ≤ 6, shared with the coordinator's
-  dispatcher. Quota-aware.
-- Remaining:
-  1. `a_pilot` (50, free labels, luna), then `validate-a --name a_pilot --cases a_pilot`;
-  2. `a_taxonomy` (1181, frozen v1, luna), then `validate-a --name a_taxonomy --cases a_all`, giving
-     `a_taxonomy_by_category.csv` (validated flag), `_claims.csv` and `_by_claim_kind.csv`.
-- Collect: check the `other` rate and the pilot labels against TAXONOMY v1 (15 % rule), update this file, and commit
-  `results/annotations/`.
+## Pending
+Nothing from codex. The driver finished (`$CFCAP_OUT/annotations/run_pending.log`). T1 and T2 sources slot in as their
+rows land (see "Needs").
 
 ## Proposals
-1. **Paper table "why certificates abstain or fail":** only categories with `validated = 1` in
-   `a_taxonomy_by_category.csv` (signature ≥ 80 %, claims ≥ 90 %, n ≥ 10).
+1. **Paper table "why certificates abstain or fail":**
+   - Use the six validated categories of `a_taxonomy_by_category.csv` for T0 and A2 (`a_taxonomy_table.csv`).
+   - For A5, use the deterministic ablation shares (reading 3), not LLM categories.
+   - screen_miss (0.79) can enter if the next T1 batch clears 0.8.
 2. **Explanation faithfulness as a trustworthiness result** (C): scale to T1 once decide-main lands, with the SMC and
    amortized posteriors. Report the refused-capable stratum separately (finding 3). About 2k cases, roughly 15 min of
    codex at 6 slots.

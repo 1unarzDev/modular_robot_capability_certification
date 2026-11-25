@@ -1,0 +1,226 @@
+case_id,category,kind,target,op,value,mode,result,truth_value,text
+a2-265-sensor-parent7/c3-diag++-0.8,,wheel_mode,m3_rl,eq,0.0,weak,true,weak,m3_rl is weak.
+a2-265-sensor-parent7/c3-diag++-0.8,,wheel_gain,m3_rl,eq,0.4,,true,0.4,Its drive gain is 0.4.
+a2-265-sensor-parent7/c3-diag++-0.8,,set_min,diag++,lt,0.8,,true,0.757,The consistent-set minimum is below the threshold.
+a2-265-sensor-parent7/c3-diag++-0.8,,set_max,diag++,gt,0.8,,true,0.874,The consistent-set maximum is above the threshold.
+a5-P0-s1-pair-e112-sway+-0.8,,leg_t1,sway+,gt,0.8,,true,0.869,T1 sway+ exceeds the threshold.
+a5-P0-s1-pair-e112-sway+-0.8,,leg_truth,sway+,lt,0.8,,true,0.776,T2 sway+ falls below the threshold.
+a5-P0-s1-pair-e112-sway+-0.8,,leg_shift,sway+,lt,-0.09,,true,-0.09299999999999997,The T2 minus T1 shift is below -0.09.
+a5-P0-s1-pair-e112-sway+-0.8,,leg_margin,sway+,lt,0.07,,true,0.06899999999999995,The T1 label is within 0.07 of the threshold.
+a5-P0-s1-single-e138-surge+-0.8,,leg_t1,surge+,lt,0.8,,true,0.746,T1 surge+ is below the threshold.
+a5-P0-s1-single-e138-surge+-0.8,,leg_truth,surge+,gt,0.8,,true,0.819,T2 surge+ is above the threshold.
+a5-P0-s1-single-e138-surge+-0.8,,leg_shift,surge+,gt,0.07,,true,0.07299999999999995,The T2 minus T1 shift exceeds 0.07.
+a5-P0-s1-single-e138-surge+-0.8,,wheel_mode,m0_fr,eq,0.0,coast,true,coast,m0_fr is coasting.
+t0-909121-c1-t1,,leg_truth,surge+,gt,0.9,,true,0.912,True surge+ capability exceeds 0.9.
+t0-909121-c1-t1,,post_mean,surge+,gt,0.9,,true,0.91,The v2 posterior mean is above 0.9.
+t0-909121-c1-t1,,post_sd,surge+,gt,0.03,,true,0.033,The v2 posterior spread exceeds 0.03.
+t0-909121-c1-t1,,wheel_mode,m0_fr,eq,0.0,coast,true,coast,The candidate's m0_fr wheel is coasting.
+t0-909227-c6-t0,,leg_truth,surge-,gt,0.99,,true,0.993,True surge− capability exceeds 0.99.
+t0-909227-c6-t0,,post_mean,surge-,gt,0.99,,true,0.994,The posterior mean exceeds 0.99.
+t0-909227-c6-t0,,post_sd,surge-,gt,0.02,,true,0.021,The posterior spread is above 0.02.
+t0-909227-c6-t0,,wheel_mode,m0_rr,eq,0.0,weak,true,weak,m0_rr is weak.
+t0-909304-c2-t1,,wheel_mode,m1_fr,eq,0.0,coast,true,coast,m1_fr is coasting.
+t0-909304-c2-t1,,wheel_mode,m1_fl,eq,0.0,weak,true,weak,m1_fl is weak.
+t0-909304-c2-t1,,wheel_gain,m1_fl,eq,0.8,,true,0.8,m1_fl has gain 0.8.
+t0-909304-c2-t1,,truth_mass,,eq,0.0,,true,0.0,The posterior assigns no mass to the true fault hypothesis.
+t0-909047-c3-t0,,wheel_mode,m2_rr,eq,0.0,brake,true,brake,The candidate's m2_rr wheel is braking.
+t0-909047-c3-t0,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains a faulted wheel.
+t0-909047-c3-t0,,leg_truth,surge+,lt,0.7,,true,0.69,True surge+ capability is below 0.7.
+t0-909047-c3-t0,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis receives no posterior mass.
+a2-32-floor-parent8/c2-diag+--0.7,,wheel_mode,m2_fl,eq,0.0,coast,true,coast,m2_fl is coasting.
+a2-32-floor-parent8/c2-diag+--0.7,,set_min,diag+-,lt,0.7,,true,0.616,The consistent-set minimum is below 0.7.
+a2-32-floor-parent8/c2-diag+--0.7,,set_max,diag+-,gt,0.7,,true,0.731,The consistent-set maximum is above 0.7.
+a2-32-floor-parent8/c2-diag+--0.7,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains a faulted wheel.
+a5-P0-s0-single-e86-sway--0.7,,leg_t1,sway-,gt,0.7,,true,0.798,T1 sway− exceeds the threshold.
+a5-P0-s0-single-e86-sway--0.7,,leg_truth,sway-,lt,0.7,,true,0.641,T2 sway− falls below the threshold.
+a5-P0-s0-single-e86-sway--0.7,,leg_shift,sway-,lt,-0.15,,true,-0.15700000000000003,The T2 minus T1 shift is below −0.15.
+a5-P0-s0-single-e86-sway--0.7,,latent,c_roller,lt,0.36,,true,0.359,The global roller coefficient is below 0.36.
+a5-P1-s0-single-e105-sway--0.7,,leg_t1,sway-,lt,0.7,,true,0.481,T1 sway− is below the threshold.
+a5-P1-s0-single-e105-sway--0.7,,leg_truth,sway-,gt,0.7,,true,0.73,T2 sway− exceeds the threshold.
+a5-P1-s0-single-e105-sway--0.7,,leg_shift,sway-,gt,0.24,,true,0.249,The T2 minus T1 shift exceeds 0.24.
+a5-P1-s0-single-e105-sway--0.7,,wheel_mode,m0_fr,eq,0.0,brake,true,brake,m0_fr is braking.
+a5-P1-s0-single-e126-sway--0.8,,wheel_mode,m0_fr,eq,0.0,coast,true,coast,Front right wheel coasts.
+a5-P1-s0-single-e126-sway--0.8,,wheel_mode,m0_rr,eq,0.0,coast,true,coast,Rear right wheel coasts.
+a5-P1-s0-single-e126-sway--0.8,,leg_t1,sway-,lt,0.8,,true,0.74,Training plant sway- is below threshold.
+a5-P1-s0-single-e126-sway--0.8,,leg_truth,sway-,gt,0.8,,true,0.89,Stress plant sway- exceeds threshold.
+t0-909079-c1-t2,,wheel_mode,m0_fl,eq,0.0,coast,true,coast,Candidate front left wheel coasts.
+t0-909079-c1-t2,,wheel_in_candidate,m0_fl,eq,1.0,,true,,Coasting wheel is in the candidate.
+t0-909079-c1-t2,,post_mean,sway-,gt,0.89,,true,0.892,Posterior mean is near 0.892.
+t0-909079-c1-t2,,leg_truth,sway-,lt,0.9,,true,0.779,True sway- ratio is below required 0.9.
+t0-909079-c1-t2,,truth_mass,,gt,0.9,,true,0.921,True fault hypothesis carries over 0.9 posterior mass.
+t0-909064-c0-t2,,candidate_has_fault,,eq,1.0,,true,1,Parent candidate contains a faulted wheel.
+t0-909064-c0-t2,,wheel_mode,m1_rr,eq,0.0,coast,true,coast,Module 1 rear right wheel coasts.
+t0-909064-c0-t2,,leg_truth,surge-,gt,0.9,,true,0.991,True surge- exceeds its 0.9 threshold.
+t0-909064-c0-t2,,post_sd,diag++,eq,0.02,,true,0.02,Posterior diagonal standard deviation is 0.02.
+t0-909064-c0-t2,,truth_mass,,gt,0.9,,true,0.929,True fault hypothesis has posterior mass above 0.9.
+t0-909452-c2-t1,,wheel_mode,m1_fr,eq,0.0,brake,true,brake,Candidate front right wheel is braked.
+t0-909452-c2-t1,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,Module 0 rear left wheel coasts.
+t0-909452-c2-t1,,wheel_in_candidate,m0_rl,eq,0.0,,true,,Coasting wheel lies outside the child candidate.
+t0-909452-c2-t1,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis was screened out.
+t0-909452-c2-t1,,leg_truth,diag--,lt,0.4,,true,0.392,True diag-- is below 0.4.
+t0-909057-c1-t1,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,Candidate rear left wheel coasts.
+t0-909057-c1-t1,,wheel_mode,m2_fr,eq,0.0,brake,true,brake,Outside module's front right wheel is braked.
+t0-909057-c1-t1,,wheel_in_candidate,m2_fr,eq,0.0,,true,,Braked wheel is outside the child.
+t0-909057-c1-t1,,truth_in_screen,,eq,0.0,,true,0,True fault hypothesis did not survive screening.
+t0-909057-c1-t1,,leg_truth,surge+,lt,0.8,,true,0.783,True surge+ is below the required 0.8.
+a2-150-sensor-parent6/c2-diag++-0.7,,wheel_mode,m2_rl,eq,0.0,coast,true,coast,Candidate module 2 rear left wheel coasts.
+a2-150-sensor-parent6/c2-diag++-0.7,,set_min,diag++,lt,0.7,,true,0.646,Consistent set minimum is below threshold.
+a2-150-sensor-parent6/c2-diag++-0.7,,set_max,diag++,gt,0.7,,true,0.756,Consistent set maximum exceeds threshold.
+a2-150-sensor-parent6/c2-diag++-0.7,,leg_truth,diag++,gt,0.7,,true,0.756,True ratio is above threshold.
+a5-P0-s0-single-e43-sway--0.7,,wheel_mode,m0_fl,eq,0.0,weak,true,weak,Front left wheel is weak.
+a5-P0-s0-single-e43-sway--0.7,,wheel_gain,m0_fl,eq,0.63,,true,0.63,Weak wheel gain is 0.63.
+a5-P0-s0-single-e43-sway--0.7,,wheel_mode,m0_fr,eq,0.0,brake,true,brake,Front right wheel is braked.
+a5-P0-s0-single-e43-sway--0.7,,leg_t1,sway-,gt,0.7,,true,0.766,Training sway- exceeds threshold.
+a5-P0-s0-single-e43-sway--0.7,,leg_truth,sway-,lt,0.7,,true,0.669,Stress sway- falls below threshold.
+a5-P0-s0-square-e85-yaw--0.8,,wheel_mode,m2_fr,eq,0.0,weak,true,weak,Module 2 front right wheel is weak.
+a5-P0-s0-square-e85-yaw--0.8,,wheel_gain,m2_fr,eq,0.425,,true,0.425,Weak wheel gain is 0.425.
+a5-P0-s0-square-e85-yaw--0.8,,wheel_mode,m2_rl,eq,0.0,brake,true,brake,Module 2 rear left wheel is braked.
+a5-P0-s0-square-e85-yaw--0.8,,leg_t1,yaw-,lt,0.8,,true,0.781,Training yaw- is just below threshold.
+a5-P0-s0-square-e85-yaw--0.8,,leg_truth,yaw-,gt,0.8,,true,0.811,Stress yaw- exceeds threshold.
+t0-909249-c4-t2,,wheel_mode,m3_rr,eq,0.0,weak,true,weak,Candidate module 3 rear right wheel is weak.
+t0-909249-c4-t2,,wheel_gain,m3_rr,eq,0.4,,true,0.4,Weak wheel gain is 0.4.
+t0-909249-c4-t2,,p_leg,diag+-,lt,0.5,,true,0.375,Posterior capable probability is 0.375.
+t0-909249-c4-t2,,post_sd,diag+-,gt,0.04,,true,0.049,Posterior standard deviation exceeds 0.04.
+t0-909249-c4-t2,,leg_truth,diag+-,lt,0.8,,true,0.796,True ratio falls just below threshold.
+t0-909264-c12-t1,,candidate_has_fault,,eq,1.0,,false,0,Merge candidate contains a faulted wheel.
+t0-909264-c12-t1,,post_mean,diag+-,eq,1.0,,true,1.0,Posterior mean on required diagonal is 1.0.
+t0-909264-c12-t1,,post_sd,diag+-,eq,0.02,,true,0.02,Posterior standard deviation is 0.02.
+t0-909264-c12-t1,,leg_truth,diag+-,gt,0.9,,true,1.0,True diagonal ratio exceeds 0.9.
+t0-909264-c12-t1,,truth_mass,,gt,0.8,,true,0.87,True hypothesis posterior mass exceeds 0.8.
+t0-909057-c3-t2,,wheel_mode,m2_fr,eq,0.0,brake,true,brake,m2_fr is braked.
+t0-909057-c3-t2,,wheel_in_candidate,m2_fr,eq,1.0,,true,,The braked wheel is in the child candidate.
+t0-909057-c3-t2,,candidate_has_fault,,eq,1.0,,true,1,The child candidate contains a faulted wheel.
+t0-909057-c3-t2,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis has zero posterior mass.
+t0-909057-c3-t2,,leg_truth,sway+,lt,0.8,,true,0.707,True sway+ capability is below its 0.8 requirement.
+a2-258-floor-parent6/c1-diag-+-0.8,,wheel_mode,m1_rr,eq,0.0,weak,true,weak,m1_rr is weak.
+a2-258-floor-parent6/c1-diag-+-0.8,,wheel_gain,m1_rr,eq,0.3,,true,0.3,m1_rr has drive gain 0.3.
+a2-258-floor-parent6/c1-diag-+-0.8,,set_min,diag-+,lt,0.8,,true,0.744,The consistent-set minimum is below the threshold.
+a2-258-floor-parent6/c1-diag-+-0.8,,set_max,diag-+,gt,0.8,,true,0.921,The consistent-set maximum is above the threshold.
+a5-P0-s1-pair-e142-surge--0.7,,leg_t1,surge-,gt,0.7,,true,0.742,T1 surge- capability exceeds 0.7.
+a5-P0-s1-pair-e142-surge--0.7,,leg_truth,surge-,lt,0.7,,true,0.673,T2 surge- capability is below 0.7.
+a5-P0-s1-pair-e142-surge--0.7,,leg_margin,surge-,lt,0.05,,true,0.04200000000000004,T1 surge- lies within 0.05 of the threshold.
+a5-P0-s1-pair-e142-surge--0.7,,leg_shift,surge-,lt,-0.05,,true,-0.06899999999999995,The T2 shift in surge- is below -0.05.
+a5-P0-s1-pair-e142-surge--0.7,,latent,jeff_scale,gt,1.8,,true,1.825,The effective inertia scale is elevated.
+a5-P0-s0-single-e8-yaw--0.7,,leg_t1,yaw-,lt,0.7,,true,0.574,T1 yaw- capability is below 0.7.
+a5-P0-s0-single-e8-yaw--0.7,,leg_truth,yaw-,gt,0.7,,true,0.726,T2 yaw- capability exceeds 0.7.
+a5-P0-s0-single-e8-yaw--0.7,,leg_margin,yaw-,lt,0.13,,true,0.126,T1 yaw- lies within 0.13 of the threshold.
+a5-P0-s0-single-e8-yaw--0.7,,leg_shift,yaw-,gt,0.15,,true,0.15200000000000002,The T2 shift in yaw- exceeds 0.15.
+a5-P0-s0-single-e8-yaw--0.7,,latent,jeff_scale,gt,2.5,,true,2.536,The effective inertia scale is high.
+t0-909195-c3-t0,,wheel_mode,m1_rr,eq,0.0,weak,true,weak,m1_rr is weak.
+t0-909195-c3-t0,,wheel_gain,m1_rr,eq,0.9,,true,0.9,m1_rr has gain 0.9.
+t0-909195-c3-t0,,spread_masked,m1_rr,eq,1.0,,true,0.9,The weak gain lies inside the motor-spread band.
+t0-909195-c3-t0,,wheel_mode,m2_fl,eq,0.0,coast,true,coast,m2_fl is coasting.
+t0-909195-c3-t0,,p_leg,sway+,lt,0.5,,true,0.375,Posterior probability of meeting sway+ is below one half.
+t0-909511-c4-t0,,wheel_mode,m3_rl,eq,0.0,weak,true,weak,m3_rl is weak.
+t0-909511-c4-t0,,wheel_gain,m3_rl,eq,0.6,,true,0.6,m3_rl has gain 0.6.
+t0-909511-c4-t0,,leg_truth,surge+,gt,0.9,,true,0.992,True surge+ capability exceeds 0.9.
+t0-909511-c4-t0,,post_mean,surge+,gt,0.98,,true,0.984,Posterior mean surge+ capability exceeds 0.98.
+t0-909511-c4-t0,,post_sd,surge+,gt,0.02,,true,0.026,Posterior surge+ uncertainty exceeds 0.02.
+t0-909452-c1-t1,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,m0_rl is coasting.
+t0-909452-c1-t1,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains a faulted wheel.
+t0-909452-c1-t1,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis was screened out.
+t0-909452-c1-t1,,leg_truth,surge-,lt,0.8,,true,0.779,True surge- capability is below 0.8.
+t0-909452-c1-t1,,leg_truth,diag--,lt,0.8,,true,0.719,True diag-- capability is below 0.8.
+t0-909044-c1-t0,,wheel_mode,m0_fr,eq,0.0,coast,true,coast,m0_fr is coasting.
+t0-909044-c1-t0,,wheel_mode,m0_rr,eq,0.0,brake,true,brake,m0_rr is braked.
+t0-909044-c1-t0,,candidate_has_fault,,eq,1.0,,true,1,The child candidate contains faulted wheels.
+t0-909044-c1-t0,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis was screened out.
+t0-909044-c1-t0,,leg_truth,yaw+,lt,0.6,,true,0.5,True yaw+ capability is below its requirement.
+a2-251-sensor-parent4/c1-diag+--0.8,,wheel_mode,m1_fl,eq,0.0,weak,true,weak,m1_fl is weak.
+a2-251-sensor-parent4/c1-diag+--0.8,,wheel_gain,m1_fl,eq,0.5,,true,0.5,m1_fl has gain 0.5.
+a2-251-sensor-parent4/c1-diag+--0.8,,set_min,diag+-,lt,0.8,,true,0.7,The consistent-set minimum is below the threshold.
+a2-251-sensor-parent4/c1-diag+--0.8,,set_max,diag+-,gt,0.8,,true,0.924,The consistent-set maximum is above the threshold.
+a5-P1-s0-single-e29-sway+-0.7,,leg_t1,sway+,gt,0.7,,true,0.721,T1 sway+ capability exceeds 0.7.
+a5-P1-s0-single-e29-sway+-0.7,,leg_truth,sway+,lt,0.7,,true,0.659,T2 sway+ capability is below 0.7.
+a5-P1-s0-single-e29-sway+-0.7,,leg_margin,sway+,lt,0.03,,true,0.02100000000000002,T1 sway+ lies within 0.03 of the threshold.
+a5-P1-s0-single-e29-sway+-0.7,,leg_shift,sway+,lt,-0.05,,true,-0.061999999999999944,The T2 shift in sway+ is below -0.05.
+a5-P1-s0-single-e29-sway+-0.7,,latent,mu,lt,0.91,,true,0.908,The global friction factor is below 0.91.
+t0-909354-c2-t1,,wheel_mode,m1_rl,eq,0.0,coast,true,coast,The candidate's rear-left wheel is coasting.
+t0-909354-c2-t1,,truth_mass,,eq,0.945,,true,0.945,The true fault hypothesis has posterior mass 0.945.
+t0-909354-c2-t1,,post_mean,surge+,eq,0.916,,true,0.916,The v2 surge+ posterior mean is 0.916.
+t0-909354-c2-t1,,post_sd,surge+,eq,0.037,,true,0.037,The v2 surge+ posterior sd is 0.037.
+t0-909354-c2-t1,,p_leg,surge+,eq,0.875,,true,0.875,The v2 probability of meeting the leg threshold is 0.875.
+t0-909537-c9-t2,,wheel_mode,m0_fl,eq,0.0,coast,true,coast,The candidate's front-left wheel is coasting.
+t0-909537-c9-t2,,truth_mass,,eq,0.985,,true,0.985,The true fault hypothesis has posterior mass 0.985.
+t0-909537-c9-t2,,post_mean,surge+,eq,0.991,,true,0.991,The v2 surge+ posterior mean is 0.991.
+t0-909537-c9-t2,,post_sd,surge+,eq,0.031,,true,0.031,The v2 surge+ posterior sd is 0.031.
+t0-909452-c2-t0,,wheel_mode,m1_fr,eq,0.0,brake,true,brake,The candidate's front-right wheel is braked.
+t0-909452-c2-t0,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,A coasting wheel is outside the candidate.
+t0-909452-c2-t0,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains a faulted wheel.
+t0-909452-c2-t0,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis did not survive screening.
+t0-909452-c2-t0,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis has zero posterior mass.
+t0-909337-c2-t0,,wheel_mode,m1_fl,eq,0.0,coast,true,coast,The candidate's front-left wheel is coasting.
+t0-909337-c2-t0,,wheel_mode,m1_fr,eq,0.0,weak,true,weak,The candidate's front-right wheel is weak.
+t0-909337-c2-t0,,wheel_gain,m1_fr,eq,0.3,,true,0.3,The weak wheel has gain 0.3.
+t0-909337-c2-t0,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains faulted wheels.
+t0-909337-c2-t0,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis did not survive screening.
+a2-296-floor-parent4/c2-diag---0.6,,wheel_mode,m2_fr,eq,0.0,coast,true,coast,The candidate's front-right wheel is coasting.
+a2-296-floor-parent4/c2-diag---0.6,,set_min,diag--,eq,0.569,,true,0.569,The consistent-set minimum for diag-- is 0.569.
+a2-296-floor-parent4/c2-diag---0.6,,set_max,diag--,eq,0.681,,true,0.681,The consistent-set maximum for diag-- is 0.681.
+a2-296-floor-parent4/c2-diag---0.6,,wheel_mode,m2_rl,eq,0.0,weak,false,ok,One consistent hypothesis makes the rear-left wheel weak.
+a2-296-floor-parent4/c2-diag---0.6,,wheel_gain,m2_rl,eq,0.9,,false,1.0,That alternative weak-wheel hypothesis uses gain 0.9.
+a5-P1-s0-single-e29-sway--0.7,,wheel_mode,m0_rr,eq,0.0,brake,true,brake,The rear-right wheel is braked.
+a5-P1-s0-single-e29-sway--0.7,,leg_t1,sway-,eq,0.724,,true,0.724,The T1 sway- label is 0.724.
+a5-P1-s0-single-e29-sway--0.7,,leg_truth,sway-,eq,0.68,,true,0.68,The T2 sway- label is 0.680.
+a5-P1-s0-single-e29-sway--0.7,,leg_margin,sway-,eq,0.024,,true,0.02400000000000002,The T1 label is 0.024 above threshold.
+a5-P1-s0-single-e29-sway--0.7,,leg_shift,sway-,eq,-0.044,,true,-0.04399999999999993,The T2 label shifts downward by 0.044.
+a5-P0-s1-L3-e106-yaw+-0.8,,wheel_mode,m0_rr,eq,0.0,coast,true,coast,The first module's rear-right wheel is coasting.
+a5-P0-s1-L3-e106-yaw+-0.8,,wheel_mode,m2_rl,eq,0.0,coast,true,coast,The third module's rear-left wheel is coasting.
+a5-P0-s1-L3-e106-yaw+-0.8,,leg_t1,yaw+,eq,0.752,,true,0.752,The T1 yaw+ label is 0.752.
+a5-P0-s1-L3-e106-yaw+-0.8,,leg_truth,yaw+,eq,0.813,,true,0.813,The T2 yaw+ label is 0.813.
+a5-P0-s1-L3-e106-yaw+-0.8,,leg_shift,yaw+,eq,0.061,,true,0.06099999999999994,The T2 label shifts upward by 0.061.
+t0-909309-c3-t2,,wheel_mode,m2_fr,eq,0.0,coast,true,coast,The candidate's front-right wheel is coasting.
+t0-909309-c3-t2,,wheel_mode,m1_fr,eq,0.0,brake,true,brake,A braked wheel is outside the candidate.
+t0-909309-c3-t2,,truth_mass,,eq,1.0,,true,1.0,The true fault hypothesis has posterior mass 1.
+t0-909309-c3-t2,,post_mean,sway-,eq,0.913,,true,0.913,The v2 sway- posterior mean is 0.913.
+t0-909309-c3-t2,,p_leg,sway-,eq,0.625,,true,0.625,The v2 probability of meeting the leg threshold is 0.625.
+t0-909352-c2-t0,,wheel_mode,m0_rr,eq,0.0,coast,true,coast,The first outside wheel is coasting.
+t0-909352-c2-t0,,wheel_mode,m0_fl,eq,0.0,coast,true,coast,The second outside wheel is coasting.
+t0-909352-c2-t0,,wheel_in_candidate,m0_rr,eq,0.0,,true,,The coasting rear-right wheel is outside the candidate.
+t0-909352-c2-t0,,candidate_has_fault,,eq,0.0,,true,0,The candidate contains no faulted wheel.
+t0-909352-c2-t0,,post_mean,surge+,eq,1.0,,true,1.0,The v2 surge+ posterior mean is 1.0.
+t0-909452-c5-t1,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,The candidate's first module has a coasting rear-left wheel.
+t0-909452-c5-t1,,wheel_mode,m1_fr,eq,0.0,brake,true,brake,The candidate's second module has a braked front-right wheel.
+t0-909452-c5-t1,,candidate_has_fault,,eq,1.0,,true,1,The candidate contains faulted wheels.
+t0-909452-c5-t1,,truth_in_screen,,eq,0.0,,true,0,The true fault hypothesis did not survive screening.
+t0-909452-c5-t1,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis has zero posterior mass.
+t0-909322-c1-t0,,wheel_mode,m0_rr,eq,0.0,coast,true,coast,m0_rr is coasted.
+t0-909322-c1-t0,,wheel_in_candidate,m0_rr,eq,1.0,,true,,The coasted wheel is in the candidate.
+t0-909322-c1-t0,,truth_mass,,eq,0.0,,true,0.0,The posterior gives no mass to the true fault hypothesis.
+t0-909322-c1-t0,,post_mean,sway+,eq,1.0,,true,1.0,The posterior mean overpredicts sway capability.
+t0-909057-c3-t1,,wheel_mode,m2_fr,eq,0.0,brake,true,brake,m2_fr is braked.
+t0-909057-c3-t1,,wheel_in_candidate,m2_fr,eq,1.0,,true,,The braked wheel is in the candidate.
+t0-909057-c3-t1,,leg_truth,surge+,lt,0.8,,true,0.776,True surge+ falls short of its requirement.
+t0-909057-c3-t1,,truth_mass,,eq,0.0,,true,0.0,The true hypothesis has zero posterior mass.
+a2-32-sensor-parent8/c2-diag+--0.7,,wheel_mode,m2_fl,eq,0.0,coast,true,coast,m2_fl is coasted.
+a2-32-sensor-parent8/c2-diag+--0.7,,wheel_in_candidate,m2_fl,eq,1.0,,true,,The coasted wheel is in the child.
+a2-32-sensor-parent8/c2-diag+--0.7,,set_min,diag+-,eq,0.616,,true,0.616,The consistent-set minimum is below the threshold.
+a2-32-sensor-parent8/c2-diag+--0.7,,set_max,diag+-,eq,0.731,,true,0.731,The consistent-set maximum is above the threshold.
+a5-P0-s0-single-e77-sway+-0.7,,leg_t1,sway+,eq,0.876,,true,0.876,T1 sway+ exceeds its threshold.
+a5-P0-s0-single-e77-sway+-0.7,,leg_truth,sway+,lt,0.7,,true,0.503,T2 sway+ is below threshold.
+a5-P0-s0-single-e77-sway+-0.7,,leg_shift,sway+,eq,-0.373,,true,-0.373,The T2 minus T1 shift is strongly negative.
+a5-P0-s0-single-e77-sway+-0.7,,wheel_mode,m0_rr,eq,0.0,coast,true,coast,m0_rr is coasted.
+a5-P0-s0-single-e9-yaw+-0.8,,leg_t1,yaw+,eq,0.791,,true,0.791,T1 yaw+ is just below threshold.
+a5-P0-s0-single-e9-yaw+-0.8,,leg_truth,yaw+,gt,0.8,,true,0.827,T2 yaw+ exceeds threshold.
+a5-P0-s0-single-e9-yaw+-0.8,,leg_margin,yaw+,eq,0.009,,true,0.009000000000000008,T1 is 0.009 from the decision boundary.
+a5-P0-s0-single-e9-yaw+-0.8,,leg_shift,yaw+,eq,0.036,,true,0.03599999999999992,T2 shifts yaw+ upward by 0.036.
+t0-909379-c3-t0,,wheel_mode,m2_fl,eq,0.0,brake,true,brake,m2_fl is braked.
+t0-909379-c3-t0,,p_leg,surge-,eq,0.374,,true,0.374,Posterior probability of passing surge− is 0.374.
+t0-909379-c3-t0,,post_mean,surge-,eq,0.697,,true,0.697,The surge− posterior mean sits just under the requirement.
+t0-909379-c3-t0,,post_sd,surge-,eq,0.025,,true,0.025,The surge− posterior has nonzero spread.
+t0-909328-c4-t2,,candidate_has_fault,,eq,0.0,,true,0,The candidate itself has no faulted wheel.
+t0-909328-c4-t2,,post_mean,diag+-,eq,1.0,,true,1.0,The posterior mean for diag+- is 1.0.
+t0-909328-c4-t2,,post_sd,diag+-,eq,0.02,,true,0.02,The posterior spread is 0.02.
+t0-909328-c4-t2,,leg_truth,diag+-,gt,0.9,,true,1.0,The true diag+- score exceeds its requirement.
+t0-909452-c1-t0,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,m0_rl is coasted.
+t0-909452-c1-t0,,wheel_in_candidate,m0_rl,eq,1.0,,true,,The coasted wheel is in the candidate.
+t0-909452-c1-t0,,leg_truth,yaw+,lt,0.9,,true,0.824,True yaw+ misses its requirement.
+t0-909452-c1-t0,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis receives no mass.
+t0-909371-c1-t1,,wheel_mode,m0_rl,eq,0.0,coast,true,coast,m0_rl is coasted.
+t0-909371-c1-t1,,wheel_in_candidate,m0_rl,eq,1.0,,true,,The coasted wheel is in the child.
+t0-909371-c1-t1,,leg_truth,diag++,lt,0.8,,true,0.738,True diag++ is below requirement.
+t0-909371-c1-t1,,truth_mass,,eq,0.0,,true,0.0,The true fault hypothesis receives no mass.
+a2-88-sensor-parent6/c2-diag---0.7,,wheel_mode,m2_rl,eq,0.0,coast,true,coast,m2_rl is coasted.
+a2-88-sensor-parent6/c2-diag---0.7,,wheel_in_candidate,m2_rl,eq,1.0,,true,,The coasted wheel is in the candidate.
+a2-88-sensor-parent6/c2-diag---0.7,,set_min,diag--,eq,0.611,,true,0.611,The consistent-set minimum is below threshold.
+a2-88-sensor-parent6/c2-diag---0.7,,set_max,diag--,eq,0.722,,true,0.722,The consistent-set maximum is above threshold.
