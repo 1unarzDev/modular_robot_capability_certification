@@ -15,6 +15,8 @@ import f1_ambiguity
 import f2_diversity
 import f3_throughput
 import f4_gate
+import fig_pipeline
+import fig_teaser
 import merge_table
 import stageA_numbers
 import t1_certificate
@@ -23,7 +25,7 @@ import t3_grid
 import t4_probing
 
 SCRIPTS = (stageA_numbers, t1_certificate, t2_heldout, t3_grid, t4_probing, merge_table, f1_ambiguity, f2_diversity,
-           f3_throughput, f4_gate)
+           f3_throughput, f4_gate, fig_teaser, fig_pipeline)
 
 
 def main(argv=None):
