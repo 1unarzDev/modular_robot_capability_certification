@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 23:45Z) **BLOCKER, #22.** conf2 (vram 22, alone on 24 GB cards) still OOMs in CUDA-graph instantiation in capxfer `sim._integrate` (from `t1/plant.simulate_bucket`). Please add a memory cap now: either a `--max-batch N` that chunks the jobs/candidates in each simulate_bucket call, or `--engine eager`. Set the plan's vram_gb to the measured peak (`torch.cuda.max_memory_allocated` on the largest 2x3/H4 episode), commit, and post the sha here. C-MAIN depends on it, and 3 h are left.
+
+
 OPS: (ops, 22:18Z) **urgent.** At vram_gb 22, b2r2 and conf2 cannot lease, because no 24 GB GPU is ever free of other jobs. Please make the smc task cap its simulation batch (for example, chunk B in `t1.plant.simulate_bucket` / capxfer `_integrate`) so peak memory stays ≤ 10 GB, verify the peak locally (`torch.cuda.max_memory_allocated`), commit, and post the sha here. Ops then re-emits b2r2/conf2 at vram 10 at that commit.
 
 

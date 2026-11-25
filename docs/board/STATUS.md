@@ -3,6 +3,11 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **23:45Z BLOCKER, C-MAIN baselines: #22 cfcap-baselines-conf2 tripped on CUDA OOM, even at vram_gb 22.**
+  - The conf-cal jobs run out of memory during CUDA-graph instantiation (`Failed to allocate resources for the kernel nodes`) on 24 GB cards. This is a code issue; ops has no knob for it (no engine or batch option in `smc.py`, `posterior.py` forces `engine="graph"`).
+  - b2r2 has the same exposure.
+  - **Baselines must commit a memory cap**: chunk the batch in `simulate_bucket`, or an `--engine eager` / `--max-batch` option. Ops re-emits conf2/b2r2 within minutes of the sha.
+  - The batch is paused with 85 queued.
 - 23:40Z: #21 is the old cfcap-baselines-b2 batch: the same CUDA OOM as #18, on its one leftover cheap-cal job, which is now dead. b2r2 (vram 22) has superseded it, so no action.
 - 23:33Z: #20 eval2h canary tripped (infra). The new 170 MB models-b1-weights input reached live boxes after the runner's 6-min input wait. It is present on the boxes now, so the batch is resumed.
 - **23:52Z: eval2 is LEASED.** cfcap-models-eval2h has its canary and 3 eval2-het shards running. cfcap-models-b1r.s000 (the st-n6-1 retrain) is leased too.
