@@ -29,7 +29,7 @@
    "units_per_shard": 10, "unit_s": 200, "overhead_s": 60, "priority": 25, "seed": 0,
    "task_args": ["--task-spec", "cfcap.nuisance_task:A2_TASK", "--seeds", "1000:2000", "--per-unit", "10",
                  "--threads", "1"],
-   "pilot": "results/stageA/A2_cost.csv: 100 parents, mean 5.9 s/parent (p90 11.2 s) at 4 threads on the local box; 20 s/parent assumed at 1 thread",
+   "pilot": "local runner run cfcap.runner t0_a2 --seeds 5000:5010 --per-unit 5 --threads 1 ($CFCAP_OUT/nuisance/runs/a2local): 159 s for 10 parents = 15.9 s/parent at 1 thread (max 67 s); 20 s/parent kept for the tail",
    "role": "nuisance",
    "purpose": "Scale the Stage A2/A3 T0 oracle ambiguity estimate from 100 to 1100 parents so the 0.02 percent pilot becomes a measured rate with a tight interval."}
  ]

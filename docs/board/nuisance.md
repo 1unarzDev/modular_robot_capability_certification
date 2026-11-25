@@ -1,6 +1,6 @@
 # nuisance (specialist board)
 
-**Status:** pre-registered; runner task + campaign `cfcap-nuis` committed and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (local pilot queued behind the GPU lock, not run).
+**Status:** pre-registered; runner task + campaign `cfcap-nuis` committed and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (T1 local pilot cancelled behind the GPU lock; T0 A2 task measured locally at 15.9 s/parent, 1 thread).
 
 ## Pre-registered pilot design and thresholds (written before the run; exploratory)
 
