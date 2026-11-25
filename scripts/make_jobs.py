@@ -21,9 +21,11 @@ A plan (scripts/campaigns/*.json) is {campaign, submitter, project, stop, groups
   pilot                        where unit_s comes from (command, output path, host). Without it the group is a draft.
   vram_gb, task_args, seed, priority, purpose, extra_inputs (stage-2 inputs: pulled-back weights, T2 episodes)
 
-Box paths (compute/vast/boot.sh, crane-vast push): each inputs_rsync path P lands at /workspace/in/<basename P>;
-big outputs go to /workspace/out/$CRANE_JOB_ID/ (the runner's default there), pulled to ~/.cache/vast-out/<box>/
-when the box leaves. Inputs are pushed once, at a box's boot: jobs with new inputs need fresh boxes.
+Box contract (compute session, 2026-11-25): code goes as pinned repos (`repos`: cfcap@HEAD and the staged capxfer
+repo; `research submit` uploads the bundles; the worker checks them out at <work>/src/<name>). inputs_rsync carries
+data only (theta JSONs, stage-2 outputs): each path P lands at /workspace/in/<basename P>, and crane-vast re-pushes
+changed inputs to live boxes; the runner waits up to 6 min for them (--require-inputs). Big outputs go to
+/workspace/out/$CRANE_JOB_ID/ (the runner's default there), pulled to ~/.cache/vast-out/<box>/.
 """
 from __future__ import annotations
 
@@ -71,22 +73,17 @@ def git(root: Path, *a: str) -> str:
 # ------------------------------------------------------------------ stage: what boxes receive
 
 def stage(allow_dirty: bool = False, log=print) -> dict:
-    """STAGE/cfcap: `git archive` of ~/cfcap at HEAD (+ CFCAP_COMMIT); STAGE/capxfer: a small git repo with capxfer's
-    package, params and configs and theta/*.json. Both are pushed as is (inputs_rsync) or bundled (free lane)."""
+    """Code goes to every box as pinned repo bundles (`research submit` uploads them; the worker checks each one out
+    at <work dir>/src/<name>): ~/cfcap at HEAD, and STAGE/capxfer, a small git repo of capxfer's package, params,
+    configs and theta/*.json (the real capxfer worktree is ~100k files). Data go by inputs_rsync: STAGE/theta (the
+    theta JSONs) lands at /workspace/in/theta on rented boxes; the free lane reads the copy inside the capxfer repo."""
     head = git(CFCAP, "rev-parse", "HEAD")
     dirty = git(CFCAP, "status", "--porcelain", "--untracked-files=no", "--", "cfcap", "scripts")
     if dirty and not allow_dirty:
         raise PlanError(f"~/cfcap has uncommitted tracked changes ({dirty.splitlines()[0]}); jobs run HEAD "
                         f"{head[:12]}: commit first or pass --allow-dirty")
-    dst = STAGE / "cfcap"
-    if dst.exists():
-        shutil.rmtree(dst)
-    dst.mkdir(parents=True)
-    arch = subprocess.run(["git", "-C", str(CFCAP), "archive", "--format=tar", head, "cfcap", "scripts", "tests"],
-                          capture_output=True, check=True).stdout
-    subprocess.run(["tar", "-x", "-C", str(dst)], input=arch, check=True)
-    (dst / "CFCAP_COMMIT").write_text(head + "\n")
-    # The runner reads CFCAP_COMMIT next to its package root (cfcap/runner.py: REPO = parents[1]).
+    if (STAGE / "cfcap").exists():          # the old code-by-rsync export: code now goes as a repo bundle
+        shutil.rmtree(STAGE / "cfcap")
 
     cx = STAGE / "capxfer"
     cx.mkdir(parents=True, exist_ok=True)
@@ -101,6 +98,8 @@ def stage(allow_dirty: bool = False, log=print) -> dict:
         if not (THETA_DIR / f).is_file():
             raise PlanError(f"theta file {THETA_DIR / f} missing")
         shutil.copy2(THETA_DIR / f, cx / "theta" / f)
+        (STAGE / "theta").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(THETA_DIR / f, STAGE / "theta" / f)
     try:
         cx_head = git(CAPXFER_ROOT, "rev-parse", "HEAD")
         cx_dirty = bool(git(CAPXFER_ROOT, "status", "--porcelain", "--untracked-files=no", "--", *CAPXFER_PARTS))
@@ -128,21 +127,27 @@ def run_line(g: dict, lane: str, shard: int, n: int) -> str:
     task_args = " ".join(shlex.quote(str(a)) for a in g.get("task_args") or [])
     common = (f"-m cfcap.runner {shlex.quote(g['task'])} --shard {shard} --n-shards {n} --seed {int(g.get('seed', 0))}"
               + (f" {task_args}" if task_args else ""))
+    # Repos are checked out at $PWD/src/<name> (worker.py: work/src/<name>, cwd = the work dir). The box's backend
+    # is `bash -lc {spec[run]}`: str.format runs once on that template, so a {repos[...]} inside spec.run would reach
+    # bash literally; $PWD/src is the same path, spelled so it works.
+    code = ("S=$PWD/src; test -e $S/cfcap/cfcap/runner.py || { echo 'cfcap repo not checked out at '$S >&2; exit 3; }; "
+            "export PYTHONPATH=$S/cfcap:$S/capxfer CAPXFER_ROOT=$S/capxfer ")
     if lane == "free":
-        # Repo bundles land at $PWD/src/<name>; free workers' python3 may lack numpy/torch: prefer CFCAP_PY, then
-        # the capxfer venv when the host has one (innovation), else python3; the runner exits 3 on a missing module.
-        return ("S=$PWD/src; PY=python3; for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
+        # Free workers' python3 may lack numpy/torch: prefer CFCAP_PY, then the capxfer venv when the host has one
+        # (innovation), else python3; the runner exits 3 on a missing module. No input push: theta from the repo.
+        return (code + "CAPXFER_THETA_DIR=$S/capxfer/theta OMP_NUM_THREADS=${CRANE_CPUS:-1} "
+                "MKL_NUM_THREADS=${CRANE_CPUS:-1}; PY=python3; "
+                "for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
                 "do [ -n \"$p\" ] && [ -x \"$p\" ] && PY=$p && break; done; "
-                "export PYTHONPATH=$S/cfcap:$S/capxfer_src CAPXFER_ROOT=$S/capxfer_src "
-                "CAPXFER_THETA_DIR=$S/capxfer_src/theta OMP_NUM_THREADS=${CRANE_CPUS:-1} MKL_NUM_THREADS=${CRANE_CPUS:-1}; "
                 f"exec $PY {common}")
-    return ("export PYTHONPATH=/workspace/in/cfcap:/workspace/in/capxfer CAPXFER_ROOT=/workspace/in/capxfer "
-            "CAPXFER_THETA_DIR=/workspace/in/capxfer/theta CRANE_INPUTS_DIR=/workspace/in; "
-            "test -e /workspace/in/cfcap/cfcap/runner.py || { echo 'cfcap inputs not pushed to this box' >&2; exit 3; }; "
-            f"exec python3 {common}")
+    req = ",".join(["theta", *[Path(x).expanduser().name for x in g.get("extra_inputs") or []]])
+    return (code + "CAPXFER_THETA_DIR=/workspace/in/theta CRANE_INPUTS_DIR=/workspace/in; "
+            f"exec python3 {common} --require-inputs {req}")
 
 
-def group_jobs(plan: dict, g: dict, info: dict, draft: bool) -> tuple[list[dict], list[str]]:
+def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = False) -> tuple[list[dict], list[str]]:
+    """first_only: shard 0 alone, with the same id and body as in the full emit (a canary per group: two broken
+    outcomes in a row trip a batch). A later full submit returns `exists` for it and queues the rest."""
     warn: list[str] = []
     lane, profile = g.get("lane", "rented"), g.get("profile", "torch")
     if lane not in MAX_JOB_S or profile not in PROFILES:
@@ -168,25 +173,23 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool) -> tuple[list[dict]
         needs.update(gpu=True, vram_gb=float(g.get("vram_gb", 8)))
     if g.get("min_ram_gb"):
         needs["min_ram_gb"] = float(g["min_ram_gb"])
-    repos: list[dict] = []
+    repos = [{"name": "cfcap", "url": str(CFCAP), "ref": info["cfcap_commit"]},
+             {"name": "capxfer", "url": str(STAGE / "capxfer"), "ref": info["capxfer_stage_commit"]}]
     inputs: list[str] = []
     if lane == "free":
-        repos = [{"name": "cfcap", "url": str(CFCAP), "ref": info["cfcap_commit"]},
-                 {"name": "capxfer_src", "url": str(STAGE / "capxfer"), "ref": info["capxfer_stage_commit"]}]
         if g.get("extra_inputs"):
             raise PlanError(f"group {g['name']}: the free lane has no input push; extra_inputs need a rented lane")
     else:
-        inputs = [str(STAGE / "cfcap"), str(STAGE / "capxfer"), *[str(Path(p).expanduser()) for p in
-                                                                  g.get("extra_inputs") or []]]
+        inputs = [str(STAGE / "theta"), *[str(Path(p).expanduser()) for p in g.get("extra_inputs") or []]]
         for p in inputs:
             if not Path(p).exists():
-                if draft and p not in (str(STAGE / "cfcap"), str(STAGE / "capxfer")):
+                if draft and p != str(STAGE / "theta"):
                     warn.append(f"{g['name']}: input {p} does not exist yet (stage-2 input)")
                     continue
                 raise PlanError(f"group {g['name']}: input {p} does not exist (run `make_jobs.py stage` first?)")
     purpose = " ".join(str(g["purpose"]).split())
     jobs = []
-    for k in range(n):
+    for k in range(1 if first_only else n):
         jid = f"{plan['campaign']}.{g['name']}.s{k:03d}"
         if not JOB_ID.match(jid):
             raise PlanError(f"job id {jid!r} is not an rc-job/1 id")
@@ -201,8 +204,7 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool) -> tuple[list[dict]
                "submitter": plan["submitter"], "campaign": plan["campaign"],
                "priority": int(plan.get("priority_base", 100)) + int(g.get("priority", 0)),
                "needs": needs, "seeds": [0], "spec": spec, "outputs": {"class": "summary"}, "max_attempts": 3}
-        if repos:
-            job["repos"] = repos
+        job["repos"] = repos
         if est >= EXPENSIVE_S:
             job["expect"] = {"owner": plan.get("owner", plan["submitter"]), "metrics": ["units_done", "rows"],
                              "stop": plan["stop"]}
@@ -210,16 +212,18 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool) -> tuple[list[dict]
     return jobs, warn
 
 
-def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bool = True, log=print) -> dict:
+def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bool = True, log=print,
+         first_only: bool = False) -> dict:
     for k in ("campaign", "submitter", "groups", "stop"):
         if k not in plan:
             raise PlanError(f"plan lacks {k!r}")
     info = stage(allow_dirty, log=log) if restage else json.loads((STAGE / "capxfer" / "STAGE.json").read_text())
     if not restage:
         info["capxfer_stage_commit"] = git(STAGE / "capxfer", "rev-parse", "HEAD")
+        info["cfcap_commit"] = git(CFCAP, "rev-parse", "HEAD")
     jobs, warns, rows = [], [], []
     for g in sorted(plan["groups"], key=lambda g: (int(g.get("stage", 1)), int(g.get("priority", 0)))):
-        js, w = group_jobs(plan, g, info, draft)
+        js, w = group_jobs(plan, g, info, draft, first_only)
         jobs += js
         warns += w
         bh = sum(j["est_seconds"] for j in js) / 3600
@@ -316,6 +320,8 @@ def main(argv=None) -> int:
     e.add_argument("--allow-dirty", action="store_true")
     e.add_argument("--no-restage", action="store_true", help="reuse the current stage")
     e.add_argument("--validate", action="store_true")
+    e.add_argument("--first-shard-only", action="store_true",
+                   help="only shard 0 of each group (canary; same ids and bodies as the full emit)")
     v = sub.add_parser("validate")
     v.add_argument("jobs")
     a = ap.parse_args(argv)
@@ -325,7 +331,7 @@ def main(argv=None) -> int:
             return 0
         if a.cmd == "emit":
             plan = json.loads(Path(a.plan).read_text())
-            doc = emit(plan, a.draft, a.allow_dirty, restage=not a.no_restage)
+            doc = emit(plan, a.draft, a.allow_dirty, restage=not a.no_restage, first_only=a.first_shard_only)
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(doc, indent=1) + "\n")
             print(f"wrote {a.out} ({'DRAFT: not submittable' if 'draft_jobs' in doc else 'submittable'})")

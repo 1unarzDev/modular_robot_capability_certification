@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Local end-to-end of one emitted job as a rented box runs it, with the box root moved under a temp dir:
-#   1. push every spec.inputs_rsync path the way crane-vast does (`rsync -a SRC box:/workspace/in/`);
+#   1. check out every job repo at its pinned ref into <work>/src/<name> (the worker's layout; on a box the commit
+#      comes from the coordinator bundle) and push every spec.inputs_rsync path the way crane-vast does
+#      (`rsync -a SRC box:/workspace/in/`);
 #   2. run spec.run through `bash -lc` in a work dir with the command backend's env (CRANE_JOB_ID, CRANE_RUN_DIR,
 #      CRANE_OUT_ROOT, CRANE_INPUTS_DIR), a clean environment (no PYTHONPATH from env.sh) and the system python3;
 #   3. SIGTERM the process group mid-run (the backend's cancel) -> expect 75; rerun -> resumes;
@@ -18,13 +20,19 @@ print(f"JOB_ID={shlex.quote('crane/' + j['job_id'])}")
 print(f"RUN={shlex.quote(run)}")
 print("INPUTS=(" + " ".join(shlex.quote(p) for p in j["spec"].get("inputs_rsync", [])) + ")")
 print(f"EST={j['est_seconds']}")
+print("REPOS=(" + " ".join(shlex.quote(f"{r['name']}|{r['url']}|{r['ref']}") for r in j.get("repos", [])) + ")")
 PY
 )"
 echo "box $BOX  job $JOB_ID  est ${EST}s"
 for src in "${INPUTS[@]}"; do rsync -a --partial "$src" "$W/in/"; done
 touch "$W/in/.ready"
 ls "$W/in"
-WORK=$BOX/work; RUN_DIR=$WORK/run; mkdir -p "$RUN_DIR"
+WORK=$BOX/work; RUN_DIR=$WORK/run; mkdir -p "$RUN_DIR" "$WORK/src"
+for r in "${REPOS[@]}"; do
+  IFS='|' read -r name url ref <<<"$r"
+  rm -rf "$WORK/src/$name"; git clone -q "$url" "$WORK/src/$name" && git -C "$WORK/src/$name" checkout -q --detach "$ref"
+  echo "repo $name @ $(git -C "$WORK/src/$name" rev-parse --short HEAD)"
+done
 start() {   # the command backend: new session, cwd = work dir, its env on top of a clean one
   ( cd "$WORK" && exec setsid env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=C.UTF-8 \
       CRANE_JOB_ID="$JOB_ID" CRANE_RUN_DIR="$RUN_DIR" CRANE_SEED=0 CRANE_OUT_ROOT="$W/out" \

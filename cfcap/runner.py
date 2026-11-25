@@ -56,6 +56,7 @@ SCHEMA = "cfcap.runner/1"
 HEARTBEAT_S = 30.0
 RC_LINE_S = 60.0
 GRACE_S = {"SIGTERM": 20.0, "SIGINT": 20.0, "SIGUSR1": 60.0}
+INPUT_WAIT_S, INPUT_POLL_S = 360.0, 15.0     # crane-vast re-pushes changed inputs to live boxes on its 5-min tick
 EXIT_OK, EXIT_TASK, EXIT_USAGE, EXIT_INPUT, EXIT_YIELD = 0, 1, 2, 3, 75
 METRIC_NAME = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 UNIT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
@@ -85,6 +86,28 @@ class Stop(Exception):
 
 class InputMissing(Exception):
     """A task's input file or module is absent on this host (exit 3)."""
+
+
+def wait_inputs(root: Path, rels: Sequence[str], wait_s: float | None = None, poll_s: float | None = None,
+                log=print, stop: Callable[[], Any] | None = None) -> None:
+    """Block until every root/rel exists (polling), else InputMissing after wait_s. A box that leased the job before
+    crane-vast's tick pushed its inputs gets them within one tick (CFCAP_INPUT_WAIT_S / _POLL_S override)."""
+    wait_s = float(os.environ.get("CFCAP_INPUT_WAIT_S", INPUT_WAIT_S)) if wait_s is None else wait_s
+    poll_s = float(os.environ.get("CFCAP_INPUT_POLL_S", INPUT_POLL_S)) if poll_s is None else poll_s
+    t0 = time.time()
+    while True:
+        missing = [r for r in rels if r and not (Path(root) / r).exists()]
+        if not missing:
+            return
+        if time.time() - t0 >= wait_s:
+            raise InputMissing(f"inputs {missing} not under {root} after {wait_s:.0f} s")
+        if stop and stop():
+            raise Stop("signal while waiting for inputs")
+        if log:
+            log(f"cfcap.runner: waiting for inputs {missing} under {root} ({time.time() - t0:.0f}/{wait_s:.0f} s)")
+        end = time.time() + poll_s
+        while time.time() < end and not (stop and stop()):
+            time.sleep(min(0.5, poll_s))
 
 
 @dataclass
@@ -233,10 +256,8 @@ class UnitCtx:
 
     def input(self, rel: str) -> Path:
         """A pushed input (`$CRANE_INPUTS_DIR/rel`); InputMissing (exit 3) when it is not on this host."""
-        p = self.runner.inputs / rel
-        if not p.exists():
-            raise InputMissing(f"input {rel} not under {self.runner.inputs}")
-        return p
+        wait_inputs(self.runner.inputs, [rel], stop=lambda: self.runner.stop_signal)
+        return self.runner.inputs / rel
 
 
 # ------------------------------------------------------------------ the runner
@@ -502,6 +523,10 @@ class Runner:
         try:
             self.write_manifest(status)
             self.write_progress()
+            req = [x for x in (self.args.require_inputs or "").split(",") if x]
+            if req and len(self.done) < len(self.units):
+                self.phase = "waiting for inputs"
+                wait_inputs(self.inputs, req, stop=lambda: self.stop_signal)
             for u in self.units:
                 if u in self.done:
                     continue
@@ -634,6 +659,8 @@ def build_parser(task: Task | None = None) -> argparse.ArgumentParser:
     p.add_argument("--fresh", action="store_true", help="discard outputs of another run in --out")
     p.add_argument("--max-units", type=int, default=0, help="stop (exit 75) after this many new units (tests)")
     p.add_argument("--list", action="store_true", help="print the shard's unit ids and exit")
+    p.add_argument("--require-inputs", default="", help="comma list of paths under $CRANE_INPUTS_DIR to wait for "
+                   "(up to 6 min, polling 15 s) before the first unit; exit 3 if they never arrive")
     if task and task.add_args:
         g = p.add_argument_group(f"task {task.name}")
         task.add_args(g)
@@ -642,7 +669,7 @@ def build_parser(task: Task | None = None) -> argparse.ArgumentParser:
 
 def _task_argv(argv: list[str], task: Task) -> list[str]:
     """The task's own flags as given (the resume fingerprint), in order."""
-    runner_flags = {"--shard", "--n-shards", "--seed", "--out", "--task-spec", "--max-units"}
+    runner_flags = {"--shard", "--n-shards", "--seed", "--out", "--task-spec", "--max-units", "--require-inputs"}
     runner_bools = {"--compress", "--fresh", "--list"}
     out, it = [], iter(argv[1:])
     for a in it:

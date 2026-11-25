@@ -238,7 +238,7 @@ def group(**kw):
 @pytest.fixture
 def staged(tmp_path, monkeypatch):
     monkeypatch.setattr(MJ, "STAGE", tmp_path / "stage")
-    (tmp_path / "stage" / "cfcap").mkdir(parents=True)
+    (tmp_path / "stage" / "theta").mkdir(parents=True)
     (tmp_path / "stage" / "capxfer").mkdir(parents=True)
     return tmp_path / "stage"
 
@@ -250,9 +250,13 @@ def test_rented_gpu_jobs(staged):
     assert j["kind"] == "gpu_command" and j["est_seconds"] == 720.0
     assert j["needs"]["gpu"] is True and j["needs"]["vram_gb"] == 6.0
     assert j["needs"]["tags"] == ["cloud-ok", "torch", "rented"]
-    assert j["spec"]["inputs_rsync"] == [str(staged / "cfcap"), str(staged / "capxfer")]
-    assert "/workspace/in/cfcap" in j["spec"]["run"] and "--shard 0 --n-shards 3" in j["spec"]["run"]
-    assert "/workspace/inputs" not in j["spec"]["run"]
+    assert j["spec"]["inputs_rsync"] == [str(staged / "theta")]          # data only; code goes as repos
+    assert j["repos"] == [{"name": "cfcap", "url": str(MJ.CFCAP), "ref": "a" * 40},
+                          {"name": "capxfer", "url": str(staged / "capxfer"), "ref": "c" * 40}]
+    run = j["spec"]["run"]
+    assert "S=$PWD/src" in run and "PYTHONPATH=$S/cfcap:$S/capxfer" in run and "CAPXFER_ROOT=$S/capxfer" in run
+    assert "CAPXFER_THETA_DIR=/workspace/in/theta" in run and run.endswith("--require-inputs theta")
+    assert "--shard 0 --n-shards 3" in run and "/workspace/inputs" not in run and "{repos" not in run
     assert all(MJ.JOB_ID.match(x["job_id"]) for x in jobs) and len({x["job_id"] for x in jobs}) == 3
     assert "expect" not in j
 
@@ -262,8 +266,10 @@ def test_jax_free_and_limits(staged):
     assert j["needs"]["tags"] == ["cloud-ok", "jax", "rented"]
     f = MJ.group_jobs(PLAN, group(lane="free", profile="cpu", vram_gb=None), INFO, False)[0][0]
     assert f["kind"] == "py_command" and "tags" not in f["needs"] and "gpu" not in f["needs"]
-    assert "inputs_rsync" not in f["spec"] and {r["name"] for r in f["repos"]} == {"cfcap", "capxfer_src"}
-    assert "$PWD/src" in f["spec"]["run"]
+    assert "inputs_rsync" not in f["spec"] and {r["name"] for r in f["repos"]} == {"cfcap", "capxfer"}
+    assert "CAPXFER_THETA_DIR=$S/capxfer/theta" in f["spec"]["run"] and "--require-inputs" not in f["spec"]["run"]
+    s2 = MJ.group_jobs(PLAN, group(extra_inputs=[str(staged / "theta")]), INFO, False)[0][0]
+    assert s2["spec"]["run"].endswith("--require-inputs theta,theta")
     with pytest.raises(MJ.PlanError, match="60 min"):
         MJ.group_jobs(PLAN, group(lane="free", profile="cpu", units_per_shard=70), INFO, False)
     with pytest.raises(MJ.PlanError, match="240 min"):
@@ -307,3 +313,30 @@ def test_gen_shard_adapter_maps_shards(tmp_path, monkeypatch):
     assert met["gen.episodes"] == 150 and met["gen.candidates"] == 450
     calls.clear()
     assert run_main(args, monkeypatch) == 0 and calls == []          # resumed: nothing regenerated
+
+
+def test_first_shard_only_matches_full_emit(staged):
+    full, _ = MJ.group_jobs(PLAN, group(shards=5), INFO, False)
+    one, _ = MJ.group_jobs(PLAN, group(shards=5), INFO, False, first_only=True)
+    assert len(one) == 1 and one[0] == full[0]            # same id and body: the full submit returns `exists`
+
+
+def test_require_inputs_waits_then_runs(tmp_path, monkeypatch):
+    inp = tmp_path / "in"
+    inp.mkdir()
+    monkeypatch.setenv("CFCAP_INPUT_POLL_S", "0.1")
+    monkeypatch.setenv("CFCAP_INPUT_WAIT_S", "0.5")
+    out = tmp_path / "out"
+    args = [*ST, "--out", str(out), "--require-inputs", "theta"]
+    assert run_main(args, monkeypatch, {"CRANE_INPUTS_DIR": str(inp)}) == R.EXIT_INPUT
+    assert read(out / "manifest.json")["status"] == "failed"
+    import threading
+    monkeypatch.setenv("CFCAP_INPUT_WAIT_S", "10")
+    threading.Timer(0.4, lambda: (inp / "theta").mkdir()).start()    # the tick's re-push arrives late
+    t = time.time()
+    assert run_main(args, monkeypatch, {"CRANE_INPUTS_DIR": str(inp)}) == 0
+    assert 0.3 < time.time() - t < 8
+
+
+def test_wait_inputs_defaults():
+    assert R.INPUT_WAIT_S == 360 and R.INPUT_POLL_S == 15
