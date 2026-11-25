@@ -45,6 +45,8 @@ class Task:
     min_modules: int = 1
     value: float = V_TASK
     kind: str = "route"
+    r_c: np.ndarray | None = None  # optional (C, L) per-candidate requirement (env missions: v_req / (rho_ref x |cmd|))
+    ok_c: np.ndarray | None = None  # optional (C,) feasibility (footprint fits every door, load rating); False = never
 
     @property
     def legs(self):
@@ -76,8 +78,28 @@ def make_tasks(rng, legs, n_tasks=None, p_payload=0.25, levels=LEVELS):
 
 
 def task_arrays(tasks, L):
-    R = np.stack([t.r for t in tasks]) if tasks else np.zeros((0, L))
-    return R, np.array([t.min_modules for t in tasks], int), np.array([t.value for t in tasks], float)
+    """R (T, L), or (T, C, L) when any task carries per-candidate requirements / feasibility (infeasible candidates
+    get +inf on every leg, which nothing meets)."""
+    mm = np.array([t.min_modules for t in tasks], int)
+    V = np.array([t.value for t in tasks], float)
+    if not tasks:
+        return np.zeros((0, L)), mm, V
+    Cs = [x.shape[0] for t in tasks for x in (t.r_c, t.ok_c) if x is not None]
+    if not Cs:
+        return np.stack([t.r for t in tasks]), mm, V
+    C = Cs[0]
+    R = np.empty((len(tasks), C, L))
+    for k, t in enumerate(tasks):
+        R[k] = np.asarray(t.r_c, float) if t.r_c is not None else np.broadcast_to(t.r, (C, L))
+        if t.ok_c is not None:
+            R[k][~np.asarray(t.ok_c, bool)] = np.inf
+    return R, mm, V
+
+
+def req_ctl(R, C):
+    """Requirement as (C, T, L) from (T, L) or (T, C, L)."""
+    R = np.asarray(R, float)
+    return np.broadcast_to(R[None], (C,) + R.shape) if R.ndim == 2 else np.transpose(R, (1, 0, 2))
 
 
 # ----------------------------------------------------------------------------- instance and options
@@ -171,16 +193,17 @@ def _components(cells):
 def capable(rho, R, min_mod, sizes):
     """rho (..., C, L) -> (..., C, T) bool: every required leg >= r (NaN rho fails) and size >= min_modules."""
     rho = np.asarray(rho, float)
-    req = np.isfinite(R)                                              # (T, L)
-    ge = rho[..., :, None, :] >= np.where(req, R, -np.inf)[None]     # (..., C, T, L); NaN rho -> False
-    ok = np.where(req[None], ge & np.isfinite(rho[..., :, None, :]), True).all(-1)
+    Rc = req_ctl(R, rho.shape[-2])                                    # (C, T, L); NaN = not required, +inf = never
+    req = ~np.isnan(Rc)
+    ge = rho[..., :, None, :] >= np.where(req, Rc, -np.inf)          # (..., C, T, L); NaN rho -> False
+    ok = np.where(req, ge & np.isfinite(rho[..., :, None, :]), True).all(-1)
     return ok & (np.asarray(sizes)[:, None] >= np.asarray(min_mod)[None, :])
 
 
 def certified(lower, R, min_mod, sizes):
     """Certified pairs (C, T) from lower bounds (C, L); empty or non-finite -> nothing certified."""
     lower = np.asarray(lower, float)
-    if lower.size == 0 or lower.shape[0] != len(sizes):
+    if lower.size == 0 or lower.ndim != 2 or lower.shape[0] != len(sizes):
         return np.zeros((len(sizes), len(R)), bool)
     return capable(lower, R, min_mod, sizes)
 

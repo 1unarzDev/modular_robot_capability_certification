@@ -1,0 +1,12 @@
+{
+ "screen_miss": 0.05166666666666664,
+ "screen_miss_final": 0.05166666666666664,
+ "empty_screen": 0.045,
+ "truncated_share": 0.775,
+ "bins_pass": true,
+ "healthy_abstain_simM": 0.0,
+ "useful_simM": 0.9542961608775137,
+ "marginal_sim_ep_unsafe": 0.006666666666666667,
+ "bar_pass": true,
+ "marginal_pass": true
+}

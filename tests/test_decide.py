@@ -300,3 +300,18 @@ def test_truncation_recorded_and_end_to_end_within_alpha():
     assert rate("sim0.1") <= 0.1 + 0.03                      # end-to-end calibration absorbs it
     assert rate("simM0.1") <= 0.1 + 0.03
     assert all("mass_bin" in r for r in rows)
+
+
+def test_per_candidate_requirement_and_feasibility():
+    """env missions: requirement depends on the body (rho_ref normalisation) and footprint can rule a body out."""
+    inst = line_instance(2, merges=0)                       # parent, child(0), child(1)
+    rho = np.full((inst.C, L), 0.8)
+    r_c = np.full((inst.C, L), np.nan)
+    r_c[:, 0] = [0.9, 0.7, 0.7]                              # the parent needs more of its nominal speed
+    t = Pb.Task(np.full(L, np.nan), r_c=r_c, ok_c=np.array([True, False, True]))
+    cap = Pb.capable(rho, Pb.task_arrays([t], L)[0], np.array([1]), inst.sizes)[:, 0]
+    assert cap.tolist() == [False, False, True]
+    ch, tc = Pb.decide(inst, [t], rho)
+    assert ch.tolist() == [2] and tc == Pb.T_SPLIT_S
+    e = dict(inst=inst, tasks=[t], rho_true=rho, has_fault=np.zeros(inst.C, bool))
+    assert Ev.relevant(e)[:, 0].all() and not Ev.relevant(e)[:, 1].any()

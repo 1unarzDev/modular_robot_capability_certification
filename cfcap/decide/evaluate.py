@@ -40,7 +40,8 @@ LAMBDAS = np.unique(np.r_[np.linspace(0, 5, 101), np.linspace(5, 60, 111)])
 def relevant(ep):
     """(C, L) bool: entries whose leg some task of the episode requires."""
     R, _, _ = Pb.task_arrays(ep["tasks"], ep["rho_true"].shape[-1])
-    legs = np.isfinite(R).any(0)
+    Rc = Pb.req_ctl(R, ep["rho_true"].shape[0])                       # (C, T, L)
+    legs = np.isfinite(Rc).any((0, 1))
     return np.broadcast_to(legs[None], ep["rho_true"].shape)
 
 
@@ -269,7 +270,7 @@ def pair_counts(e, lower, w0, w1, rho):
     # decision-relevant stratum (docs/board/paper.md 1.0): the piece holds a faulted module, or some required leg's
     # true label lies within REL_BAND of its requirement
     hf = np.asarray(e.get("has_fault", np.zeros(cap.shape[0], bool)), bool)
-    near = (np.abs(e["rho_true"][:, None, :] - R[None]) < REL_BAND).any(-1)          # (C, T); NaN r -> False
+    near = (np.abs(e["rho_true"][:, None, :] - Pb.req_ctl(R, cap.shape[0])) < REL_BAND).any(-1)   # (C, T)
     rel = hf[:, None] | near
     return dict(n_capable_rel=int((cap & rel).sum()), n_incapable_rel=int((~cap & rel).sum()),
                 n_certified_rel=int((cer & cap & rel).sum()), n_unsafe_rel=int((cer & ~cap & rel).sum()),
