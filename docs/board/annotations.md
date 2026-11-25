@@ -125,6 +125,8 @@ Readings:
 - Cost: no marginal $ (codex-lb subscription capacity). It is reported as tokens.
 - The quota ran out at 20:38Z after about 1.0 M input tokens of my runs plus other sessions' tasks.
 
+Note: `results/annotations/t0_cases.jsonl` (7 MB) is not committed. Regenerate it in about 4 s with `validate_annotations.py cases-t0` (needs `$CFCAP_OUT/annotations/t0_truth.pkl`).
+
 ## Pending (detached driver; relaunched 21:17Z with the owner's models)
 - `$CFCAP_OUT/annotations/run_pending.sh`, log `run_pending.log`. Concurrency ≤ 6, shared with the coordinator's
   dispatcher. Quota-aware.
