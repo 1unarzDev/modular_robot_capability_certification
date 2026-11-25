@@ -116,6 +116,19 @@ almost all legs.
 - Caveat: `pi` is a corner approximation of the identified set and is not a valid bound at knee 3 with clamp (13 %
   unsafe), which is why only `pi_cal` is reported as valid.
 
+## Extrapolated share vs parent size N ≤ 16 (exploratory; `scripts/theory_dominance_N.py`, `results/theory/dominance_vs_N.csv`, `dominance_vs_N_by_size.csv`)
+Closed-form speed coordinate only; the torque side is in E1 for N ≤ 6. Setup: 150 grown random parents per N, and
+children sampled stratified by size (≤ 6 per size). The share is uniform over child sizes 1..N−1, with bootstrap CIs
+over parents.
+- **v2:** the share of (child, leg) decisions that are extrapolated rises from 40 % at N = 2 to 53 % at N = 4,
+  57 % at N = 8 and 59 % at N = 16. Diagonals are always extrapolated. Yaw goes 0 → 67 → 86 → 93 %.
+- **v2+clamp:** 0 % (N ≤ 3), 6 % (N = 4), 14 % (N = 8), 17 % (N = 16). All of it is yaw: child yaw rises 31 → 70 →
+  85 %.
+- **v2+clamp+2× yaw:** 0 → 5 → 8 % at N = 4 / 8 / 16 (yaw 10–41 %).
+- **Reading:** larger parents yaw slowly (yaw is scaled by the parent's L_c), so their children's yaw legs are reached
+  only by extrapolation. A fixed probe set leaves a growing extrapolated share; only a yaw probe at the child's rate
+  bounds it.
+
 ## Predictions other roles can test
 - **nuisance** (T1 SMC pilot):
   - (P1) With the posterior using v2's duty evidence, the ambiguous share is ≪ 5 %. Predicted at δ = 0.08: ~0.05 %
