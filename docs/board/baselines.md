@@ -157,6 +157,32 @@ Either failing is reported as a failure of the learned method's claim, not tuned
   - T2 truth for the same candidates must use that same table, never T2's own healthy reference.
   - `ref_table(cands, plate)` is the function to call.
 
+## SMC cost and the accuracy-vs-particles curve (2026-11-25; for T3)
+- **Measured.** The cfcap-baselines-pilot2 canary measured nuisance-SMC at **≥ 500 s per episode** on a 3090, with
+  256 particles and ≤ 150 stages. The plan assumed 80 s. Amortized takes 3.4 ms per decision (models), a gap of about
+  10⁵×.
+- **Redesign** (`scripts/campaigns/baselines_smc_small.json`, campaign cfcap-baselines-smc-small, lineage
+  cfcap-baselines). The SMC groups are removed from b2.
+- **Episode ids.** Only generator ids in 0–1999 (the models role's ids) whose parent is a pair (2-module chain) or a
+  square (4-module grid). They are listed in `results/baselines/smc_small_ids.json`:
+  - test: 79 pairs + 21 squares;
+  - cal: 72 pairs + 28 squares.
+
+  Squares are rare in 0–1999, so all of them are used.
+- **Stage 1, particle sweep.** 256, 1024 and 2048 particles ("full"), each on the same 10 test ids (5 pair, 5
+  square), one episode per job: 30 jobs, ~14 box-h, ~$2.5.
+- **Selection rule, fixed before the sweep.** Take the cheapest setting within 1 pt of 2048 on all three of:
+  - `truth_retained` (the true mode vector is among the propagated draws);
+  - raw q05 coverage of ρ_dec over all entries;
+  - raw q05 coverage over faulted-or-near-0.8 entries.
+
+  Run it with `scripts/baselines_pilot.py smc-sweep --runs ~/.cache/vast-out`, which writes
+  `results/baselines/smc_particle_sweep.csv` (s/episode, sims, retention, mass on the truth, coverage, |point −
+  point_full|).
+- **Stage 2.** 100 test + 100 cal episodes at the chosen setting: 68 jobs, ~32 box-h, ~$5.7 at 256 particles. The plan
+  is written at 256; if the sweep picks more, update `--particles` and `unit_s`, then re-emit.
+- **Accuracy curve:** TBD (filled from smc_particle_sweep.csv when stage 1 returns).
+
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on
 test.
