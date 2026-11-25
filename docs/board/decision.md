@@ -212,6 +212,52 @@ and the knee vs two-constant split.
 
 **Verdict.** H3 holds at confirmatory grade iff B1–B3 and validity hold. B4 decides "beats" vs "matches" the rival.
 
+### H3 result (seeds 2100–2699; 583 episodes after knee non-convergence; `results/decision/envpost_*`, `paper/probe_t0envpost.csv` status confirmatory)
+
+**Primary, `env_cal`:**
+
+| policy | ep unsafe | useful | abstain | regret ± se (s) | probe s | probed |
+|---|---|---|---|---|---|---|
+| v2 | 0 | 52.8 % | 40.8 % | 79.2 ± 3.8 | 0 | 0 |
+| always-clamp | 0 | 63.8 % | 33.6 % | 69.2 ± 3.9 | 8.8 | 100 % |
+| dom (closed-form trigger) | 0 | 63.7 % | 33.6 % | 66.1 ± 4.0 | 5.49 | 62 % |
+| **evoi** | 0 | 63.6 % | 33.6 % | **62.8 ± 3.8** | **1.58** | 18 % |
+
+Paired episode bootstrap, mean Δregret [95 %]:
+- evoi − clamp: −6.4 [−7.0, −5.6]
+- evoi − dom: −3.3 [−4.1, −2.5]
+- dom − clamp: −3.1 [−3.6, −2.5]
+
+**Verdict: all bars pass.**
+- B1 (probe time): 1.58 s ≤ 4.4 s.
+- B2 (regret vs clamp): upper end −5.6 ≤ 0.
+- B3 (useful): −0.2 pt ≥ −1 pt.
+- B4 (vs dom): upper end −2.5 ≤ 0, so **EVOI beats the closed-form rival**.
+- Validity: episode unsafe 0 ≤ 0.10.
+
+**Honest caveats.**
+1. **Absolute usefulness is low.** With fault modes uncertain, the credible-set envelope (min of rho_pi over up to 6
+   hypotheses) leaves 34 % of episodes abstaining. Useful commits are 64 %, against 95 % when the fault modes are known
+   (true-mode run below). The gap belongs to fault-mode uncertainty under a distrusted motor law, not to probing.
+   Probing recovers 11 points of it.
+2. **Yaw legs of children with ≥ 3 modules.**
+   - Here (posterior modes): 0 % unsafe for every env policy, but only 30–50 % certified.
+   - True-mode run: 2.4 % (clamp, dom) and 3.6 % (evoi, v2) unsafe among incapable pairs. Probing does not fix this
+     (unresolved, as Prop. 2b predicts).
+3. **Physics.** The raw physics fit `par` is 1.4 % unsafe. Calibrated (`par_cal`) it is 56 % useful, and probing does
+   not help it: EVOI almost never probes.
+
+**True-mode envelope (seeds 0–479, exploratory), the same analysis with the rival added:**
+- env_cal: evoi 14.3 s (2.05 s probing), dom 15.8 s (4.73 s), clamp 19.4 s, v2 31.4 s.
+- Paired evoi − clamp −5.1 [−6.2, −3.9]; evoi − dom −1.5 [−2.4, −0.6].
+- Useful: evoi 94.9 %, dom 95.0 %, clamp 95.3 %, v2 83.4 %.
+
+**Paper files.**
+- `probe_t0envpost.csv`: predictor_class envelope, test_plant T0-knee-post, confirmatory.
+- `probe_t0envelope.csv`: true modes, exploratory.
+- `probe_t0_n1.csv`: predictor_class physics.
+- Policies: fixed_v2 / fixed_v2_clamp / evoi; the `dom` rival is T4 policy `dominance_clamp`.
+
 **Conformalized screen.** On 600 calibration episodes (seeds 929000+), the truth's screen statistic has a heavy tail:
 median 2.0, 99 % quantile 23.9, max 29.5. Single faults reach 22.2 and double faults 23.7 at their 99 % quantiles.
 - The calibrated threshold K(α_s = 0.01) = 23.9 keeps 55–7,000 hypotheses per episode, at up to 212 s per 4-module

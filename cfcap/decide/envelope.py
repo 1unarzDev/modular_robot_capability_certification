@@ -173,7 +173,7 @@ def summarise(df):
         yawbig_unsafe=d.yb_unsafe.sum() / max(d.yb_incapable.sum(), 1))), include_groups=False).reset_index()
 
 
-PAPER_POLICY = {"v2": "fixed_v2", "clamp": "fixed_v2_clamp", "evoi": "evoi"}
+PAPER_POLICY = {"v2": "fixed_v2", "clamp": "fixed_v2_clamp", "evoi": "evoi", "dom": "dominance_clamp"}
 
 
 def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", status="exploratory"):
