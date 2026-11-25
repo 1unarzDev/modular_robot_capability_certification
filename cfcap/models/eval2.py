@@ -111,6 +111,14 @@ def load_models(ctx):
     return _MODELS
 
 
+def cand_index(D):
+    """Per candidate row of a generator columnar dict: its index in make_episode's candidate list (ep.cands), the
+    key the confirmatory scorers regenerate truth with. _assemble writes ep.cands in order, so it is the row offset
+    within the episode."""
+    ce = D["cand_ep"]
+    return np.arange(len(ce)) - D["ep_cand_off"][ce]
+
+
 def run_unit(unit, ctx):
     if unit.startswith("env-"):
         return run_env_unit(unit, ctx)
@@ -135,7 +143,7 @@ def run_unit(unit, ctx):
     L = 10
     ce = D["cand_ep"]
     base = dict(eid=np.repeat(D["ep_index"][ce], L),
-                cand=np.repeat(np.arange(gs.C) - D["ep_cand_off"][ce], L), kind=np.repeat(D["cand_kind"], L),
+                cand=np.repeat(cand_index(D), L), kind=np.repeat(D["cand_kind"], L),
                 cand_size=np.repeat(np.diff(D["cand_cm_off"]), L),
                 has_fault=np.repeat((D["cand_n_fault"] > 0).astype(np.int8), L),
                 cand_family=np.repeat(D["cand_family"], L),

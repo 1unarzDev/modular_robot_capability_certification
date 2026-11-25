@@ -374,3 +374,29 @@ def test_env_lower_export(tmp_path):
     assert r.returncode == 0, r.stderr
     ec = pd.read_csv(root / "env_lower_amortized_comp_envcal.csv.gz")
     assert np.isfinite(ec.lower).all() or np.isinf(ec.lower).all()
+
+
+def test_cand_index_is_generator_candidate_list_index():
+    """dec_conf_models `cand` = position in make_episode(...).cands (C-EXPLAIN / confirmatory truth regeneration)."""
+    from cfcap.gen import episode as E
+    from cfcap.gen import shard as SH
+    from cfcap.models import eval2 as V
+    eps = [E.make_episode("plated", "test", i) for i in (5, 6, 7)]
+    T = 20
+    obs = {"v2": [[dict(duty=np.zeros((T, a.asm.n), np.float32), dcnt=np.zeros((T, a.asm.n), np.int32),
+                        imu=np.zeros((T, 3), np.float32), cmd=np.zeros((T, 3), np.float32), amp=1.0, lead=0.0)
+                   for a in ep.asms] for ep in eps]}
+    labs = []
+    for ep in eps:
+        one = np.ones((len(ep.cands), 10), np.float32)
+        labs.append(dict(rho=one, rho_healthy=one, rho_rel=one, drift=0 * one, rho_ref=one, rho_dec=one,
+                         rho_ref_type=one))
+    D = SH._assemble(eps, obs, labs, ("v2",))
+    ci = V.cand_index(D)
+    mod0 = D["asm_mod_off"]
+    for row, (e, c) in enumerate(zip(D["cand_ep"], ci)):
+        cd = eps[e].cands[c]
+        k0, k1 = D["cand_cm_off"][row:row + 2]
+        got = [int(x) for x in D["cm_mod"][k0:k1]]
+        want = [int(mod0[D["ep_asm_off"][e] + r] + k) for r, k in cd.modules]
+        assert got == want and D["cand_kind"][row] == cd.kind
