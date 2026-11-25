@@ -5,6 +5,15 @@ OPS: (ops, 21:25Z) cfcap-decide2 is submitted (18 jobs, 77c774e, bottom priority
 OPS: (ops, 20:45Z) the 15 queued cfcap-decide jobs are cancelled (pre-fix posterior normalisation, evaluate leakage, screen); decide-canary and decide-main.s001 finish. Resubmit after N1 with a new plan campaign name; make_jobs now adds lineage.
 
 
+**Task-relevant certified share and clamp's wins.** Source: n1bK, env_cal; the share of the oracle plan's
+(candidate, task) pairs that each policy certifies.
+- evoi 81.4 %, clamp 85.8 %, dom 85.5 %, v2 72.0 %.
+- So the shares are *not* equal. EVOI certifies about 4 points fewer of the oracle's own pairs, yet its useful
+  commits are within 0.3 pt: it often serves the task through an alternative certified plan.
+- Clamp's extra certifications bought net utility (U_clamp > U_evoi) in **13 of 585 episodes (2.2 %)**. EVOI beats
+  clamp in 458/585 episodes, which is mostly the 8.8 s saved.
+- The columns are `oracle_pairs`, `oracle_pairs_cert` and `task_rel_cert_share` in `paper/probe_t0n1bK.csv`.
+
 **T4 files (coordinator ruling, 2026-11-25).**
 - **Headline:** `paper/probe_t0n1bK.csv` (envelope class, knee-tolerant screen, test_plant `T0-knee-post-ktol`,
   confirmatory).
@@ -539,6 +548,21 @@ Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`
   - Cost: the wider screen keeps more hypotheses alive through all 6 v2 legs. Per-episode time was not recorded; the
     600-episode run took about twice as long as the K = 5 arm.
 - **NEXT-2** (90 %-mass set) is now unblocked, but not started tonight.
+
+## Held-out-severity check: pre-registration (written 2026-11-25 before the run)
+**Design.**
+- The screen threshold K₀₋₂ is fitted only on severities 0–2 of the calibration seeds 5000–5599, the same statistic as
+  NEXT-1b, α_s = 0.01.
+- The **certificate (env_cal q) and the EVOI gain predictive come from external calibration episodes**: fresh seeds
+  6000–6799, severities 0–2 only (≈ 600).
+- **Test:** severity-3 episodes only, fresh seeds 7000–8199 with seed % 4 = 3 (≈ 300).
+- Comparison arm: the pooled K = 28.7, with the same external calibration on the same test seeds.
+
+**Bars** (env_cal evoi, on severity 3):
+- empty-screen share ≤ 10 %;
+- episode unsafe ≤ 0.10;
+- useful ≥ the pooled-K arm − 5 pts.
+- If the bars fail, the paper may not claim robustness to an unseen law severity.
 
 ## NEXT queue (not started)
 - **N-post-1b: DONE (see NEXT-1b result).** Original note: a knee-robust screen. Options:

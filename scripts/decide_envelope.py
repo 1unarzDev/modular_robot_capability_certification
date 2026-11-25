@@ -61,6 +61,11 @@ def main():
     ap.add_argument("--cover", type=float, default=0.99, help="envelope_post kept posterior mass")
     ap.add_argument("--screen-cal", default=None, help="s0:s1 calibration seeds for the knee-tolerant conformal screen")
     ap.add_argument("--alpha-s", type=float, default=0.01)
+    ap.add_argument("--screen-laws", default="0,1,2,3", help="severities used to fit the screen threshold")
+    ap.add_argument("--laws", default="0,1,2,3", help="evaluate only seeds with seed % 4 in this set")
+    ap.add_argument("--cal-seeds", default=None, help="s0:s1 external certificate-calibration seeds (held-out law)")
+    ap.add_argument("--cal-laws", default="0,1,2")
+    ap.add_argument("--test-plant", default=None)
     ap.add_argument("--status", default="exploratory")
     ap.add_argument("--keep-nonconv", action="store_true",
                     help="keep episodes whose knee fixed point did not converge (truth = least-residual point)")
@@ -78,12 +83,14 @@ def main():
             with get_context("spawn").Pool(a.workers) as p:
                 zd = pd.DataFrame(p.map(_work_z, range(c0, c1), chunksize=4))
             zd.to_csv(zc, index=False)
-        zd = zd[zd.conv]
+        zd = zd[zd.conv & zd.law.isin([int(x) for x in a.screen_laws.split(",")])]
         ks = split_quantile(zd.z_true.to_numpy(), a.alpha_s)
-        print(f"knee-tolerant screen: K = {ks:.3f} (alpha_s {a.alpha_s}, n_cal {len(zd)}, seeds {c0}:{c1})")
+        print(f"knee-tolerant screen: K = {ks:.3f} (alpha_s {a.alpha_s}, n_cal {len(zd)}, seeds {c0}:{c1}, "
+              f"laws {a.screen_laws})")
         print(zd.groupby("law").z_true.quantile([0.5, 0.9, 0.99]).unstack().round(2).to_string())
     theirs = [] if a.post else sorted(glob.glob(str(OUT / "theory" / "gate" / "gate_*.pkl")))
-    mine = OUT / "decision" / (f"gatepost_{a.lik}_{a.cover}_{'' if ks is None else f'K{ks:.2f}_'}{s0}_{s1}.pkl"
+    lawtag = "" if a.laws == "0,1,2,3" else "L" + a.laws.replace(",", "") + "_"
+    mine = OUT / "decision" / (f"gatepost_{a.lik}_{a.cover}_{'' if ks is None else f'K{ks:.2f}_'}{lawtag}{s0}_{s1}.pkl"
                                if a.post else f"gate_{s0}_{s1}.pkl")
     if a.post and ks is None and a.lik == "v2" and a.cover == 0.99 and (OUT / "decision" / f"gatepost_{s0}_{s1}.pkl").exists():
         mine = OUT / "decision" / f"gatepost_{s0}_{s1}.pkl"
@@ -95,7 +102,9 @@ def main():
         df = pd.read_pickle(mine)
     else:
         with get_context("spawn").Pool(a.workers) as p:
-            jobs = [(s_, a.lik, a.cover, ks) for s_ in range(s0, s1)] if a.post else list(range(s0, s1))
+            laws = {int(x) for x in a.laws.split(",")}
+            sel = [s_ for s_ in range(s0, s1) if s_ % 4 in laws]
+            jobs = [(s_, a.lik, a.cover, ks) for s_ in sel] if a.post else sel
             df = pd.concat(p.map(_work_post if a.post else _work, jobs, chunksize=2))
         mine.parent.mkdir(parents=True, exist_ok=True)
         df.to_pickle(mine)
@@ -104,7 +113,22 @@ def main():
     from cfcap.decide import envelope as En
     from cfcap.t0 import qs
     eps = En.episodes_from_gate(df, qs.LEG_NAMES)
-    rows = En.run(eps)
+    cal_eps = None
+    if a.cal_seeds:
+        c0, c1 = map(int, a.cal_seeds.split(":"))
+        claws = {int(x) for x in a.cal_laws.split(",")}
+        cp = OUT / "decision" / f"gatepost_{a.lik}_{a.cover}_{'' if ks is None else f'K{ks:.2f}_'}cal{a.cal_laws.replace(',', '')}_{c0}_{c1}.pkl"
+        if cp.exists():
+            cdf = pd.read_pickle(cp)
+        else:
+            with get_context("spawn").Pool(a.workers) as p:
+                cdf = pd.concat(p.map(_work_post, [(s_, a.lik, a.cover, ks) for s_ in range(c0, c1) if s_ % 4 in claws],
+                                      chunksize=2))
+            cdf.to_pickle(cp)
+        cdf = cdf.groupby("seed").filter(lambda g: bool(g.conv.all()))
+        cal_eps = En.episodes_from_gate(cdf, qs.LEG_NAMES)
+        print(f"external calibration: {len(cal_eps)} episodes, laws {a.cal_laws}")
+    rows = En.run(eps, cal_eps=cal_eps)
     res = REPO / "results" / "decision"
     rows.to_csv(res / f"{tag}_rows.csv", index=False)
     summ = En.summarise(rows)
@@ -124,7 +148,7 @@ def main():
     if a.keep_nonconv:
         return
     En.write_paper(rows, res / "paper" / f"probe_t0{tag}.csv", status=a.status,
-                   test_plant="T0-knee-post" if a.post else "T0-knee")
+                   test_plant=a.test_plant or ("T0-knee-post" if a.post else "T0-knee"))
     pd.set_option("display.width", 250)
     print(f"{len(eps)} episodes")
     print(summ.round(4).to_string(index=False))

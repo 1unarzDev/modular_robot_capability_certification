@@ -87,9 +87,17 @@ def _certified_tasks(e, lower):
     return int((ch >= 0).sum()), ch, tc
 
 
-def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
-    plan = Ev.fold_plan(np.array([e["fold"] for e in eps]))
-    idx = {f: [i for i, e in enumerate(eps) if e["fold"] == f] for f in plan}
+def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0, cal_eps=None):
+    """cal_eps: optional external calibration episodes (held-out law check): q and the gain predictive come from them
+    and every episode of eps is a test episode (no cross-fit)."""
+    if cal_eps is not None:
+        allx = list(eps) + list(cal_eps)
+        idx = {0: list(range(len(eps))), 1: list(range(len(eps), len(allx)))}
+        plan = {0: (None, [1])}
+        eps = allx
+    else:
+        plan = Ev.fold_plan(np.array([e["fold"] for e in eps]))
+        idx = {f: [i for i, e in enumerate(eps) if e["fold"] == f] for f in plan}
     rows = []
     rng = np.random.default_rng(seed)
     for f, (h, C) in plan.items():
@@ -146,6 +154,8 @@ def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
                     yawbig = (np.isfinite(R[:, 8:]).any(1)[None, :] & (e["sizes"] >= 3)[:, None])
                     cap = Pb.capable(e["rho_true"], R, mm, e["sizes"])
                     cer = Pb.certified(lo[use], R, mm, e["sizes"])
+                    och = Pb.oracle(e["inst"], e["tasks"], e["rho_true"])[0]       # oracle plan's (cand, task) pairs
+                    opairs = [(int(c), t) for t, c in enumerate(och) if c >= 0]
                     rows.append(dict(seed=e["seed"], law=e["law"], fold=f, predictor=pred, policy=pol, probed=int(tp > 0),
                                      regret=orc["U"] - o["U"], oracle_served=orc["n_served"], **o,
                                      n_capable=pc["n_capable"], n_incapable=pc["n_incapable"],
@@ -155,7 +165,8 @@ def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
                                      n_unsafe_rel=pc["n_unsafe_rel"], parent_size=e["meta"]["parent_size"],
                                      yb_capable=int((cap & yawbig).sum()), yb_certified=int((cer & cap & yawbig).sum()),
                                      yb_unsafe=int((cer & ~cap & yawbig).sum()), yb_incapable=int((~cap & yawbig).sum()),
-                                     q=q[use]))
+                                     q=q[use], oracle_pairs=len(opairs),
+                                     oracle_pairs_cert=int(sum(cer[c, t] for c, t in opairs))))
     return pd.DataFrame(rows)
 
 
@@ -169,6 +180,7 @@ def summarise(df):
         probed_share=d.probed.mean(),
         cert_pairs=d.n_certified.sum() / max(d.n_capable.sum(), 1),
         unsafe_pairs=d.n_unsafe_cert.sum() / max(d.n_incapable.sum(), 1),
+        task_rel_cert=d.oracle_pairs_cert.sum() / max(d.oracle_pairs.sum(), 1),
         yawbig_cert=d.yb_certified.sum() / max(d.yb_capable.sum(), 1),
         yawbig_unsafe=d.yb_unsafe.sum() / max(d.yb_incapable.sum(), 1))), include_groups=False).reset_index()
 
@@ -188,7 +200,9 @@ def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", sta
                             n_unsafe=d.n_unsafe_cert, n_amb_before=np.nan, n_amb_after=np.nan, utility=d.U,
                             test_plant=test_plant, regret=d.regret, n_unsafe_assigned=d.n_unsafe, law=d.law,
                             n_capable_rel=d.n_capable_rel, n_incapable_rel=d.n_incapable_rel,
-                            n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel))
+                            n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel,
+                            oracle_pairs=d.oracle_pairs, oracle_pairs_cert=d.oracle_pairs_cert,
+                            task_rel_cert_share=d.oracle_pairs_cert / d.oracle_pairs.where(d.oracle_pairs > 0)))
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
 
