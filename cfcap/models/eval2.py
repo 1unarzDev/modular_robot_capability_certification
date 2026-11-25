@@ -37,6 +37,10 @@ def add_args(p):
     p.add_argument("--plate", default="plated")
     p.add_argument("--reserve-shard0", action="store_true",
                    help="shard 0 gets no units (the confirmatory scorer excludes shard 0, the canary's)")
+    p.add_argument("--env-families", default="",
+                   help="C-ENV missions, family:n or family:lo:hi (e.g. test:600,E-H1:300,conf-ID:0:1500)")
+    p.add_argument("--env-model", default="st-n6-1")
+    p.add_argument("--env-S", type=int, default=12)
     p.add_argument("--blind-splits", default="het_cal,het_test,H1,H2,conf_het_test,conf_H1,conf_H2",
                    help="splits where the compositional route also runs type-blind (module type withheld)")
 
@@ -44,10 +48,14 @@ def add_args(p):
 def _items(a):
     """--splits name:n (indices 0..n-1) or name:lo:hi, comma separated."""
     out = []
-    for s in a.splits.split(","):
+    for s in filter(None, a.splits.split(",")):
         f = s.split(":")
         lo, hi = (0, int(f[1])) if len(f) == 2 else (int(f[1]), int(f[2]))
         out += chunk_units(f[0], range(lo, hi), a.per_unit)
+    for s in filter(None, getattr(a, "env_families", "").split(",")):
+        f = s.split(":")
+        lo, hi = (0, int(f[1])) if len(f) == 2 else (int(f[1]), int(f[2]))
+        out += chunk_units(f"env-{f[0]}", range(lo, hi), a.per_unit)
     return out
 
 
@@ -102,6 +110,8 @@ def load_models(ctx):
 
 
 def run_unit(unit, ctx):
+    if unit.startswith("env-"):
+        return run_env_unit(unit, ctx)
     import torch
     from cfcap.gen import episode as E
     from cfcap.models import compose as CO
@@ -201,6 +211,100 @@ def run_unit(unit, ctx):
     for k, v in cols.items():
         x = np.concatenate(v)
         out[k] = x.astype(np.float32) if x.dtype.kind == "f" else x.astype(np.int64)
+    return out
+
+
+def run_env_unit(unit, ctx):
+    """C-ENV: per (mission, candidate, segment) the compositional rho_dec quantiles of the segment's leg under the
+    segment's condition (mu factor on every module, payload at the candidate centre when loaded), from the env-model's
+    posterior on the mission's body episode (v2 observations of every assembly; no labels are simulated here).
+    Rows carry point = q50 and q05 / q95; the lower bounds (raw: q = 0 -> q50; amortized_comp: the T1-cal
+    simultaneous constant) are applied by scripts/models_export.py --env."""
+    import torch
+    from cfcap.env import buildings as B
+    from cfcap.env import missions as MS
+    from cfcap.gen import episode as E
+    from cfcap.gen import shard as SH
+    from cfcap.gen import simrun as SR
+    from cfcap.models import compose as CO
+    from cfcap.models import gendata as G
+    from cfcap.models import posterior as M
+    from cfcap.t1 import capability as cap
+    a = ctx.args
+    fam = unit[4:].rsplit("-", 2)[0]
+    idx = list(parse_chunk(unit))
+    models = load_models(ctx)
+    if a.env_model not in models:
+        raise InputMissing(f"env model {a.env_model} not loaded (--select)")
+    model, cfg = models[a.env_model]
+    par, dr = E.params(a.plate), E.domain_dr(a.plate)
+    rng = np.random.default_rng(unit_seed("models-eval2-env", unit))
+    cols = {k: [] for k in ("family", "mission", "building", "cand", "seg", "leg", "cond", "q05", "q50", "q95",
+                            "seconds", "shard")}
+    L = len(cap.LEGS)
+    for j, mi in enumerate(idx):
+        if ctx.should_stop():
+            raise Stop("env unit restarts")
+        m = B.make_mission(fam, mi)
+        segs = MS.segments(m)
+        if not segs:
+            continue
+        ep = MS.body_episode(m, a.plate)
+        keys, ci = MS.conditions(segs, m.payload_kg)
+        t0 = time.perf_counter()
+        obs = SR.probe_episodes([ep], ("v2",))
+        C = len(ep.cands)
+        one = np.ones((C, L), np.float32)
+        lab = [dict(rho=one, rho_healthy=one, rho_rel=one, drift=0 * one, rho_ref=one, rho_dec=one,
+                    rho_ref_type=one)]
+        D = SH._assemble([ep], obs, lab, ("v2",))
+        gs = G.GenSet(D, a.plate)
+        with torch.no_grad():
+            b = gs.batch([0])
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                o = G.forward(model, b)
+            o = {k: v.float() for k, v in o.items()}
+            s = M.posterior_summary(o)
+        mk, mm = b["mask"], b["mod_mask"] > 0
+        post = dict(p=s["p"][mk], ab=o["ab"][mk], nu_mu=s["nu_mu"][mm], nu_sd=s["nu_sd"][mm])
+        legs_used = sorted({sg.leg for sg in segs})
+        leg_names = tuple(cap.LEGS[l] for l in legs_used)
+        from cfcap.t1 import reference
+        refs = reference.rho_ref_many([c.asm for c in ep.cands], a.plate)          # (C, L) fixed T1 reference
+        jobs, meta = [], []
+        for k, (mu, loaded) in enumerate(keys):
+            for c_i, cd in enumerate(ep.cands):
+                mods = np.array([gs.D["asm_mod_off"][r] + kk for r, kk in cd.modules])
+                widx = (4 * mods[:, None] + np.arange(4)).reshape(-1)
+                lat = CO.sample_from_episode(ep, cd, post, widx, list(mods), a.env_S, rng, dr)
+                lat["mu_mod"] = lat["mu_mod"] * float(mu)
+                if loaded:
+                    f = lambda v: torch.full((a.env_S,), float(v), device="cuda")
+                    lat["payload"] = dict(mass=f(m.payload_kg), x=f(0.0), y=f(0.0))
+                else:
+                    lat["payload"] = None
+                jobs.append((cd.asm, lat))
+                meta.append((k, c_i))
+        res = cap.capability(jobs, par, legs=leg_names)
+        q = np.full((len(keys), C, L, 3), np.nan, np.float32)
+        for (k, c_i), r in zip(meta, res):
+            smp = r["rho"].cpu().numpy() / refs[c_i, legs_used]
+            q[k, c_i, legs_used] = np.nanquantile(smp, (0.05, 0.5, 0.95), axis=0).T
+        dt = time.perf_counter() - t0
+        for c_i in range(C):
+            for s_i, sg in enumerate(segs):
+                k = int(ci[s_i])
+                for key, v in (("family", B.FAM_CODE[fam]), ("mission", mi), ("building", m.building), ("cand", c_i),
+                               ("seg", s_i), ("leg", sg.leg), ("cond", k), ("q05", q[k, c_i, sg.leg, 0]),
+                               ("q50", q[k, c_i, sg.leg, 1]), ("q95", q[k, c_i, sg.leg, 2]), ("seconds", dt),
+                               ("shard", ctx.runner.args.shard)):
+                    cols[key].append(v)
+        ctx.progress((j + 1) / len(idx), f"env {fam}")
+    out = {k: np.asarray(v) for k, v in cols.items()}
+    out = {k: (v.astype(np.float32) if v.dtype.kind == "f" else v.astype(np.int64)) for k, v in out.items()}
+    n = len(out["mission"])
+    out["status_conf"] = np.full(n, int(fam.startswith("conf-")), np.int8)
+    ctx.meta.update(family=fam, missions=len(idx), model=a.env_model)
     return out
 
 

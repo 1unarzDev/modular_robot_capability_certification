@@ -149,6 +149,8 @@ def load_eval2(roots):
             if man.get("task") != "models_eval2":
                 continue
             for f in sorted((m.parent / "units").glob("*.npz")):
+                if f.stem.startswith("env-"):
+                    continue
                 meta = json.loads(f.with_suffix(".json").read_text()).get("meta", {})
                 tags = str(meta.get("models", "")).split(",")
                 with np.load(f) as z:
@@ -270,6 +272,43 @@ def confirmatory_rows(e2, now=None, allow_early=False):
     return out
 
 
+def load_env(roots):
+    """C-ENV rows of models_eval2 env units (family, mission, cand, seg, leg, cond, q05/q50/q95, ...)."""
+    parts = []
+    for r in roots:
+        for m in pathlib.Path(r).rglob("manifest.json"):
+            try:
+                man = json.loads(m.read_text())
+            except ValueError:
+                continue
+            if man.get("task") != "models_eval2":
+                continue
+            for f in sorted((m.parent / "units").glob("env-*.npz")):
+                with np.load(f) as z:
+                    parts.append(pd.DataFrame({k: z[k] for k in z.files}))
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
+def env_lowers(env, q_comp, out_dir, conf):
+    """Per-row lower bounds for scripts/env_score.py --lower NAME=PATH (columns family, mission, cand, seg, lower):
+    raw = posterior median (q = 0); amortized_comp = q50 - q_comp * (q50 - q05), q_comp the T1-cal simultaneous
+    constant of the env model's compositional route (no mission-level refit)."""
+    d = env[env.status_conf == int(conf)]
+    if d.empty:
+        return []
+    out_dir = pathlib.Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    keep = ["family", "mission", "building", "cand", "seg", "leg", "cond", "shard"]
+    files = []
+    for name, lo in (("raw", d.q50), ("amortized_comp", d.q50 - q_comp * np.maximum(d.q50 - d.q05, 1e-3))):
+        f = out_dir / f"{'env_conf' if conf else 'env'}_lower_{name}.csv.gz"
+        d[keep].assign(lower=np.where(np.isfinite(lo), lo, -np.inf), point=d.q50,
+                       scale=np.maximum(d.q50 - d.q05, 1e-3), method=name,
+                       status="confirmatory" if conf else "exploratory").to_csv(f, index=False)
+        files.append(f)
+    return files
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("roots", nargs="+")
@@ -281,6 +320,8 @@ def main():
                     help="also copy each train run's manifest.json + weights.pt to DIR/<arch>-<div>-<seed>/ (stage-2 input)")
     ap.add_argument("--confirmatory", action="store_true",
                     help="write results/models/confirmatory/dec_conf_models.csv.gz (refused before 2026-11-26 01:45Z)")
+    ap.add_argument("--env-model", default="st-n6-1")
+    ap.add_argument("--env-out", default=str(ROOT / "results/models"), help="env/ and confirmatory/ go under it")
     ap.add_argument("--allow-early", action="store_true", help="(mock data only) skip the 01:45Z guard")
     ap.add_argument("--conf-out", default=str(ROOT / "results/models/confirmatory/dec_conf_models.csv.gz"))
     ap.add_argument("--calib-out", default=str(ROOT / "results/models/calib"),
@@ -388,6 +429,7 @@ def main():
         dec += dec_rows("ensemble", "simultaneous", "amortized", base, e_lo, direct,
                         lambda s, df: np.full(len(df), np.nan), a.status)
     e2 = load_eval2(a.roots)
+    env = load_env(a.roots)
     if a.confirmatory:
         rows = confirmatory_rows(e2, allow_early=a.allow_early)
         f = pathlib.Path(a.conf_out)
@@ -421,6 +463,17 @@ def main():
                             sec_per_decision=r.ms_per_episode / 1e3, hardware="RTX 4070 Ti SUPER (local pilot)",
                             status="exploratory", n=0))
     pd.DataFrame(lat).to_csv(out / "latency_models.csv", index=False)
+    if not env.empty:                       # C-ENV lower bounds (exploratory always; conf only with --confirmatory)
+        cf = pathlib.Path(a.calib_out) / f"calib_{a.env_model}.json"
+        q_comp = json.loads(cf.read_text()).get("q_comp") if cf.exists() else None
+        if q_comp is None:
+            print(f"env: no q_comp in {cf}; run with the env model's stage-2 cal rows first")
+        else:
+            fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False)
+            if a.confirmatory:
+                confirmatory_rows({}, allow_early=a.allow_early)          # the 01:45Z guard
+                fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True)
+            print("env lower files:", [str(f) for f in fs])
     print(f"dec rows {sum(len(x) for x in dec)}  diversity rows {len(div)}  latency rows {len(lat)}  -> {out}")
 
 

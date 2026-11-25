@@ -325,3 +325,32 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
     assert main.eid.min() >= 40 and (main.status == "confirmatory").all()
     assert (c[c.split == "cal"].status == "exploratory").all()
     p = pd.read_csv(tmp_path / "p" / "latency_models.csv") if (tmp_path / "p" / "latency_models.csv").exists() else None
+
+
+def test_env_lower_export(tmp_path):
+    import json
+    import subprocess
+    import sys
+    import pandas as pd
+    d = tmp_path / "e2"
+    (d / "units").mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=1, task_argv=[])))
+    n = 40
+    rows = dict(family=np.full(n, 2), mission=np.repeat(np.arange(4), 10), building=np.zeros(n, int),
+                cand=np.tile(np.arange(5), 8), seg=np.tile(np.repeat(np.arange(2), 5), 4), leg=np.zeros(n, int),
+                cond=np.zeros(n, int), q05=np.full(n, 0.8, np.float32), q50=np.full(n, 0.9, np.float32),
+                q95=np.full(n, 0.95, np.float32), seconds=np.ones(n, np.float32), shard=np.ones(n, int),
+                status_conf=np.zeros(n, np.int8))
+    np.savez(d / "units" / "env-test-0000000-0000004.npz", **rows)
+    (d / "units" / "env-test-0000000-0000004.json").write_text(json.dumps(dict(meta={})))
+    cal = tmp_path / "calib"
+    cal.mkdir()
+    (cal / "calib_st-n6-1.json").write_text(json.dumps(dict(alpha=0.1, q_sim=1.0, q_marg=0.8, q_comp=2.0)))
+    r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(tmp_path / "p"),
+                        "--calib-out", str(cal), "--env-out", str(tmp_path / "m")], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    root = tmp_path / "m" / "env"
+    comp = pd.read_csv(root / "env_lower_amortized_comp.csv.gz")
+    raw = pd.read_csv(root / "env_lower_raw.csv.gz")
+    assert {"family", "mission", "cand", "seg", "lower"} <= set(comp.columns)
+    assert np.allclose(raw.lower, 0.9) and np.allclose(comp.lower, 0.9 - 2.0 * 0.1, atol=1e-5)
