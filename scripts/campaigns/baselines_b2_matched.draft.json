@@ -1,0 +1,58 @@
+{
+ "campaign": "cfcap-baselines-b2-matched",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when every group's episodes have dec rows (generator cal/test 0-1999 for the cheap baselines, 0-499 for nuisance-SMC, H3/H4/H6/H7 0-499) or the day's owner cap is reached; these rows are the Stage C baselines table, the raw-posterior and conformal-selection certifiers, the alpha 0.05/0.1 own-guarantee table, per-fault-class and fault-shift analyses (docs/reviews/review_round0.md a-d).",
+ "_doc": "Role baselines. DRAFT: matched-compute nuisance-SMC (--wall-budget-s = models' median stage-2 end-to-end s/decision, docs/board/models.md; placeholder 20). Fill the budget, unit_s (~2 x budget per 2-episode unit) and a pilot line, then emit.",
+ "groups": [
+  {
+   "name": "b2-smc-matched",
+   "task": "smc",
+   "stage": 1,
+   "lane": "rented",
+   "profile": "torch",
+   "shards": 23,
+   "units_per_shard": 11,
+   "unit_s": 60,
+   "overhead_s": 180,
+   "vram_gb": 10,
+   "priority": 22,
+   "seed": 0,
+   "task_args": [
+    "--source",
+    "gen",
+    "--plate",
+    "plated",
+    "--split",
+    "test",
+    "--episodes",
+    "500",
+    "--index0",
+    "0",
+    "--per-unit",
+    "2",
+    "--methods",
+    "nuisance_smc",
+    "--wall-budget-s",
+    "20",
+    "--status",
+    "exploratory",
+    "--particles",
+    "256",
+    "--max-stages",
+    "150",
+    "--n-prop",
+    "32",
+    "--capxfer-dir",
+    "/workspace/in/capxfer_v2"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
+   ],
+   "pilot": null,
+   "role": "baselines",
+   "purpose": "Matched-compute nuisance-SMC on generator test episodes 0-499: wall budget per decision set to the amortized model's median end-to-end time, for the amortized-versus-SMC latency comparison."
+  }
+ ]
+}

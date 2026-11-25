@@ -130,12 +130,12 @@ def test_smc_task_units_cover_split():
     assert eps == list(range(37))
 
 
-def test_decision_stratum_counts_only_faulted_near_tau():
-    truth = np.array([[0.75, 0.95, 0.65, 0.78]])
-    hf = np.array([[1, 1, 0, 1]], float)
+def test_decision_stratum_is_faulted_or_near_tau():
+    truth = np.array([[0.75, 0.95, 0.65, 0.95]])
+    hf = np.array([[1, 1, 0, 0]], float)
     lower = truth - 0.01
     r = {x["tau"]: x for x in base.metrics(lower, truth, hf, taus=(0.7,), band=0.1)}[0.7]
-    assert r["n_dec"] == 2            # 0.75 and 0.78 (faulted, within 0.1 of tau); 0.95 too far, 0.65 not faulted
+    assert r["n_dec"] == 3            # faulted (0.75, 0.95) or near tau (0.65); healthy and far (0.95) excluded
     assert r["cert_frac"] == 1.0 and r["n_unsafe"] == 0
 
 
@@ -198,7 +198,7 @@ def test_from_runs_end_to_end(tmp_path, monkeypatch):
                 vals = dict(method=[meth] * n, route=["raw"] * n, posterior=["none"] * n, train=["T1"] * n,
                             test_plant=["T1"] * n, split=[split] * n, status=["exploratory"] * n, eid=[e] * n,
                             shape=["pair" if e % 2 else "square"] * n, cand=np.repeat(np.arange(C), base.L),
-                            kind=["child"] * n, cand_size=[1] * n, has_fault=np.repeat([1, 0, 1], base.L),
+                            kind=["child"] * n, cand_size=np.repeat([1, 2, 1], base.L), has_fault=np.repeat([1, 0, 1], base.L),
                             leg=np.tile(np.arange(base.L), C), truth=tr.ravel(), point=pt.ravel(),
                             scale=np.full(n, 0.03), lower=lo.ravel(), alpha=[0.1] * n, seconds=[1.0] * n,
                             ep_n_faults=[e % 3] * n, cand_fault_class=np.repeat([1, 0, 2], base.L), sims=[0] * n,
@@ -214,6 +214,17 @@ def test_from_runs_end_to_end(tmp_path, monkeypatch):
     o = met[(met.baseline == "oracle") & (met.certifier == "sim_a10") & (met.stratum == "all") & (met["shape"] == "all")]
     assert (o.n_unsafe == 0).all() and np.allclose(o.cert_frac, 1.0)
     assert {"sim_a05", "sim_a10", "mondrian_a10", "raw", "cselect_q10"} <= set(met.certifier)
-    assert {"faults2x"} <= set(met["shift"]) and {"class0", "class2", "decision"} <= set(met.stratum)
+    assert {"faults2x"} <= set(met["shift"]) and {"class0", "class2", "decision", "size1", "lone_faulted"} <= set(met.stratum)
+    assert "model_free" in set(met.baseline)
+    triv = pd.read_csv(tmp_path / "res" / "paper" / "dec_trivial.csv")
+    assert set(triv.method) == {"model_free"}
     dec = pd.read_csv(tmp_path / "res" / "paper" / "dec_baselines.csv.gz")
     assert set(dec.split) == {"test"} and {"capxfer_raw", "nuisance_smc_raw"} <= set(dec.method)
+
+
+def test_wall_budget_stage_cap():
+    from cfcap.baselines.bayes import NuisanceSMC
+    b = NuisanceSMC(particles=100, max_stages=150, wall_budget_s=10.0)
+    # screen 1 s for 1000 sims -> 1 ms per sim -> 0.7 s per stage; 10 - 1 - 2 = 7 s left -> 10 stages
+    assert b._stage_cap("k", 1.0, 1000, 2.0) == 10
+    assert b._stage_cap("k", 20.0, 1000, 0.0) == 1          # over budget: still one stage

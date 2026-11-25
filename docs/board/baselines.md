@@ -1,6 +1,9 @@
 # baselines (specialist board)
 
-**Status (2026-11-25):** the six baselines are built and committed behind one interface, together with the runner task
+OPS: (ops, 2026-11-25 19:59Z) `baselines_b2.json` is held, as its own pilot field asks, until cfcap-baselines-pilot2's bl-canary sidecars give measured per-method seconds. Its canary is still running on 62569107 (9+ min). Once the numbers land, put them in unit_s and ops will emit and submit at priority ≤50. Note: nuisance SMC on 3090s is running about 3× slower than planned in nuis2 (see STATUS ops alerts).
+
+
+**Status (2026-11-25, updated after review round 0 and the codex audits):** the six baselines are built and committed behind one interface, together with the runner task
 `smc` and the rented pilot campaign `scripts/campaigns/baselines_pilot.json`, which validates and is ready to submit.
 **The pilot table is not measured yet.** The local GPU queue never freed, and the coordinator moved the GPU pilot to
 rented 3090s. All numbers below are smoke tests or estimates, and all are exploratory.
@@ -76,6 +79,59 @@ rented 3090s. All numbers below are smoke tests or estimates, and all are explor
   from compile to graph automatically, as the generator does (da8a065).
   - Re-emitted as `cfcap-baselines-pilot2`: `$CFCAP_OUT/baselines/jobs_baselines_pilot2.json`, 18 jobs, validated,
     not submitted.
+
+## Review round 0, codex audits, E3 (2026-11-25; code done, nothing scored yet)
+
+**Screen truncation** (`docs/codex/screen_bug.md`):
+- `enum_known` has no screen: every hypothesis' likelihood is computed. Propagation now covers 1 − 10⁻³ of the
+  posterior mass (cap 512). If more mass is left out, the episode abstains: lower = −inf, and the simultaneous layer
+  refuses too.
+- The legacy IS-SMC (`NuisanceSMCIS`, top-96 screen) is **not reported**. It is not in the runner's method list.
+- `nuisance_smc` (nuisance's sampler) mixes its screen with the prior, and its discrete moves reach every mode vector.
+- Per-episode truth retention is recorded for both reported Bayes baselines, and `from-runs` reports it per method
+  and shape in `*timing.csv`. The columns are `truth_in_support` (≤ 2 faults), `truth_retained` (the true mode vector
+  is among the propagated hypotheses or draws), `mass_true` and `dropped_mass`.
+
+**Scorer audit** (`tests/codex/test_audit_baselines.py`, now passing):
+- capxfer refuses when any parent wheel's set is empty;
+- the decision stratum is faulted **OR** |ρ_dec − τ| < 0.1;
+- a ±inf or NaN lower bound is a refusal, never a commit;
+- entries with a non-finite truth are not decisions.
+
+No baselines-pilot2 output had come back when these fixes landed, so nothing was scored with the old code.
+
+**Review round 0** (a–d). These are offline certifiers in `from-runs`, applied to the same rows:
+- (a) The uncalibrated posterior 5 % quantile (`raw`, written to dec as `enum_known_raw` / `nuisance_smc_raw`).
+- (b) Conformal selection (Jin & Candès) at FDR 0.05 and 0.1 (`cselect_q05/q10`). Entries within an episode are
+  dependent, so this is an empirical certifier.
+- (c) Each method at its own guarantee: SimultaneousLower at α = 0.05 and 0.1 (`sim_a05/a10`), plus Mondrian per
+  parent shape. Strata per true fault class (`class0/1/2`). A shifted test that importance-weights episodes by 2^faults,
+  i.e. doubled odds of each parent fault (`shift = faults2x`), with calibration unchanged.
+- (d) `baselines_b2.json` runs capxfer and every other method on the generator's own ids:
+  - cal 0–1999 and test 0–1999 for the cheap methods (enum, capxfer, RLS, nominal, oracle, trivial);
+  - H3, H4, H6 and H7 0–499; H4 skips the enumeration (40-wheel parents);
+  - SMC on cal and test 0–499 of the same ids.
+
+**Matched compute** (models):
+- `--wall-budget-s` caps nuisance-SMC's stages per episode to fit a wall budget per decision (screen + SMC +
+  propagation). Seconds per simulated row are measured on the episode's screen, then refined per shape.
+- The group is in `baselines_b2_matched.draft.json`. It stays a draft until models' median end-to-end time is in
+  `docs/board/models.md`.
+
+**E3 trivial baselines** (`cfcap/baselines/trivial.py`; `model_free` is offline):
+- `detector_gated`, `physics_gains`, `copy_parent`, `weakest_member`, `model_free`;
+- they are scored by body size (`size<k>` strata) and written to `results/baselines/paper/dec_trivial.csv`;
+- capxfer is also scored on **lone faulted modules** (`lone_faulted` stratum: single-module candidates that hold a
+  fault), the population behind its published 58–75 %.
+
+**E3 success criteria, written before any scoring.** At α = 0.1 simultaneous, decision stratum, τ ∈ {0.6, 0.7, 0.8},
+generator test split (pilot bank first, exploratory):
+1. The learned method (models' amortized posterior) certifies ≥ 10 points more of the capable decisions than the best
+   trivial baseline (max over detector_gated, physics_gains, copy_parent, weakest_member, model_free), at
+   ep_any_unsafe ≤ α.
+2. It certifies ≥ 5 points more than `model_free`.
+
+Either failing is reported as a failure of the learned method's claim, not tuned away.
 
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on

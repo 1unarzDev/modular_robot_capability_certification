@@ -109,9 +109,23 @@ class NuisanceSMC(Baseline):
     name = "nuisance_smc"
     privileged = False
 
-    def __init__(self, particles=256, max_stages=150, n_prop=32, seed=0, device="cuda"):
+    SIMS_PER_STAGE = 7          # nuisance_post.smc: per stage 3 sweeps x (continuous + discrete) evals + resample
+
+    def __init__(self, particles=256, max_stages=150, n_prop=32, seed=0, device="cuda", wall_budget_s=None):
         self.particles, self.max_stages, self.n_prop, self.seed, self.device = particles, max_stages, n_prop, seed, device
+        self.wall_budget_s = wall_budget_s
         self._setup = {}
+        self._s_per_sim = {}
+
+    def _stage_cap(self, key, t_screen, n_screen, t_prop):
+        """Matched compute: the largest stage count whose predicted wall (screen + stages + propagation) fits
+        wall_budget_s. Seconds per simulated row are measured on this episode's screen, then refined per parent
+        shape from the previous episodes' SMC walls. nuisance_post.smc jumps to beta = 1 at its stage cap (the
+        posterior then is the cheaper, less mixed one); the cap is at least 1."""
+        sps = self._s_per_sim.get(key, t_screen / max(n_screen, 1))
+        per_stage = sps * self.SIMS_PER_STAGE * self.particles
+        left = self.wall_budget_s - t_screen - t_prop
+        return int(max(1, min(self.max_stages, np.floor(left / max(per_stage, 1e-9) + 1e-9))))
 
     def _ctx(self, ep, asm, par):
         import types
@@ -139,14 +153,27 @@ class NuisanceSMC(Baseline):
         t0 = time.perf_counter()
         simr.n_sims = 0
         q = NP.Q(NP.screen(space, simr, y, 1), asm.n)
-        modes, z, ll, info = NP.smc(space, simr, y, q, 1, self.particles, gen, max_stages=self.max_stages)
+        t_screen, n_screen = time.perf_counter() - t0, simr.n_sims
+        cap_ = self.max_stages
+        key = (id(asm), ep.cmd.shape)
+        if self.wall_budget_s is not None:
+            cap_ = self._stage_cap(key, t_screen, n_screen, self._t_prop.get(key, 0.0) if hasattr(self, "_t_prop")
+                                   else 0.0)
+        t1 = time.perf_counter()
+        modes, z, ll, info = NP.smc(space, simr, y, q, 1, self.particles, gen, max_stages=cap_)
         t_post = time.perf_counter() - t0
+        if simr.n_sims > n_screen:
+            self._s_per_sim[key] = (time.perf_counter() - t1) / (simr.n_sims - n_screen)
         pick = torch.randperm(self.particles, device=dev, generator=gen)[:self.n_prop]
         rows = space.to_lat(modes[0, pick], z[0, pick])
         pay = ep.privileged().get("payload")
         if pay is not None:
             rows["payload"] = {k: v.to(dev).expand(len(pick)).contiguous() for k, v in pay.items()}
+        t2 = time.perf_counter()
         rho = Po.propagate(par, cands, rows, np.ones(len(pick)), dev, ep.plate)
+        if not hasattr(self, "_t_prop"):
+            self._t_prop = {}
+        self._t_prop[key] = time.perf_counter() - t2
         tm, _ = ep.faults()
         mt = torch.as_tensor(tm, device=dev)
         hit = (modes[0] == mt).all(-1)
@@ -157,4 +184,5 @@ class NuisanceSMC(Baseline):
                                                    mode_mass_true=float(hit.float().mean()),
                                                    truth_in_support=int(int((tm != 0).sum()) <= 2),
                                                    truth_retained=int(bool(hit_p.any())), dropped_mass=0.0,
-                                                   abstain=0))
+                                                   abstain=0, stage_cap=int(cap_),
+                                                   wall_budget_s=float(self.wall_budget_s or np.nan)))

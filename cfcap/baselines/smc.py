@@ -42,10 +42,14 @@ def _args(p):
     p.add_argument("--status", default="exploratory", choices=["exploratory", "confirmatory"])
     p.add_argument("--particles", type=int, default=256, help="SMC particles (cfcap.nuisance_post.smc)")
     p.add_argument("--max-stages", type=int, default=150)
+    p.add_argument("--wall-budget-s", type=float, default=None,
+                   help="matched compute: nuisance-SMC wall seconds per decision (screen + SMC + propagation); the SMC "
+                        "stage cap is set per episode to fit it (models' median end-to-end time, docs/board/models.md)")
     p.add_argument("--n-prop", type=int, default=32, help="particles pushed to the candidates")
     p.add_argument("--with-enum", action="store_true", help="also the known-nuisance exact enumeration")
     p.add_argument("--methods", default="nuisance_smc",
-                   help="comma list of nuisance_smc, enum_known, capxfer, rls_interval, nominal, oracle")
+                   help="comma list of nuisance_smc, enum_known, capxfer, rls_interval, nominal, oracle, detector_gated, "
+                        "physics_gains, copy_parent, weakest_member")
     p.add_argument("--capxfer-dir", default=None,
                    help="dir with capxfer rung_v2 models/ and sim_probs_<plate>.csv (default: the local cache)")
 
@@ -87,7 +91,9 @@ def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):
 
 
 POSTERIOR = dict(nuisance_smc="smc", enum_known="enum", capxfer="none", rls_interval="none", nominal="none",
-                 oracle="oracle")
+                 oracle="oracle", detector_gated="none", physics_gains="none", copy_parent="none",
+                 weakest_member="none")
+TRIVIAL = ("detector_gated", "physics_gains", "copy_parent", "weakest_member")
 _B = {}
 
 
@@ -111,9 +117,14 @@ def _baseline(name, a):
         elif name == "enum_known":
             from cfcap.baselines.bayes import Enumeration as K
             _B[name] = K()
+        elif name in TRIVIAL:
+            from cfcap.baselines import trivial as Tv
+            _B[name] = dict(detector_gated=Tv.DetectorGated, physics_gains=Tv.PhysicsGains,
+                            copy_parent=Tv.CopyParent, weakest_member=Tv.WeakestMember)[name]()
         elif name == "nuisance_smc":
             from cfcap.baselines.bayes import NuisanceSMC as K
-            _B[name] = K(particles=a.particles, max_stages=a.max_stages, n_prop=a.n_prop)
+            _B[name] = K(particles=a.particles, max_stages=a.max_stages, n_prop=a.n_prop,
+                         wall_budget_s=a.wall_budget_s)
         else:
             raise ValueError(name)
     return _B[name]
@@ -142,6 +153,7 @@ def _one(ep, a):
                              truth_in_support=p.info.get("truth_in_support", np.nan),
                              truth_retained=p.info.get("truth_retained", np.nan),
                              dropped_mass=p.info.get("dropped_mass", np.nan), abstain=p.info.get("abstain", 0),
+                             stage_cap=p.info.get("stage_cap", np.nan),
                              peak_vram_gb=torch.cuda.max_memory_reserved() / 1e9 if cuda else 0.0))
         if name == "capxfer":
             rows["point"] = np.full_like(rows["point"], np.nan)     # capxfer has a bound only

@@ -146,8 +146,11 @@ def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None, band=None, ep_weig
     unsafe-commit rate among incapable entries, unsafe share among commits (FDR), and the episode-level rate of any
     unsafe commit (the simultaneous guarantee bounds it by alpha). lower/truth/has_fault (E, W) padded with NaN.
     band: restrict every count to the decision-relevant stratum of that tau, i.e. entries of candidates holding a
-    faulted module with |truth - tau| < band (coordinator, 2026-11-25: band 0.1; the paper headline). The lower bounds
-    themselves are unchanged (calibrated on all entries).
+    faulted module OR with |truth - tau| < band (paper definition, codex scorer audit; band 0.1 is the headline). The
+    lower bounds themselves are unchanged (calibrated on all entries). band = inf with has_fault = a class mask gives
+    a pure class stratum (every entry is "near").
+    Decisions: go iff the lower bound is finite and >= tau (NaN / +-inf refuse, as `decide`); entries with a
+    non-finite truth are not decisions.
     ep_weight: (E,) episode weights (a shifted test distribution by importance weighting, e.g. fault-count shift);
     every rate becomes a weighted rate.
     go_by_tau: {tau: (E, W) bool} commit masks of a certifier that has no lower bound (conformal selection)."""
@@ -158,16 +161,22 @@ def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None, band=None, ep_weig
     lo = None if lower is None else lower[m]
     w = np.ones(int(m.sum())) if ep_weight is None else np.asarray(ep_weight, float)[m]
     W2 = w[:, None]
-    present0 = ~np.isnan(tr)
+    present0 = np.isfinite(tr)
     wr = lambda a, b: float((a * W2).sum() / (b * W2).sum()) if (b * W2).sum() > 0 else np.nan
     for tau in taus:
-        present = present0 if band is None else present0 & (np.nan_to_num(hf) > 0.5) & (np.abs(tr - tau) < band)
+        if band is None:
+            present = present0
+        elif np.isinf(band):
+            present = present0 & (np.nan_to_num(hf) > 0.5)
+        else:
+            present = present0 & ((np.nan_to_num(hf) > 0.5) | (np.abs(tr - tau) < band))
         if go_by_tau is not None:
             go = np.asarray(go_by_tau[tau])[m] & present
             cover = np.zeros_like(go)
         else:
-            go = np.where(present, np.nan_to_num(lo, nan=-np.inf) >= tau, False)
-            cover = present & (np.nan_to_num(lo, nan=-np.inf) > tr)
+            fin = np.isfinite(lo)
+            go = present & fin & (np.where(fin, lo, -np.inf) >= tau)
+            cover = present & fin & (np.where(fin, lo, -np.inf) > tr)
         cap_ = present & (tr >= tau)
         inc = present & (tr < tau)
         f = present & (hf > 0.5)

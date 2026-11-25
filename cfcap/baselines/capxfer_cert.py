@@ -136,6 +136,8 @@ def child_vectors(sets, g_lo, child_wheels, n_parent, k=K_FAULTS, cap_=MAX_VECTO
     """S|_B as a list of (mode tuple, g tuple) over the child's wheels; [] = empty (refuse); None = over the cap.
     child_wheels: parent wheel index per candidate wheel, or -1 for a merge partner's wheel, whose (mode, g) is
     taken from `fixed` (known partner; it does not use the parent's fault budget)."""
+    if any(len(sets[w]) == 0 for w in range(n_parent)):
+        return []                    # globally empty support (some parent wheel has no class): refuse
     forced = [w for w in range(n_parent) if 0 not in sets[w]]
     outside = sum(1 for w in forced if w not in set(child_wheels))
     budget = k - outside

@@ -266,6 +266,34 @@ def load_runs(runs):
 
 
 ALPHAS = (0.05, 0.1)
+TRIVIAL = ("detector_gated", "physics_gains", "copy_parent", "weakest_member", "model_free")
+
+
+def model_free_rows(df, a, has_cal):
+    """Observation-free predictor: per (candidate size, leg) the calibration median of rho_dec, scale = median - 5 %
+    quantile + 0.01 (calibration = the cal split, or the other cross-fit fold). Built from any one method's rows
+    (the truth and candidate columns are method-independent)."""
+    import pandas as pd
+    base_m = "nominal" if (df.method == "nominal").any() else df.method.iloc[0]
+    d = df[df.method == base_m].copy()
+    if has_cal:
+        d["fold"] = (d.split == a.split).astype(int)
+    else:
+        ep = d.groupby(["split", "eid"])["shape"].first().reset_index()
+        ep["fold"] = ep.groupby("shape").cumcount() % 2
+        d = d.merge(ep[["split", "eid", "fold"]], on=["split", "eid"])
+    out = []
+    for f in sorted(d.fold.unique()):
+        cal = d[d.fold != f]
+        st = cal.groupby(["cand_size", "leg"]).truth.agg(med="median", q05=lambda x: x.quantile(0.05)).reset_index()
+        te = d[d.fold == f].merge(st, on=["cand_size", "leg"], how="left")
+        te["point"] = te["med"]
+        te["scale"] = (te["med"] - te["q05"]).clip(lower=0) + 0.01
+        te["lower"] = te["q05"]
+        out.append(te.drop(columns=["med", "q05"]))
+    r = pd.concat(out, ignore_index=True).drop(columns=["fold"])
+    r["method"], r["posterior"], r["seconds"] = "model_free", "none", 0.0
+    return r
 RAW_NAME = dict(capxfer="capxfer_raw", enum_known="enum_known_raw", nuisance_smc="nuisance_smc_raw")
 
 
@@ -281,8 +309,12 @@ def cmd_from_runs(a):
       raw            the method's own uncalibrated bound: capxfer's Theorem-5 certificate, the posterior 5 % quantile
                      for enum_known / nuisance_smc (review round 0 (a));
       cselect_q{05,10}  conformal selection at FDR q (Jin & Candes; review (b)), on (point - tau) / scale.
-    Strata: all; decision (candidate contains a faulted module and |rho_dec - tau| < 0.1; the paper headline);
-    class0/1/2 (candidate truly healthy / weak only / coast-brake involved: per-fault-class behaviour, review (c)).
+    Strata: all; decision (candidate contains a faulted module OR |rho_dec - tau| < 0.1; the paper headline);
+    class0/1/2 (candidate truly healthy / weak only / coast-brake involved: per-fault-class behaviour, review (c));
+    size<k> (candidate modules: score by body size, E3); lone_faulted (single-module candidates holding a fault:
+    the population of capxfer's published 58-75 %).
+    Trivial baselines (E3; cfcap/baselines/trivial.py + model_free here) go to paper/dec_trivial.csv, the rest to
+    paper/dec_baselines.csv.gz.
     Shift: none, and faults2x (test episodes importance-weighted by 2**n_faults: doubled odds of each parent fault;
     calibration unchanged; review (c)).
     Paper files (results/baselines/paper/): dec_baselines.csv.gz with route simultaneous at alpha 0.1 (method name)
@@ -291,10 +323,11 @@ def cmd_from_runs(a):
     df = load_runs(a.runs)
     has_cal = bool(a.cal_split) and (df.split == a.cal_split).any()
     df = df[df.split.isin([a.split] + ([a.cal_split] if has_cal else []))]
+    df = pd.concat([df, model_free_rows(df, a, has_cal)], ignore_index=True)
     tag = a.tag
     RES.mkdir(parents=True, exist_ok=True)
     (RES / "paper").mkdir(parents=True, exist_ok=True)
-    rows, timing, dec = [], [], []
+    rows, timing, dec, dec_triv = [], [], [], []
     for meth, d in df.groupby("method"):
         keys = sorted({(sp, int(e)) for sp, e in zip(d.split, d.eid)})
         g = {k: x.sort_values(["cand", "leg"]) for k, x in d.groupby(["split", "eid"])}
@@ -303,6 +336,7 @@ def cmd_from_runs(a):
         P_ = lambda col: base.pad([g[k][col].to_numpy(float) for k in keys], W)
         truth, point, scale, raw, hf = P_("truth"), P_("point"), P_("scale"), P_("lower"), P_("has_fault")
         cls = P_("cand_fault_class") if "cand_fault_class" in d else np.where(hf > 0.5, 1.0, 0.0)
+        csz = P_("cand_size")
         nf = np.array([g[k]["ep_n_faults"].iloc[0] if "ep_n_faults" in d else 0 for k in keys], float)
         shapes = np.array([g[k]["shape"].iloc[0] for k in keys])
         splits = np.array([k[0] for k in keys])
@@ -336,6 +370,9 @@ def cmd_from_runs(a):
                 strata = [("all", hf, None), ("decision", hf, 0.1)]
                 if shp == "all":
                     strata += [(f"class{k}", (cls == k).astype(float), np.inf) for k in (0, 1, 2)]
+                    strata += [(f"size{k}", (csz == k).astype(float), np.inf)
+                               for k in np.unique(csz[np.isfinite(csz)]).astype(int)]
+                    strata += [("lone_faulted", ((csz == 1) & (hf > 0.5)).astype(float), np.inf)]
                 for sname, h, band in strata:
                     for wname, w in wts.items():
                         if wname != "none" and (shp != "all" or sname not in ("all", "decision")):
@@ -359,7 +396,7 @@ def cmd_from_runs(a):
                 x["alpha"] = 0.1
                 x["contains_fault"] = x["has_fault"]
                 extra = [c_ for c_ in ("ep_n_faults", "cand_fault_class") if c_ in x]
-                dec.append(x[list(DEC_COLS) + ["contains_fault"] + extra])
+                (dec_triv if meth in TRIVIAL else dec).append(x[list(DEC_COLS) + ["contains_fault"] + extra])
         sec = np.array([g[k]["seconds"].iloc[0] for k in keys])
         for s_ in np.unique(shapes):
             m = shapes == s_
@@ -378,7 +415,10 @@ def cmd_from_runs(a):
     met.to_csv(RES / f"{tag}metrics.csv", index=False)
     tm = pd.DataFrame(timing)
     tm.to_csv(RES / f"{tag}timing.csv", index=False)
-    pd.concat(dec, ignore_index=True).to_csv(RES / "paper" / "dec_baselines.csv.gz", index=False)
+    if dec:
+        pd.concat(dec, ignore_index=True).to_csv(RES / "paper" / "dec_baselines.csv.gz", index=False)
+    if dec_triv:
+        pd.concat(dec_triv, ignore_index=True).to_csv(RES / "paper" / "dec_trivial.csv", index=False)
     lat = tm.assign(n_wheels=[int(re.match(r"(\d+)m", s_).group(1)) * 4 if re.match(r"\d+m", s_) else
                               {"pair": 8, "square": 16, "2x3": 24}.get(s_, np.nan) for s_ in tm["shape"]],
                     hardware=a.hardware, status="exploratory")
