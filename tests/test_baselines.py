@@ -218,9 +218,9 @@ def test_from_runs_end_to_end(tmp_path, monkeypatch):
     assert "model_free" in set(met.baseline)
     triv = pd.read_csv(tmp_path / "res" / "paper" / "dec_trivial.csv")
     assert set(triv.method) == {"model_free"}
-    assert not (set(triv.method) & set(dec.method))           # each method in exactly one paper file
     dec = pd.read_csv(tmp_path / "res" / "paper" / "dec_baselines.csv.gz")
     assert set(dec.split) == {"test"} and {"capxfer_raw", "nuisance_smc_raw"} <= set(dec.method)
+    assert not (set(triv.method) & set(dec.method))           # each method in exactly one paper file
 
 
 def test_wall_budget_stage_cap():
