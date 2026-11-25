@@ -152,3 +152,17 @@ def test_motor_mode_backends_agree_and_is_off_by_default(setup):
     c = cap2.capability([(asm, lat)], par, build.ALL, relative=True, backend="numba")[0]
     assert np.allclose(a["rho"], b["rho"], atol=1e-10)
     assert np.abs(b["rho"] - c["rho"]).max() > 1e-3          # the motor law changes the plant
+
+
+@pytest.mark.parametrize("sev", [1, 3])
+def test_knee_law_backends_agree(setup, sev):
+    """motor_kind='knee' (theory's cfcap/t0/envelope.py law): numpy (calls envelope.knee_factors) == numba."""
+    par, th, dr = setup
+    asm = P.named_assembly("square", par)
+    lat = _latents(asm, 2, 8, dr)
+    e = build.ABLATIONS[f"knee{sev}"]
+    assert e.motor_on and not e.motor
+    a = cap2.capability([(asm, lat)], par, e, backend="numpy")[0]["rho"]
+    b = cap2.capability([(asm, lat)], par, e, backend="numba")[0]["rho"]
+    c = cap2.capability([(asm, lat)], par, build.NONE, backend="numba")[0]["rho"]
+    assert np.allclose(a, b, atol=1e-10) and np.abs(b - c).max() > 1e-4

@@ -59,11 +59,19 @@ class Effects:
     aniso_mu: bool = False
     hook_play: float = 1.1e-3
     firmware: str = "robot"       # robot | crane (crane only for the reproduction test)
-    motor: bool = False           # misspecified motor law (OFF by default; see MOTOR below)
+    motor: bool = False           # misspecified motor law, the stress superset (OFF by default; see MOTOR below)
+    motor_kind: str = "none"      # "knee": theory's shared wrong law (cfcap/t0/envelope.py), severity knee_severity
+    knee_severity: int = 0
 
     def name(self):
         on = [k for k in ("compliance", "load_transfer", "aniso", "aniso_mu", "motor") if getattr(self, k)]
+        if self.motor_kind == "knee":
+            on.append(f"knee{self.knee_severity}")
         return "+".join(on) or "base"
+
+    @property
+    def motor_on(self):
+        return self.motor or (self.motor_kind == "knee" and self.knee_severity > 0)
 
 
 NONE = Effects()
@@ -73,6 +81,9 @@ ABLATIONS = {"base": NONE, "compliance": Effects(compliance=True), "load_transfe
              "all-aniso_mu": Effects(True, True, True, False),
              # misspecified motor law (flagged; not part of `all`)
              "motor": Effects(motor=True), "all+motor": Effects(True, True, True, True, motor=True)}
+for _sv in (1, 2, 3):           # theory's shared knee law (E1), alone and with the A5 effects
+    ABLATIONS[f"knee{_sv}"] = Effects(motor_kind="knee", knee_severity=_sv)
+    ABLATIONS[f"all+knee{_sv}"] = Effects(True, True, True, True, motor_kind="knee", knee_severity=_sv)
 
 # Misspecified motor (Effects.motor; T1 and the identified theta assume the linear DC law tau = ts (g v_b u - w/w_nl)).
 # Per wheel (draws from their own stream, so the other effects' draws are unchanged), each relative to that wheel's
@@ -278,6 +289,13 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
                   cw=mr.uniform(0.5, 1.5, n), ct=mr.uniform(0.5, 1.5, n), cth=mr.uniform(0.1, 0.3, n),
                   eth0=mr.uniform(0.0, 1.0, n), ksag=mr.uniform(0.05, 0.2, len(m_mod))[wm])
         mv["omk"] = mv["omk"] * fw["vb"][-1] * wnl
+        if effects.motor_kind == "knee":
+            if effects.motor:
+                raise ValueError("Effects: motor (superset) and motor_kind='knee' are separate options; pick one")
+            from cfcap.t0 import envelope as ENV
+            env = ENV.motor_envelope("knee", effects.knee_severity, np.random.default_rng([int(seed), b, 7179]), n)
+            mv.update(ilim=np.full(n, np.inf), cth=np.zeros(n), eth0=np.zeros(n), ksag=np.zeros(n),
+                      omk=env["f_w"] * fw["vb"][-1] * wnl, tauk=env["f_t"] * ts, cw=env["c_w"], ct=env["c_t"])
         for k, v in mv.items():
             fw[k].append(v)
         Am = (wm[:, None] == wm[None, :]).astype(float)
@@ -302,7 +320,7 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
     S.update({k: np.asarray(v, np.int64 if k == "delay" else np.float64) for k, v in sc.items()})
     S["p"] = np.stack(rows)
     S.update(lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso,
-             fw_robot=effects.firmware == "robot", mm_on=effects.motor)
+             fw_robot=effects.firmware == "robot", mm_on=effects.motor_on)
     return S
 
 
@@ -323,4 +341,4 @@ def concat(specs):
 
 
 def with_effects(S, effects):
-    return dict(S, lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso, mm_on=effects.motor)
+    return dict(S, lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso, mm_on=effects.motor_on)

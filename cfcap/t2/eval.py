@@ -48,7 +48,8 @@ def _args(p):
                    help="auto: numba if importable, else jax, else numpy (no torch.compile anywhere in T2)")
     p.add_argument("--no-obs", action="store_true", help="skip the parent's v2 probe observation")
     p.add_argument("--misfit", action="store_true",
-                   help="per-candidate v2 and clamp misfit T2 vs T1 with latents known (cfcap.t2.misfit; ~2x cost)")
+                   help="per-candidate v2, clamp and child-rate yaw (yawc) misfit T2 vs T1 with latents known "
+                        "(cfcap.t2.misfit; ~8x cost)")
     p.add_argument("--episodes-dir", default=None)
     p.add_argument("--predictor", default=None, help="module:function (evaluate)")
     p.add_argument("--models", default=None)
@@ -75,7 +76,7 @@ def episode_seed(plate, split, index):
 
 
 FEAT_COLS = ("faults", "min_g", "payload_kg", "mu_fac", "mu_fac_min", "mu_fac_max", "drag_pos", "drag_neg",
-             "D_imu_v2", "D_imu_clamp", "D_duty_v2", "D_duty_clamp")
+             "D_imu_v2", "D_imu_clamp", "D_duty_v2", "D_duty_clamp", "D_imu_yawc", "D_duty_yawc")
 
 
 def candidate_features(asm, lat, par, seed, effects):
@@ -134,9 +135,11 @@ def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False):
             mf = MF.probe_misfit(c.asm, lats[i], par, eff0, seed + 7919 * i, backend=backend,
                                  rng=E.episode_rng(ep.plate, ep.split, ep.index, stream=200 + i))
             f.update(D_imu_v2=float(mf["v2"][0][0]), D_duty_v2=float(mf["v2"][1][0]),
-                     D_imu_clamp=float(mf["clamp"][0][0]), D_duty_clamp=float(mf["clamp"][1][0]))
+                     D_imu_clamp=float(mf["clamp"][0][0]), D_duty_clamp=float(mf["clamp"][1][0]),
+                     D_imu_yawc=float(mf["yawc"][0][0]), D_duty_yawc=float(mf["yawc"][1][0]))
         else:
-            f.update(D_imu_v2=np.nan, D_duty_v2=np.nan, D_imu_clamp=np.nan, D_duty_clamp=np.nan)
+            f.update(D_imu_v2=np.nan, D_duty_v2=np.nan, D_imu_clamp=np.nan, D_duty_clamp=np.nan, D_imu_yawc=np.nan,
+                     D_duty_yawc=np.nan)
         feats.append(f)
     out["_features"] = feats
     ob = None

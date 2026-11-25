@@ -25,7 +25,35 @@ def misfit(tw1, tw2, d1, d2):
     return di.reshape(len(tw1), -1).mean(1), dd.reshape(len(tw1), -1).mean(1)
 
 
-def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp"), rng=None, backend="numba"):
+YAWC_T = 0.5 + 0.3 + 1.5 + 0.6 + 1.5 + 0.3 + 1.0
+
+
+def yaw_rate_table(asm, par, rng):
+    """Child-rate yaw probe `yawc`: yaw at the child's decision-leg rate (t1.capability.leg_twists: the farthest
+    wheel at WHEEL_SPEED_CAP): lead U(0, 0.5) s, ramp 0.3 s to +w, hold 1.5 s, ramp 0.6 s to -w, hold 1.5 s, ramp 0.3 s
+    to 0, 1 s tail. Returns (K+1, 3) at 50 Hz, the length of YAWC_T."""
+    from cfcap.t1 import capability as cap1, plant
+    hz = float(par["firmware"]["cmd_rate_hz"])
+    K = plant.n_ticks(YAWC_T, par)
+    w = float(cap1.leg_twists(asm)[cap1.LEGS.index("yaw+")][2])
+    t = np.arange(K + 1) / hz - float(rng.uniform(0.0, 0.5))
+    knots = np.array([0.0, 0.3, 1.8, 2.4, 3.9, 4.2])
+    vals = np.array([0.0, w, w, -w, -w, 0.0])
+    wz = np.interp(t, knots, vals, left=0.0, right=0.0)
+    tab = np.zeros((K + 1, 3), np.float32)
+    tab[:, 2] = wz
+    tab[K:] = 0.0
+    return tab
+
+
+def _tables(kind, asm, par, rng):
+    from cfcap.gen import simrun as SR
+    if kind == "yawc":
+        return yaw_rate_table(asm, par, rng), YAWC_T
+    return SR.probe_tables(kind, asm, par, rng)[0], SR.probe_T(kind)
+
+
+def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp", "yawc"), rng=None, backend="numba"):
     """{kind: (D_imu, D_duty)} of one or more episodes (rows of lat) on `asm` (T1 torch CPU vs T2)."""
     from cfcap.gen import simrun as SR
     from cfcap.t1 import plant
@@ -35,8 +63,8 @@ def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp"), rng=None, 
     out = {}
     lt = {k: v for k, v in lat.items() if not k.startswith("t2_")}
     for kind in kinds:
-        tabs = np.stack([SR.probe_tables(kind, asm, par, rng)[0] for _ in range(B)])
-        T = SR.probe_T(kind)
+        tt = [_tables(kind, asm, par, rng) for _ in range(B)]
+        tabs, T = np.stack([x[0] for x in tt]), tt[0][1]
         R1 = plant.simulate_bucket([dict(asm=asm, lat=lt, cmd=tabs)], par, T, device="cpu")[0]
         R2 = cap2.simulate(asm, lat, par, tabs, T, effects, backend=backend, seed=seed)
         out[kind] = misfit(R1["twist"].numpy().astype(float), R2["twist"], R1["duty"].numpy().astype(float),

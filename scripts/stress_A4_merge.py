@@ -72,7 +72,20 @@ def merged_latents(l1, l2, n, load_z, payload):
     return lat
 
 
-def run(arm, pairs, shard=0):
+def perturb(lat, rng):
+    """T1 perturbation for the size-aware misspecification margin (never T2): per-wheel motor and per-module battery /
+    friction deviations x2, load split x2, an extra N(0, 0.02 rad) mounting-yaw error."""
+    import torch
+    out = dict(lat)
+    for k in ("stall_w", "noload_w", "mu_mod"):
+        out[k] = 1 + 2 * (lat[k] - 1)
+    out["vbatt_off"] = 2 * lat["vbatt_off"]
+    out["load_z"] = 2 * lat["load_z"]
+    out["yaw_err"] = lat["yaw_err"] + torch.as_tensor(rng.normal(0, 0.02, lat["yaw_err"].shape), dtype=torch.float32)
+    return out
+
+
+def run(arm, pairs, shard=0, pert=False):
     import torch
     from capxfer import assembly as A, sim
     from cfcap.t0 import candidates as C
@@ -115,12 +128,23 @@ def run(arm, pairs, shard=0):
             lr = plant.sample_latents(asm, 1, np.random.default_rng(0), plant.HET_OFF,
                                       domain=P.point_domain(th, 1, "cpu"), device="cpu")
             lr["yaw_err"] = None
+            if pert:
+                lt = perturb(lt, np.random.default_rng([SEED0, 99, arm == "P5", shard, pi, mi]))
             truth.append((asm, lt)); comp.append((asm, lc)); refl.append((asm, lr))
             meta.append(dict(pair=shard * 100000 + pi, merge=mi, n_mod=k1 + k2, n_wheel=n, k1=k1, k2=k2,
                              n_fault=int((lt["mode"] > 0).sum()), payload_kg=pm, t=json.dumps(list(map(int, t)))))
-    print(arm, len(meta), "merges", flush=True)
+    print(arm, len(meta), "merges", "(T1 perturbed)" if pert else "", flush=True)
     t0 = time.time()
     out = {}
+    if pert:
+        lr_ = [(a, dict(l, yaw_err=torch.zeros_like(l["mode"], dtype=torch.float32))) for a, l in refl]
+        r1p = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability(truth, par, device="cpu")])
+        ref1 = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability(lr_, par, device="cpu")])
+        out.update(T1_pert=r1p / ref1, meta_pair=np.array([m["pair"] for m in meta]),
+                   meta_merge=np.array([m["merge"] for m in meta]))
+        np.savez_compressed(OUT / f"A4_{arm}_s{shard}_pert.npz", **out)
+        print("T1 pert", f"{time.time() - t0:.0f}s", flush=True)
+        return
     lr_ = [(a, dict(l, yaw_err=torch.zeros_like(l["mode"], dtype=torch.float32))) for a, l in refl]
     r1t = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability(truth, par, device="cpu")])
     r1c = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability(comp, par, device="cpu")])
@@ -154,7 +178,7 @@ def analyze():
     from cfcap.t1.capability import LEGS
     rows, summ, dec = [], [], []
     for arm in ("P0", "P5"):
-        fs = sorted(OUT.glob(f"A4_{arm}_s*.npz"))
+        fs = sorted(f for f in OUT.glob(f"A4_{arm}_s*.npz") if not f.name.endswith("_pert.npz"))
         if not fs:
             continue
         zs = [np.load(f) for f in fs]
@@ -225,6 +249,43 @@ def analyze():
                                         has_fault=int(z["meta_n_fault"][i] > 0), leg=l, truth=float(tr[i, l]),
                                         point=float(z["T1_comp"][i, l]), scale=np.nan, lower=float(lower[i, l]),
                                         alpha=ALPHA, seconds=np.nan))
+        # size-aware misspecification margin from T1 perturbations (never T2): q_pert(n_mod) = conformal (1 - alpha)
+        # quantile over pairs of max(comp - T1_pert)_+ per merge size; certificate comp_sizeaware: lower = comp - q_pert(n_mod) (
+        # q_pert(n_mod)); miscov_pair on T1 and T2 truth over every pair (the calibration never saw either truth).
+        fp = sorted(OUT.glob(f"A4_{arm}_s*_pert.npz"))
+        if fp:
+            zp = [np.load(f) for f in fp]
+            pert = np.concatenate([q["T1_pert"] for q in zp])
+            assert np.array_equal(np.concatenate([q["meta_pair"] for q in zp]), pair)
+            nm = z["meta_n_mod"]
+            qn = {}
+            for m_ in np.unique(nm):
+                ps = np.unique(pair[nm == m_])
+                sc_ = np.sort([float(np.maximum(z["T1_comp"][pair == p] - pert[pair == p], 0).max()) for p in ps])
+                qn[int(m_)] = float(sc_[min(int(np.ceil((len(sc_) + 1) * (1 - ALPHA))), len(sc_)) - 1])
+            marg = np.array([qn[int(m_)] for m_ in nm])[:, None]
+            lower = z["T1_comp"] - marg
+            for plant in ("T1", "T2"):
+                tr = z[f"{plant}_truth"]
+                mis = np.array([(tr[pair == p] < lower[pair == p]).any() for p in up])
+                for r in summ:
+                    if r["arm"] == arm and r["plant"] == plant and r["group"] == "all":
+                        r["miscov_pair_comp_sizeaware"] = float(mis.mean())
+                        r["q_pert_by_nmod"] = json.dumps({k: round(v, 4) for k, v in qn.items()})
+                        fl = np.stack([(lower >= t) & (tr < t) for t in TAUS], -1)
+                        r["unsafe_go_comp_sizeaware"] = float(fl.mean())
+                        r["cert_frac_capable_comp_sizeaware"] = float(np.stack([(lower >= t) & (tr >= t) for t in TAUS],
+                                                                       -1).sum() / max(1, np.stack(
+                                                                       [tr >= t for t in TAUS], -1).sum()))
+                for i in range(len(pair)):
+                    for l in range(len(LEGS)):
+                        dec.append(dict(method="comp_sizeaware", route="compositional", posterior="oracle", train="T1",
+                                        test_plant=plant, split="merge_" + arm, eid=int(pair[i]),
+                                        shape=f"{int(z['meta_k1'][i])}+{int(z['meta_k2'][i])}", family="",
+                                        cand=int(z["meta_merge"][i]), kind="merge", cand_size=int(z["meta_n_mod"][i]),
+                                        has_fault=int(z["meta_n_fault"][i] > 0), leg=l, truth=float(tr[i, l]),
+                                        point=float(z["T1_comp"][i, l]), scale=np.nan, lower=float(lower[i, l]),
+                                        alpha=ALPHA, seconds=np.nan))
     RES.mkdir(parents=True, exist_ok=True)
     (RES / "paper").mkdir(exist_ok=True)
     with open(RES / "paper" / "dec_merge.csv", "w", newline="") as fh:
@@ -246,5 +307,6 @@ if __name__ == "__main__":
     ap.add_argument("--arm", default="P0", choices=("P0", "P5"))
     ap.add_argument("--pairs", type=int, default=500)
     ap.add_argument("--shard", type=int, default=0)
+    ap.add_argument("--pert", action="store_true", help="T1 perturbed truth only (size-aware margin calibration)")
     a = ap.parse_args()
-    run(a.arm, a.pairs, a.shard) if a.cmd == "run" else analyze()
+    run(a.arm, a.pairs, a.shard, a.pert) if a.cmd == "run" else analyze()

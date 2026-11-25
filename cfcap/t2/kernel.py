@@ -197,9 +197,15 @@ def _motor_cmd(S, st, xp):
     Kg = ts / wnl
     load = (S["Amod"] * (xp.abs(st["tau"]) / ts)[:, None, :]).sum(-1)
     vb = S["vb"] * xp.maximum(1.0 - S["ksag"] * load, 0.5)
-    nl = wnl * xp.maximum(0.4, 1.0 - S["cw"] * xp.maximum(xp.abs(om) / S["omk"] - 1.0, 0.0))
-    se = ts * xp.maximum(0.4, 1.0 - S["ct"] * xp.maximum(xp.abs(st["tau"]) / S["tauk"] - 1.0, 0.0)) \
-        * xp.maximum(0.4, 1.0 - S["cth"] * st["eth"])
+    if xp is np:        # theory's shared knee law, cfcap/t0/envelope.py (the numba / JAX paths inline the same formula)
+        from cfcap.t0 import envelope as ENV
+        env = dict(f_w=S["omk"] / (S["vb"] * wnl), c_w=S["cw"], f_t=S["tauk"] / ts, c_t=S["ct"])
+        fs, fn = ENV.knee_factors(env, om, st["tau"], S["vb"] * wnl, ts)
+        nl, se = wnl * fn, ts * fs * xp.maximum(0.4, 1.0 - S["cth"] * st["eth"])
+    else:
+        nl = wnl * xp.maximum(0.4, 1.0 - S["cw"] * xp.maximum(xp.abs(om) / S["omk"] - 1.0, 0.0))
+        se = ts * xp.maximum(0.4, 1.0 - S["ct"] * xp.maximum(xp.abs(st["tau"]) / S["tauk"] - 1.0, 0.0)) \
+            * xp.maximum(0.4, 1.0 - S["cth"] * st["eth"])
     tau = se * (st["u"] * S["gw"] * vb - om / nl)
     tau = xp.minimum(xp.maximum(tau, -S["ilim"]), S["ilim"])
     return om + tau / Kg
