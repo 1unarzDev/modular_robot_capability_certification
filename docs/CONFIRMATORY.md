@@ -311,6 +311,30 @@ Bars 2 (H13) and P6 above are **withdrawn**. Bar 1 (H12/P5) and bar 3 are unchan
   3. **Pre-stated interpretation.** If `amortized_comp` passes only when told the type, the claim is "composition
      transfers to new module types whose wheel channel model is known", not "learned type inference".
 
+## 6b. Claim C-EXPLAIN (added 22:00Z, before any confirmatory label exists; secondary, not in the Holm family)
+Faithful explanations of capability limits (owner's original ask). Exploratory T0 (H17): 89.5 % faithful, and 100 %
+belief-consistent explainer. So the explainer can be **deterministic code** on the confirmatory rows, with no LLM in
+the confirmatory path.
+- **Rows.** C-MAIN (conf_test 40–3,039), T1, method `amortized_comp`. Every refused (candidate, leg, τ) decision in
+  the stratum.
+- **Needs.** Per-wheel posteriors (models' `wheels_<split>.npz`) and true latents (regenerated from the episode
+  index).
+- **Explainer.** Blamed wheels = the candidate's wheels with posterior P(mode ≠ ok) ≥ 0.5. Each refused leg gets one
+  of two labels:
+  - a **deficit** claim if the posterior median < τ;
+  - a **margin** claim ("cannot confirm τ") if the median ≥ τ but the lower bound < τ. This is the H17 fix:
+    conservative refusals no longer name a false short leg.
+- **Truth.** A blamed wheel is correct iff it carries any injected fault. A deficit claim is correct iff
+  ρ_dec^T1 < τ. Margin claims make no physical assertion; their share is reported.
+- **Bars** (episode-clustered bootstrap, point estimate judged, CI printed):
+  - wheel precision ≥ 0.95;
+  - deficit-claim precision ≥ 0.90;
+  - informative share (≥ 1 blamed wheel or a deficit claim) ≥ 0.80 among refusals of truly incapable decisions;
+  - false-reason rate on truly *capable* refusals ≤ 0.05. This is the share of those refusals carrying a wrong
+    deficit claim; it was 20/20 before the margin fix.
+- **Exploratory add-on (not scored here).** An LLM paraphrase spot-check of 200 cases, run by the annotation
+  role after 01:45Z, checked for belief consistency.
+
 ## 7. What is *not* confirmatory
 - Probing policies (EVOI etc.); merges in env missions beyond bar 4.4; any number from SMC; plateless rows; α = 0.05
   rows; own-reference labels.
