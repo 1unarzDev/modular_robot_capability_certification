@@ -59,16 +59,23 @@ numbers are exploratory, from simulation only.
 - **paper:** A2's low ambiguity should be framed as "identified by the motor-law extrapolation". The coverage
   closed form then says which decisions rest on that assumption.
 
-## Proposal for full-scale runs (CPU only, free cluster workers)
-1. **Phase diagram** (serves the Prop. 2 / Prop. 3 figure): `theory_nuisance.py` over all polyomino parents N ≤ 8,
-   1–2 faults including coast/brake, probe sets {v2, v2+clamp, v2+22.5° oblique, v2+child-rate yaw}, δ grid. About
-   2.5 s per 4–6-module episode and ~8 s at N ≤ 8: 5,000 episodes ≈ 10 CPU-h, run as 50 shards of 100 seeds
-   (`py_command`, 12 min each). Needs two additive options in my script: the probe-set argument and the two-fault
-   truth.
-2. **Envelope-misspecification check** (serves S1 / the robustness claim): an additive T0 motor variant with a
-   current limit (|τ| ≤ τ_lim < stall) and a convex torque–speed curve, as a new function in a new file, with no
-   change to `qs.solve`. Certify with the two-constant oracle and count unsafe-go by dominance class. ~5 CPU-h.
-   Owner: stress, or me if allowed to add `cfcap/t0/envelope.py`.
+## Proposal for full-scale runs (CPU only; packaged, validated, not submitted)
+Plans: `scripts/campaigns/theory_sweeps.json` (lane `free`, $0) and `scripts/campaigns/theory_sweeps.cpu.json` (lane
+`cpu`, rented, ~$1.7). Both contain the same two groups. Tasks are in `cfcap/theory_task.py`, run with
+`--task-spec`; outputs are runner npz units.
+1. **phase** (`PHASE`, serves the Prop. 2 / Prop. 3 figure): 3,000 episodes (4–8-module parents, 1–2 faults
+   weak/coast/brake).
+   - Probe sets {v2, v2+clamp, v2+22.5° oblique, v2+2× yaw, v2+clamp+2× yaw}; δ ∈ {0.04, 0.08, 0.16}.
+   - 15 jobs × 51 min = 12.8 CPU-h.
+   - Pilot at 1 thread: 4.0 s for an N=6 parent, 14.5 s for an N=8 parent. A unit of 10 episodes is set to 150 s.
+   - My earlier ~10 CPU-h figure was low.
+2. **envelope** (`ENVELOPE`, serves S1): a knee-motor truth (speed and torque knees drawn independently of the
+   probes) against the two-constant oracle fitted at the parent's v2 or v2+clamp probes, with per-decision dominance
+   ratios.
+   - 3,000 episodes, 10 jobs × 26 min = 4.3 CPU-h.
+   - Pilot: 4.3 s per episode at 1 thread.
+   - Predicted: unsafe-go and |ρ̂ − ρ| are near 0 on dominated decisions and concentrate where the speed or torque
+     ratio exceeds 1. Clamp shrinks the speed-undominated part.
 3. **Slack on real models:** no compute. Baselines logs r, and I fit the decomposition.
 
 ## Needs from other roles
