@@ -136,7 +136,7 @@ on top of any type. Test `test_conventional_module_cannot_sway`: a lone conventi
 - `cfcap.gen.episode.build(name, cells, yaws, ids, plate, types=None)` sets `asm.meta["types"]` (m,) and
   `asm.meta["wheel_type"]` (n,); `w_hat`/`r_hat` stay the mecanum geometry (the type acts through the plant latent).
 - ρ_ref per type: keys append `,type` for non-mecanum modules (`"i,j,yaw,type"`; mecanum keys unchanged), stored as
-  `cand_rho_ref_type`. **Deviation, flagged:** `cand_rho_dec` divides by the *mecanum* reference of the same shape
+  `cand_rho_ref_type` (secondary). **Agreed with the coordinator (7efaec7):** `cand_rho_dec` divides by the *mecanum* reference of the same shape
   (`cand_rho_ref`) for every type. The per-type reference is ~0 on legs a type cannot do (skid sway): pilot2 measured
   ρ_dec down to −4e21 with the per-type divisor. A requirement is absolute (CONFIRMATORY §0.3), so the mecanum scale is
   the requirement scale; a skid module then has ρ_dec(sway) ≈ 0 = incapable, as it should be.

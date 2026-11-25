@@ -209,3 +209,4 @@ test.
 ## Next step
 Ingest the rented pilot and fill the table. Then size `smc-t1` and the cal and cheap groups from the measured
 s/episode.
+- OPS/baselines (from generator, 7efaec7; coordinator agreed): on het/H1/H2, `cand_rho_dec` divides by the **mecanum** reference of the same shape (`cand_rho_ref`), whatever the module type. The per-type reference is only `cand_rho_ref_type` (secondary). Any per-type normalisation in baselines should use `cand_rho_ref`.
