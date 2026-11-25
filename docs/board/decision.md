@@ -431,7 +431,37 @@ The decision layer consumes one **mission** as one `problem.Task`. This is imple
 - **Bar:** the same as NEXT-1 (useful ≥ 75 %, episode unsafe ≤ 0.10, B1–B4). The end-to-end calibrated certificate
   (`env_cal`) is the guarantee; the raw `env` row is reported without a bar.
 
+## NEXT-1 result: bar NOT met; NEXT-2 not run (as pre-registered)
+Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`, `n1v2_*`.
+
+| env_cal | evoi useful | ep unsafe | abstain | regret | paired evoi − clamp | paired evoi − dom |
+|---|---|---|---|---|---|---|
+| robust clamp likelihood | **64.8 %** | 0.17 % | 35.5 % | 59.6 | −6.6 [−7.2, −5.8] | −3.7 [−4.4, −3.0] |
+| v2-only likelihood (same seeds) | 64.9 % | 0.17 % | 35.5 % | 59.4 | −6.8 [−7.2, −6.2] | −3.9 [−4.7, −3.2] |
+
+- **Verdict.**
+  - The useful bar (≥ 75 %) fails.
+  - H3 B1–B4 hold again on fresh seeds, a replication: EVOI uses 1.45 s of probing against 8.8 s, and its upper paired
+    ends are < 0 against both rivals.
+- The robust likelihood does change the posterior: it keeps fewer hypotheses (2.54 vs 2.81), and the truth is kept less
+  often (58 % vs 65 %). But certification barely moves.
+- **Diagnosis: the gap is the v2 SCREEN, not the likelihood.**
+  - **30 % of episodes end with an empty v2 screen**: 2 % at severity 0, 7 % at 1, 40 % at 2, 75 % at 3. The knee
+    already binds at v2 speeds for strong knees, and the two-constant screen (|z| ≤ 5) rejects every hypothesis.
+  - Those episodes abstain by design and account for 295 of the 938 oracle-servable tasks.
+  - **On episodes with a non-empty screen, EVOI's useful share is already 94.6 %** (608/643).
+  - So no change downstream of the screen can reach 75 %.
+- The two arms' T4 files are deliberately not in `paper/`: they would duplicate policy names. The rows live in
+  `results/decision/n1*_rows.csv`.
+
 ## NEXT queue (not started)
+- **N-post-1b (the real lever):** a knee-robust screen. Options:
+  - (a) a conformalized screen threshold calibrated on knee-law calibration episodes (truth's max |z| at α_s);
+  - (b) a Student-t / Huber screen statistic;
+  - (c) a "speed-ceiling-only" screen that tests duty and speed consistency only where the wheel tracks below its fitted
+    ceiling.
+  - Expected: empty-screen share 30 % → ≤ 5 %, useful → ~90 %. Pre-register the same bar (useful ≥ 75 %) on fresh seeds
+    3900+.
 - **N-post-1 (cheap; the main lever for the 64 % → 95 % useful gap is the posterior, not the policy):** put the clamp
   legs back into the fault likelihood with a robustified screen. Options:
   - a Student-t / Huber residual on clamp legs;
