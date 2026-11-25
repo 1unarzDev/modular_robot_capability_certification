@@ -1,0 +1,6 @@
+split,episodes,parent_modules_mean,cands_mean,cands_median,cands_p90,cands_max,children_mean,merges_mean,cand_modules_mean,faulted_cand_share,heldout_family_cand_share,payload_share,make_ms_per_episode
+train,300,4.33,19.65,18.0,29.0,46,12.61,6.04,55.1,0.563,0.0,0.52,3.57
+H3,300,5.26,25.4,28.0,32.0,36,18.4,6.0,76.1,0.547,0.147,0.487,4.34
+H4,300,8.18,44.59,45.0,49.0,49,37.62,5.97,182.9,0.515,0.267,0.523,11.49
+H6,300,4.51,20.68,19.0,29.0,37,13.4,6.28,58.5,0.668,0.0,0.533,3.3
+H7,300,4.31,19.89,19.0,32.0,46,12.81,6.08,56.3,0.579,0.0,1.0,3.92
