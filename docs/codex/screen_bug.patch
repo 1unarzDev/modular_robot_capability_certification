@@ -1,0 +1,79 @@
+--- a/cfcap/decide/posterior.py
++++ b/cfcap/decide/posterior.py
+@@ -44,6 +44,9 @@
+     rho: np.ndarray
+     latent: np.ndarray
+     probes: dict = field(default_factory=dict)
++    # Omitted support has no certified probability bound. This is an
++    # adversarial unknown bucket, not an estimated posterior probability.
++    unknown_support: bool = False
+ 
+     def __post_init__(self):
+         self.w = np.asarray(self.w, float)
+@@ -56,6 +59,11 @@
+ 
+     # ------------------------------------------------------------------ summaries
+     def summary(self, w=None):
++        if self.unknown_support:
++            # Guard the shared summary: policy, raw, CRC and end-to-end
++            # simultaneous evaluation all consume it. Keep scale finite.
++            shape = self.rho.shape[1:]
++            return np.full(shape, -np.inf), np.full(shape, SCALE_FLOOR)
+         w = self.w if w is None else w
+         x = np.nan_to_num(self.rho, nan=0.0)
+         m = np.tensordot(w, x, 1)
+@@ -65,6 +73,8 @@
+         return m, sd + SCALE_FLOOR
+ 
+     def bayes_lower(self, q=0.05, w=None):
++        if self.unknown_support:
++            return np.full(self.rho.shape[1:], -np.inf)
+         w = self.w if w is None else w
+         x = np.where(np.isnan(self.rho), -np.inf, self.rho)
+         o = np.argsort(x, 0)
+@@ -109,7 +119,8 @@
+         return pr.t_s
+ 
+     def copy(self):
+-        return DecisionPosterior(self.w.copy(), self.rho, self.latent, dict(self.probes))
++        return DecisionPosterior(self.w.copy(), self.rho, self.latent, dict(self.probes),
++                                 unknown_support=self.unknown_support)
+ 
+ 
+ def degenerate(rho, latent=0):
+--- a/cfcap/decide/t0data.py
++++ b/cfcap/decide/t0data.py
+@@ -109,6 +109,11 @@
+             break
+     ti = SA.find_row(HM, HG, tm, tg)
+     truth_in = bool(np.isin(ti, alive))
++    screen_empty = len(alive) == 0
++    # The nominal-nuisance residual threshold has no coverage guarantee.
++    # Preserve omitted hypotheses as unbounded unknown support for decisions;
++    # never infer safety from a healthy substitute or renormalised survivors.
++    unknown_support = len(alive) < len(HM)
+     if len(alive) == 0:                                           # keep the prior's best guess: healthy
+         alive = np.array([0])
+     # particles = screened hypotheses x nuisance draws
+@@ -129,6 +134,8 @@
+     o = np.argsort(-w)
+     k = int(min(p_max, np.searchsorted(np.cumsum(w[o]), 0.9999) + 1))
+     keep = o[:k]
++    discarded_mass = float(w[o[k:]].sum())  # conditional on the screen only
++    unknown_support |= len(keep) < len(w) or bool((w == 0).any())
+     pm, pg, pj, ph, w = pm[keep], pg[keep], pj[keep], ph[keep], w[keep] / w[keep].sum()
+     het = [h[keep] for h in het]
+     ess = float(1.0 / (w ** 2).sum())
+@@ -182,8 +189,11 @@
+             yv = stv + _sd(stv) * rng.standard_normal(stv.shape)
+             probes[f"split:{ci}"] = DP.Probe(sv.reshape(P, -1), _sd(sv, True).reshape(P, -1),
+                                              PS.T_SPLIT_S + PS.set_time("v2"), yv.ravel())
+-    post = DP.DecisionPosterior(w, rho, ph, probes)
++    post = DP.DecisionPosterior(w, rho, ph, probes, unknown_support=unknown_support)
+     meta = dict(seed=seed, parent_size=m, n_wheels=n, n_faults=nf, n_hyp=len(HM), n_screen=U, truth_in=int(truth_in),
+                 P=P, ess=ess, C=C, n_children=len(kids), n_merges=len(merges), gen_s=time.time() - t0)
++    meta.update(screen_empty=int(screen_empty), unknown_support=int(unknown_support),
++                discarded_mass=discarded_mass, n_post_hyp=len(np.unique(ph)),
++                truth_in_particles=int(bool(((pm == tm).all(1) & np.isclose(pg, tg).all(1)).any())))
+     return dict(inst=inst, post=post, rho_true=rho_true, rho_nom=rho_nom, has_fault=has_fault, meta=meta,
+                 legs=qs.LEG_NAMES)

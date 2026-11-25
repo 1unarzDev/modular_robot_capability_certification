@@ -81,6 +81,12 @@ docs/reviews/review_round0.md), 11-25.
 - Fix under way: a scale floor, a per-family/size-aware score, and a test that certification is monotone along probe
   sequences.
 
+**H11. A conformalized hypothesis screen gives end-to-end validity including approximate inference.** OPEN, 11-25.
+- Root cause of every unsafe commit (codex, docs/codex/screen_bug.md): the hard screen at nominal nuisances drops the
+  truth in 4.5 % of episodes (double faults 24/250), then silently substitutes "healthy".
+- Fix being built: calibrate the screen threshold on the true state's residual (α_s) and fold it into the union bound.
+- Candidate method contribution: validity that survives inference truncation.
+
 **H10. The raw, uncalibrated posterior is already near-oracle (critic).** OPEN. If true, calibration and amortization
 must show their value elsewhere (misspecification, latency, held-out shapes). It becomes a required baseline.
 
