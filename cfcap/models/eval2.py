@@ -103,6 +103,8 @@ def run_unit(unit, ctx):
     a = ctx.args
     split = unit.split("-")[0]
     idx = list(parse_chunk(unit))
+    if split not in E.SPLITS:
+        raise InputMissing(f"split {split!r} is not in this generator version ({sorted(E.SPLITS)})")
     models = load_models(ctx)
     t0 = time.time()
     D, _, st = G.episodes(a.plate, split, len(idx), indices=idx)
@@ -152,17 +154,13 @@ def run_unit(unit, ctx):
             w0 = int(gs.asm_w0[gs.ep_asm[e][0]])
             m0 = int(D["asm_mod_off"][gs.ep_asm[e][0]])
             jobs = []
-            for c in cs:
+            ep_obj = E.make_episode(a.plate, split, int(D["ep_index"][e]))
+            for ci, c in enumerate(cs):
                 k0, k1 = D["cand_cm_off"][c:c + 2]
                 mods = D["cm_mod"][k0:k1]
-                ca = E.build("cand", D["cm_cell"][k0:k1], D["cm_yaw"][k0:k1], ["M1"] * len(mods), a.plate)
                 widx = (4 * mods[:, None] + np.arange(4)).reshape(-1) - w0
-                lat = CO.sample_child_latents(ca, widx, post, a.compose_S, rng, dr, mods=list(mods - m0))
-                pm = D["cand_payload"][c]
-                if pm[0] > 0:
-                    f = lambda v: torch.full((a.compose_S,), float(v), device="cuda")
-                    lat["payload"] = dict(mass=f(pm[0]), x=f(pm[1]), y=f(pm[2]))
-                jobs.append((ca, lat))
+                jobs.append((ep_obj.cands[ci].asm, CO.sample_from_episode(ep_obj, ep_obj.cands[ci], post, widx,
+                                                                          list(mods - m0), a.compose_S, rng, dr)))
             res = CO.compositional_quantiles(jobs, par, ref=gs.ref[cs])
             torch.cuda.synchronize()
             s_comp[e] = time.perf_counter() - t1

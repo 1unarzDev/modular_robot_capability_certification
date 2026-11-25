@@ -256,3 +256,29 @@ def test_export_eval2_end_to_end(tmp_path):
     assert (lat[lat.method == "amortized_comp"].sec_per_decision > 0.5).all()
     c = json.loads((cal / "calib_st-n6-1.json").read_text())
     assert {"q_sim", "q_marg", "q_comp", "alpha"} <= set(c)
+
+
+def test_scaling_curve(tmp_path):
+    import json
+    import subprocess
+    import sys
+    import pandas as pd
+    rng = np.random.default_rng(2)
+    d = tmp_path / "e2"
+    (d / "units").mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=0, task_argv=[])))
+    for split, n in (("cal", 4), ("test", 4), ("H4b", 12)):
+        f = _fake_eval(rng)
+        k = len(f["eid"])
+        f.update(model=np.zeros(k, int), parent_n=np.full(k, n, np.int32), sec_direct=np.full(k, 0.01, np.float32),
+                 sec_comp=np.full(k, 1.0, np.float32), sec_gen=np.zeros(k, np.float32))
+        np.savez(d / "units" / f"{split}-0000000-0000030.npz", **f)
+        (d / "units" / f"{split}-0000000-0000030.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1"))))
+    out = tmp_path / "scaling.csv"
+    r = subprocess.run([sys.executable, "scripts/models_scaling.py", str(tmp_path), "--tags", "st-n6-1", "--B", "20",
+                        "--out", str(out)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    s = pd.read_csv(out)
+    assert set(s.route) == {"direct_sim", "compositional"} and {"test", "H4b"} <= set(s.split)
+    assert ((s.lo <= s.value + 1e-9) & (s.value <= s.hi + 1e-9)).all()
+    assert "12" in set(s.test_n.astype(str))

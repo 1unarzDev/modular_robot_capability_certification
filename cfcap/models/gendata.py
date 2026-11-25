@@ -88,8 +88,17 @@ def keep_fn(max_n=None, topologies=None):
     return keep
 
 
-def _asm_geometry(cells, yaws, plate):
-    a = E.build("x", cells, yaws, ["M1"] * len(cells), plate)
+def _build(cells, yaws, plate, types=None):
+    """E.build; heterogeneous-module generator versions (H1/H2) take per-module types (passed when the generator's
+    columnar data carry `mod_type` and its build accepts `types`)."""
+    import inspect
+    if types is not None and "types" in inspect.signature(E.build).parameters:
+        return E.build("x", cells, yaws, ["M1"] * len(cells), plate, types=types)
+    return E.build("x", cells, yaws, ["M1"] * len(cells), plate)
+
+
+def _asm_geometry(cells, yaws, plate, types=None):
+    a = _build(cells, yaws, plate, types)
     J = a.ik(np.eye(3), IK_RADIUS).astype(np.float32)           # (3, n): ref = cmd @ J (IK is linear in the twist)
     return M.wheel_geometry(a), J.T, np.asarray(a.wheel_module)
 
@@ -112,7 +121,8 @@ class GenSet:
         wmod = np.zeros(W, np.int64)
         for a in range(A):
             m0, m1 = mo[a], mo[a + 1]
-            g, j, wm = _asm_geometry(D["mod_cell"][m0:m1], D["mod_yaw"][m0:m1], plate)
+            g, j, wm = _asm_geometry(D["mod_cell"][m0:m1], D["mod_yaw"][m0:m1], plate,
+                                     D["mod_type"][m0:m1] if "mod_type" in D else None)
             geom[4 * m0:4 * m1], J[4 * m0:4 * m1], wmod[4 * m0:4 * m1] = g, j, wm
         t = lambda x, dt=None: torch.as_tensor(np.asarray(x), device=device, dtype=dt)
         self.geom, self.J, self.wmod = t(geom), t(J), t(wmod, torch.long)
@@ -143,9 +153,10 @@ class GenSet:
             mods = D["cm_mod"][k0:k1]
             r = (4 * mods[:, None] + np.arange(4)).reshape(-1)
             rows[c, :len(r)] = r
-            key = (D["cm_cell"][k0:k1].tobytes(), D["cm_yaw"][k0:k1].tobytes())
+            ty = D["mod_type"][mods] if "mod_type" in D else None
+            key = (D["cm_cell"][k0:k1].tobytes(), D["cm_yaw"][k0:k1].tobytes(), b"" if ty is None else ty.tobytes())
             if key not in cache:
-                cache[key] = _asm_geometry(D["cm_cell"][k0:k1], D["cm_yaw"][k0:k1], plate)[0]
+                cache[key] = _asm_geometry(D["cm_cell"][k0:k1], D["cm_yaw"][k0:k1], plate, ty)[0]
             cg[c, :len(r)] = cache[key]
         self.cand_rows, self.cand_geom = t(rows), t(cg)
         from cfcap.t1 import reference

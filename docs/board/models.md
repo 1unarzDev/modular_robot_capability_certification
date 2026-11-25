@@ -3,8 +3,8 @@
 **Status:** the pilot is done (own T1 data, ρ_rel label, local 4070).
 - Stage B training, `scripts/campaigns/models_b1.json`: 48 jobs plus a canary, 43.2 box-h, $7.78. Emitted and
   validated; not submitted yet.
-- Stage 2 eval and T2, `scripts/campaigns/models_eval2.json`: 18 jobs, 5.0 box-h, $0.90. Validated; it needs the b1
-  outputs before it can run.
+- Stage 2 eval, extension and T2, `scripts/campaigns/models_eval2.json`: 32 jobs plus canaries, 7.9 box-h, $1.42.
+  Validated; it needs the b1 outputs before it can run, and the extension also needs the generator's new splits.
 
 ## Model (`cfcap/models/posterior.py`)
 - **Architecture.** A set transformer over wheel tokens. Defaults: h = 96, 3 pre-norm layers, 0.97 M parameters,
@@ -143,6 +143,23 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - **Export.** `dec_models.csv.gz` with `seconds` = end-to-end, keyed by `eid`/`cand`/`leg`, so it joins the
     baselines on eid. Also `latency_models.csv` (`end_to_end` = 1, hardware = GPU name), and the T1-cal constants
     `results/models/calib/calib_<tag>.json`.
+- **models-eval2-ext** (plan §2b/§2c; 14 jobs, 2.9 box-h, $0.52).
+  - It runs the same task on the generator's new splits: H4b (11–16 modules), H1 (an unseen module type), H2 (unseen
+    type combinations) and the confirmatory split. The models were trained on mecanum modules only, ≤ 6 per assembly.
+  - The split names are placeholders until `docs/board/generator.md` defines them. The task exits 3 on a missing
+    split, and `conf` must be renamed to the generator's name for the confirmatory split.
+  - Module types enter the direct model only through wheel geometry, via `gendata._build` when the generator carries
+    `mod_type`.
+  - The compositional route now builds candidate latents on the generator's own plant latents
+    (`compose.sample_from_episode`). Module-type physics is kept, and the unknown domain, motor spread, yaw errors and
+    faults are replaced by prior or posterior draws. This is the test of whether composition degrades less than the
+    direct head on H1/H2.
+  - `scripts/models_scaling.py` writes `results/models/paper/scaling.csv`, from the test, H4 and H4b rows plus the
+    per-split rows:
+    - coverage, conformal entry coverage, certified fraction and unsafe commit, against parent N = 1…16 and per
+      split;
+    - direct vs compositional, overall and on the decision-relevant stratum;
+    - episode-bootstrap 95 % CIs (B = 1000).
 - **models-t2** (stage 3; 8 jobs, 2.1 box-h, $0.37).
   - Runs stress's `t2_eval --mode evaluate --predictor cfcap.models.predict:predict` on the T2 test episodes. It uses
     st-n6-1's weights plus `calib.json` (T1 cal only).
@@ -157,6 +174,8 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
 - **stress:** T2 evaluation of the pulled `weights.pt` (stage 2).
 - **baselines:** SMC and capxfer on the same generator eids (cal 0–1999, test 0–1999). Also a matched-compute SMC whose
   wall budget per decision equals our median `sec_comp` (from models-eval2).
+- **generator:** the split names and the `mod_type` column (with `episode.build(..., types=)`) for H4b, H1, H2 and
+  the confirmatory split.
 - **stress:** T2 simulate outputs staged at `$CFCAP_OUT/compute/stage2/b1-t2eps` for models-t2.
 - **paper:** filter by `stratum` if `strata/` is used.
 

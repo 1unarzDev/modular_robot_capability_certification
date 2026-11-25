@@ -56,3 +56,24 @@ def compositional_quantiles(jobs, par, taus=M.QUANTILES, ref=None):
         s = r["rho_rel"].cpu().numpy() if ref is None else r["rho"].cpu().numpy() / ref[i]
         out.append((np.nanquantile(s, taus, axis=0).T, s))
     return out
+
+
+def sample_from_episode(ep, cand, post, wheel_idx, mods, S, rng, dr, device="cuda"):
+    """Candidate latents for S posterior samples, built on the generator's own plant latents of the candidate
+    (`cfcap.gen.episode.plant_latents`) so every public per-module attribute the generator carries (module type,
+    payload, the candidate's normal-load share) is kept, while everything the robot does not know is replaced:
+    trial domain and mounting-yaw errors from the T1 prior, per-wheel motor spread from the prior around the
+    posterior's module means, battery offsets from the prior, modes / g / mu from the posterior."""
+    from capxfer import sim
+    from cfcap.gen import episode as E
+    lat = E.plant_latents(ep, cand.modules, cand.load_z, cand.payload, B=S)
+    lat = {k: ({kk: (vv.to(device) if torch.is_tensor(vv) else vv) for kk, vv in v.items()} if isinstance(v, dict)
+               else (v.to(device) if torch.is_tensor(v) else v)) for k, v in lat.items()}
+    prior = plant.sample_latents(cand.asm, S, rng, E.HET, dr=dr, device=device)
+    for k in ("dom", "yaw_err", "vbatt_off", "stall_w", "noload_w"):
+        lat[k] = prior[k]
+    pc = sample_child_latents(cand.asm, wheel_idx, post, S, rng, dr, het=E.HET, mods=mods)
+    lat["dom"] = pc["dom"]
+    for k in ("mode", "g", "mu_mod", "stall_w", "noload_w"):
+        lat[k] = pc[k]
+    return lat
