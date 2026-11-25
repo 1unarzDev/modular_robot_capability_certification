@@ -324,3 +324,12 @@ unmeasured: the small SMC campaign plus models eval2.
     policy.
 - This makes decision-aware probing a supported contribution in regime 2: EVOI beats the cheap closed-form rival with
   ~¼ of the probe time.
+
+**H3 replication + NEXT-1 (decision, 11-25 ~22:10Z; pre-written bar; fresh seeds 2700–3299, 588 episodes):**
+- **NEXT-1 FAILED** (clamp legs in the fault likelihood: useful 64.8 % vs a 75 % bar; episode-unsafe 0.17 %).
+- **H3 REPLICATES** in both arms: EVOI − always-clamp −6.6 s [−7.2, −5.8], EVOI − dominance −3.7 s [−4.4, −3.0];
+  EVOI probes 1.45 s vs 8.8 s.
+- **Root cause of the usefulness gap: the v2 hypothesis screen**, not the likelihood.
+  - 30 % of episodes have an empty screen: 2 / 7 / 40 / 75 % at knee severity 0 / 1 / 2 / 3.
+  - Where the screen is non-empty, EVOI is 94.6 % useful.
+- Next: a knee-tolerant screen (threshold calibrated on exploratory knee episodes), on fresh seeds 3900+.
