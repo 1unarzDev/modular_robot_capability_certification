@@ -32,13 +32,14 @@ def _work(seed):
     return pd.DataFrame(gate_episode(seed, P, th))
 
 
-def _work_post(seed):
+def _work_post(args):
+    seed, lik, cover = args
     import torch
     torch.set_num_threads(1)
     from cfcap.t0 import qs
     from cfcap.decide import envelope_post as EP
     P, th = qs.load_params(), qs.load_theta()
-    return pd.DataFrame(EP.episode(seed, P, th))
+    return pd.DataFrame(EP.episode(seed, P, th, lik=lik, cover=cover))
 
 
 def main():
@@ -47,6 +48,8 @@ def main():
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--post", action="store_true", help="fault modes from a posterior (cfcap.decide.envelope_post)")
     ap.add_argument("--tag", default=None)
+    ap.add_argument("--lik", default="v2", help="envelope_post fault likelihood: v2 | robust")
+    ap.add_argument("--cover", type=float, default=0.99, help="envelope_post kept posterior mass")
     ap.add_argument("--status", default="exploratory")
     ap.add_argument("--keep-nonconv", action="store_true",
                     help="keep episodes whose knee fixed point did not converge (truth = least-residual point)")
@@ -54,7 +57,9 @@ def main():
     tag = a.tag or ("envpost" if a.post else "envelope")
     s0, s1 = map(int, a.seeds.split(":"))
     theirs = [] if a.post else sorted(glob.glob(str(OUT / "theory" / "gate" / "gate_*.pkl")))
-    mine = OUT / "decision" / f"{'gatepost' if a.post else 'gate'}_{s0}_{s1}.pkl"
+    mine = OUT / "decision" / (f"gatepost_{a.lik}_{a.cover}_{s0}_{s1}.pkl" if a.post else f"gate_{s0}_{s1}.pkl")
+    if a.post and a.lik == "v2" and a.cover == 0.99 and (OUT / "decision" / f"gatepost_{s0}_{s1}.pkl").exists():
+        mine = OUT / "decision" / f"gatepost_{s0}_{s1}.pkl"
     if theirs:
         df = pd.concat([pd.read_pickle(f) for f in theirs])
         df = df[(df.seed >= s0) & (df.seed < s1)]
@@ -63,7 +68,8 @@ def main():
         df = pd.read_pickle(mine)
     else:
         with get_context("spawn").Pool(a.workers) as p:
-            df = pd.concat(p.map(_work_post if a.post else _work, range(s0, s1), chunksize=2))
+            jobs = [(s_, a.lik, a.cover) for s_ in range(s0, s1)] if a.post else list(range(s0, s1))
+            df = pd.concat(p.map(_work_post if a.post else _work, jobs, chunksize=2))
         mine.parent.mkdir(parents=True, exist_ok=True)
         df.to_pickle(mine)
     if "conv" in df and not a.keep_nonconv:

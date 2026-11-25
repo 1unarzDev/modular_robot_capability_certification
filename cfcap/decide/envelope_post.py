@@ -28,6 +28,10 @@ COVER = 0.99
 K_SCREEN = 5.0
 SD_INFLATE = 1.5
 SIZES = (2, 3, 4)
+LIK = "v2"        # fault likelihood of the clamp policy: "v2" (v2 legs only) | "robust" (NEXT 1: + clamp legs with a
+                  # Student-t residual, df T_DF, sd x KNEE_INFL on the clamp legs where a knee may bind)
+T_DF = 3.0
+KNEE_INFL = 3.0
 
 
 def _bounds(parent, cands, P, th, st, nl, mu, hm, hg, obs, sl, plant):
@@ -79,7 +83,9 @@ def _bounds(parent, cands, P, th, st, nl, mu, hm, hg, obs, sl, plant):
     return out
 
 
-def episode(seed, P, th, iters=40, sizes=SIZES):
+def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None):
+    lik = lik or LIK
+    cover = COVER if cover is None else cover
     from capxfer.sim import OK, WEAK, COAST, BRAKE
     from cfcap import theory_task as TT
     from cfcap.decide import t0data as TD
@@ -129,17 +135,38 @@ def episode(seed, P, th, iters=40, sizes=SIZES):
         meta["empty_screen"] = 1
         res = {key: None for key in TT.PROBE_IDX}
     else:
-        lw = lp[alive] + ll[alive]
-        w = np.exp(lw - lw.max()); w /= w.sum()
-        o = np.argsort(-w)
-        k = int(min(H_MAX, np.searchsorted(np.cumsum(w[o]), COVER) + 1))
-        kept, wk = alive[o[:k]], w[o[:k]]
-        meta["mass_dropped"] = float(1 - wk.sum())
-        meta["truth_kept"] = int(any(((HM[h] == tm) & ((tm != WEAK) | (np.abs(HG[h] - tg) <= 0.051))).all()
-                                     for h in kept))
-        wk = wk / wk.sum()
+        lw2 = lp[alive] + ll[alive]
+        lwc = lw2.copy()
+        if lik == "robust":                                    # clamp legs, heavy-tailed and knee-inflated
+            slc = slice(6, 10)
+            yc = y[slc]
+            sdc = KNEE_INFL * SD_INFLATE * O.sigma(yc, "floor", True, O.nuisance_sd(
+                nplant, legs[6:], np.random.default_rng((61_000 + seed,)), 8))
+            rc = qs.solve(nplant, HM[alive], HG[alive], om_ref[slc])
+            zc = (O.signals(rc) - yc[None]) / sdc[None]
+            lwc = lwc - 0.5 * (T_DF + 1) * np.log1p(zc * zc / T_DF).reshape(len(alive), -1).sum(1)
+        kept_by = {}
+        for key, lw in (("v2", lw2), ("v2clamp", lwc)):
+            w = np.exp(lw - lw.max()); w /= w.sum()
+            o = np.argsort(-w)
+            k = int(min(H_MAX, np.searchsorted(np.cumsum(w[o]), cover) + 1))
+            kept, wk = alive[o[:k]], w[o[:k]]
+            meta[f"mass_dropped_{key}"] = float(1 - wk.sum())
+            meta[f"n_kept_{key}"] = len(kept)
+            meta[f"truth_kept_{key}"] = int(any(((HM[h] == tm) & ((tm != WEAK) | (np.abs(HG[h] - tg) <= 0.051))).all()
+                                                for h in kept))
+            kept_by[key] = (kept, wk / wk.sum())
+        meta["mass_dropped"] = meta["mass_dropped_v2"]
+        meta["truth_kept"] = meta["truth_kept_v2"]
+        cache = {}
         for key, sl in TT.PROBE_IDX.items():
-            res[key] = ([_bounds(parent, cands, P, th, st, nl, mu, HM[h], HG[h], obs_n, sl, plant) for h in kept], wk)
+            kept, wk = kept_by[key]
+            bl = []
+            for h in kept:
+                if (key, int(h)) not in cache:
+                    cache[(key, int(h))] = _bounds(parent, cands, P, th, st, nl, mu, HM[h], HG[h], obs_n, sl, plant)
+                bl.append(cache[(key, int(h))])
+            res[key] = (bl, wk)
     out = {k: [] for k in ("seed", "law", "cand", "cand_size", "has_fault", "leg", "rho_true", "conv")}
     for key in TT.PROBE_IDX:
         for c in ("rho_par", "rho_pi", "rho_par_hi", "undom_speed"):

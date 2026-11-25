@@ -235,6 +235,10 @@ Paired episode bootstrap, mean Δregret [95 %]:
 - B4 (vs dom): upper end −2.5 ≤ 0, so **EVOI beats the closed-form rival**.
 - Validity: episode unsafe 0 ≤ 0.10.
 
+**Limitations line (H3).** The 17/600 non-converged episodes are removed by a simulation-validity filter: it is blind
+to the decisions but reads the labels' solver status. It under-represents severe knees (severity 3) on larger bodies.
+The all-600 and worst-case reruns leave every bar intact.
+
 **Honest caveats.**
 1. **Absolute usefulness is low.** With fault modes uncertain, the credible-set envelope (min of rho_pi over up to 6
    hypotheses) leaves 34 % of episodes abstaining. Useful commits are 64 %, against 95 % when the fault modes are known
@@ -412,6 +416,20 @@ The decision layer consumes one **mission** as one `problem.Task`. This is imple
   data is unaffected by the fixes; evaluation is offline (`scripts/decide_t1_eval.py`, now 3 folds and simM/simF).
 - **stress:** `results/stress/paper/dec_merge.csv` is missing `status`, which breaks `make_all`.
 - **env:** the mission fields above.
+
+## NEXT-1 / NEXT-2 pre-registration (written 2026-11-25 before the runs)
+**NEXT-1, robust clamp likelihood** (`envelope_post.LIK = "robust"`).
+- The clamp policy's fault posterior adds the 4 clamp legs. The residual is Student-t (df 3), with the clamp-leg sd
+  inflated × 3 (KNEE_INFL), since a knee may bind there.
+- The v2 policy keeps the v2-only posterior. The screen is unchanged (v2 legs, K = 5).
+- **Fresh seeds 2700–3299** (600 parents). The comparison arm is `lik = v2` on the same seeds.
+- **Bar:** env_cal **evoi useful ≥ 75 %**, with episode unsafe ≤ 0.10, and H3 bars B1–B4 unchanged (paired, vs clamp
+  and dom).
+
+**NEXT-2, 90 %-mass hypothesis set** (`cover = 0.9`, at most 6 hypotheses), run only if NEXT-1 passes.
+- Fresh seeds **3300–3899**, with the NEXT-1 likelihood. The comparison arm is cover = 0.99 on the same seeds.
+- **Bar:** the same as NEXT-1 (useful ≥ 75 %, episode unsafe ≤ 0.10, B1–B4). The end-to-end calibrated certificate
+  (`env_cal`) is the guarantee; the raw `env` row is reported without a bar.
 
 ## NEXT queue (not started)
 - **N-post-1 (cheap; the main lever for the 64 % → 95 % useful gap is the posterior, not the policy):** put the clamp
