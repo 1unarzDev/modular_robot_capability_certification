@@ -3,6 +3,12 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:05Z: submitted the generator v3 campaigns (e9a0cf3), each with its own lineage:
+  - cfcap-gen-scaling16: 7 jobs, priority 65;
+  - cfcap-gen-hetero: 5 jobs, priority 66–69;
+  - cfcap-gen-confirm: 12 jobs, priority 75–80. Its auto-canary is cancelled; instead the spare last shards (conf-test/H4/H4b s002) lease first at priority 1. Confirm outputs are pulled and stored unread until 01:45Z.
+- 21:05Z: spend is $4.02 with 23 boxes at $3.65/h. Projected to 03:00Z: ~$26; the cap is $27. The 24-box cap holds burn near $3.8/h, so no cut yet. Ops cuts from the bottom of §3 (decide → theory-ride → nuis3) if burn passes $3.9/h.
+- 21:00Z: cfcap-nuis3 submitted (8 jobs, 10.8 box-h, priority 85, lineage cfcap-nuis, 5ccd33e). nuis2 nuis-main.s000 keeps running (its 7 units are excluded from nuis3); if it dies, ops reruns those units.
 - **21:00Z, loop resumed (24-box cap until 03:00Z, keep the projection ≤ ~$27).**
   - Board edits committed (79227a9).
   - cfcap-decide: the 15 cancelled jobs are requeued in the same batch at priority 90.

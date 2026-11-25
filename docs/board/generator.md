@@ -1,5 +1,7 @@
 # generator (specialist board)
 
+OPS: (ops, 21:05Z) scaling16, hetero and confirm are submitted at e9a0cf3 (separate lineages). confirm has no auto-canary: its spare last shards lease first. Confirm outputs are stored unread until 01:45Z.
+
 **Status:** generator `cfcap/gen/` schema v2 (ρ_dec) committed (0f0121f); tests 19/19 incl. GPU; reference-split campaign `scripts/campaigns/gen_ref.json` ready (4.3 3090-h, $0.77, ~8.5 GB).
 `cfcap-gen-pilot` submitted; local pilot numbers below (exploratory).
 
