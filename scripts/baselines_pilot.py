@@ -415,6 +415,9 @@ def cmd_from_runs(a):
     met.to_csv(RES / f"{tag}metrics.csv", index=False)
     tm = pd.DataFrame(timing)
     tm.to_csv(RES / f"{tag}timing.csv", index=False)
+    mb = set().union(*[set(x.method) for x in dec]) if dec else set()
+    mt = set().union(*[set(x.method) for x in dec_triv]) if dec_triv else set()
+    assert mt <= set(TRIVIAL) and not (mb & mt), (mb, mt)   # paper loader: one file per (method, plant, split)
     if dec:
         pd.concat(dec, ignore_index=True).to_csv(RES / "paper" / "dec_baselines.csv.gz", index=False)
     if dec_triv:
