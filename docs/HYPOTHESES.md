@@ -73,10 +73,25 @@ candidate.
   certifier.
 - Next: T2 evaluation of the trained certificates (stage 2), and adversarial search (`t2_adv`, held pending ranking).
 
-**H9. The certificate stays honest when the posterior is overconfident.** SUPPORTED (T0 pilot), 11-25.
-- Running all three probes makes the posterior overconfident. The end-to-end calibration catches it: q rises 1.0 → 5.2
-  and useful commits fall to 87 %.
-- Possible paper point: end-to-end calibration of the whole probe→posterior→certificate pipeline.
+**H9. More probing never weakens the certificate (monotonicity).** FALSIFIED (round-0 critic,
+docs/reviews/review_round0.md), 11-25.
+- Running the full probe library resolves 137/138 ambiguous decisions, yet certified pairs fall 7341 → 5339 because the
+  normalised-score quantile jumps from about 1.1 to 5.23 (the score scale collapses).
+- This is a defect of the score design, not a safety feature.
+- Fix under way: a scale floor, a per-family/size-aware score, and a test that certification is monotone along probe
+  sequences.
+
+**H10. The raw, uncalibrated posterior is already near-oracle (critic).** OPEN. If true, calibration and amortization
+must show their value elsewhere (misspecification, latency, held-out shapes). It becomes a required baseline.
+
+**Round-0 critic (4/10 weak reject):** top fixes in docs/reviews/review_round0.md.
+1. Probing only where ambiguity is real (model-free envelope class; yaw legs of ≥3-module children), with EVOI vs fixed
+   v2+clamp.
+2. Report each method's own guarantee at a stated α; per-fault-class calibration; shifted fault rates; a conformal
+   selection (Jin & Candès) baseline.
+3. Fix H9 (score monotonicity).
+4. A T2 motor-law misspecification (current limits, derating); the adversarial search; the merge error term.
+5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Open questions and ideas queue (ranked by the research lead; see docs/board/research.md)
 - (to be filled by the research lead)
