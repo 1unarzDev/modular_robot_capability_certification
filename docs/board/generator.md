@@ -146,6 +146,9 @@ observations were ever computed). Each conf split also has one spare last shard 
 - OPS: `scripts/campaigns/confirm.json` — conf_test 5,000 (+2,500 spare), conf_H4 1,500 (+750), conf_H4b 1,400
   (+700), conf_het_test / conf_H1 / conf_H2 1,000 each (+1,000 spare), plated; 1.4 box-h, $0.26; no auto canary
   (a canary must use the spare last shard). Do not read labels before 01:45Z.
+- For the env role (mission-segment labels): `cfcap.gen.simrun.label_conditions(items)` labels any generator
+  candidate under a μ factor and a payload (mass, x, y in the candidate frame) and returns ρ, ρ_ref (the fixed
+  nominal table, unaffected by conditions) and ρ_dec; additive, nothing else changes. Episodes: `make_episode`.
 - unit_s for all three come from `scripts/gen_campaigns.py` (one rate table; rerun after the pilot2 numbers).
 
 ## Needs from other roles

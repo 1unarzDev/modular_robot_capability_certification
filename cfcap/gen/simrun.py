@@ -322,3 +322,37 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
             if ep.cands else np.zeros((0, L), np.float32)
         d["rho_dec"] = d["rho"] / d["rho_ref"]
     return out
+
+
+def label_conditions(items, engine="compile", max_wheels=1 << 17, stats=None):
+    """Closed-loop rho on the 10 decision legs of morphologies under arbitrary conditions (for mission-segment labels:
+    floor-friction patches and carried loads). items: list of dict(ep, cand (a CandSpec of ep), mu=1.0 (factor on
+    every module's mu), payload=None | (mass, x, y) in the candidate frame [default: the candidate's own payload]).
+    Returns (len(items), L) arrays rho, rho_ref (fixed nominal table, unaffected by the conditions), rho_dec."""
+    L = len(cap.LEGS)
+    jobs, meta = [], []
+    for it in items:
+        ep, c = it["ep"], it["cand"]
+        pay = it.get("payload", c.payload)
+        lat = E.plant_latents(ep, c.modules, c.load_z, pay, B=L)
+        lat["mu_mod"] = lat["mu_mod"] * float(it.get("mu", 1.0))
+        tabs, tw = cap.leg_tables(c.asm, E.params(ep.plate))
+        jobs.append(dict(asm=c.asm, lat=lat, cmd=tabs, plate=ep.plate))
+        meta.append((tw, c.asm.char_length()))
+    n_items = len(jobs)
+    ref_keys = []
+    for plate in E.PLATES:
+        rj, rk, rtw, rlc = RR.jobs_for(plate, [(it["cand"].asm, it["cand"].types) for it in items
+                                               if it["ep"].plate == plate], E.params(plate))
+        jobs += rj
+        ref_keys += [(plate, k) for k in rk]
+        meta += list(zip(rtw, rlc))
+    res = _run_by_plate(jobs, cap.T_LEG, ("twist",), engine, max_wheels, stats, reduce=window_mean)
+    tw_all = torch.as_tensor(np.concatenate([m[0] for m in meta]), dtype=torch.float32)
+    Lc_all = torch.as_tensor(np.concatenate([np.full(L, m[1]) for m in meta]), dtype=torch.float32)
+    rho, _ = rho_rows(torch.cat([r["xr"] for r in res]), tw_all, Lc_all)
+    rho = rho.numpy().reshape(-1, L)
+    for (plate, k), r in zip(ref_keys, rho[n_items:]):
+        RR.put(plate, k, r)
+    ref = np.stack([RR.get(it["ep"].plate, RR.key(it["cand"].asm, it["cand"].types)) for it in items])
+    return dict(rho=rho[:n_items], rho_ref=ref, rho_dec=rho[:n_items] / ref)

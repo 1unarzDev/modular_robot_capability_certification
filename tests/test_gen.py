@@ -226,3 +226,16 @@ def test_conventional_module_cannot_sway():
     assert (np.abs(out[1][sway]) < 0.1).all()                  # skid module: ~zero lone sway capability
     assert (out[1][surge] > 0.5).all()
     assert not np.allclose(out[2], out[0], atol=1e-3)           # omni-like differs from mecanum
+
+
+@cuda
+def test_label_conditions_matches_labels_and_responds_to_mu():
+    from cfcap.gen import simrun as S
+    ep = E.make_episode("plated", "train", 2)
+    lab = S.label_episodes([ep], engine="graph")[0]
+    c = ep.cands[0]
+    out = S.label_conditions([dict(ep=ep, cand=c), dict(ep=ep, cand=c, mu=0.3, payload=(5.0, 0.0, 0.0))],
+                             engine="graph")
+    np.testing.assert_allclose(out["rho"][0], lab["rho"][0], atol=1e-4)
+    np.testing.assert_allclose(out["rho_ref"][0], lab["rho_ref"][0])
+    assert not np.allclose(out["rho"][1], out["rho"][0], atol=1e-3)
