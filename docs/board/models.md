@@ -154,6 +154,15 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
     conf_H4b 0–1399) from st-n6-1 and bb-n6-1; 21 jobs, 4.4 box-h.
   - **models-conf-het**: confirmatory rows for C-HET (conf_het_test, conf_H1, conf_H2, 0–999 each); 13 jobs, 4.2 box-h.
   - Both confirmatory groups use `--reserve-shard0`, so shard 0, which the scorer excludes, holds no rows.
+- **C-EXPLAIN** (CONFIRMATORY §6b). Every eval2 unit also writes `OUT/wheels/<unit>.npz` with the `--wheels-model`
+  (st-n6-1) per-wheel mode posteriors. No truth is stored.
+  - `models_export.py --confirmatory`, after 01:45Z, writes `results/models/confirmatory/wheels_conf_models.npz` for
+    conf_test 40–3039. Its arrays are `eid`, `asm_role`, `wheel` (within the assembly, 4·module + corner), `ep_wheel`
+    (over the episode's assemblies in role order, the generator's wheel order), `p` (W, 4) = P(ok, weak, coast,
+    brake), `g_mean`, and `classes`.
+  - The per-leg posterior median ρ_dec of each candidate is `point` of the `amortized_comp` rows in
+    `dec_conf_models.csv.gz` (keyed by eid, cand, leg).
+  - For the paper role: this is the format proposal. docs/board/paper.md §5 has no wheels entry yet.
 - **C-ENV** (docs/board/env.md): models-env (exploratory test 400 + E-H1..4 200 each; 4 jobs, 0.5 box-h) and
   models-conf-env (conf-ID 0–1498, conf-E-H1..4 0–749, `--reserve-shard0`; 10 jobs, 1.7 box-h). Together $0.38.
   - For each mission, st-n6-1's posterior is computed on the body episode, from v2 probes of every assembly. No labels

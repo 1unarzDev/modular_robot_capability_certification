@@ -309,6 +309,12 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
         u = f"{split}-0000000-0000030"
         np.savez(d / "units" / f"{u}.npz", **f)
         (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1"))))
+        (d / "wheels").mkdir(exist_ok=True)
+        ne = 30
+        np.savez(d / "wheels" / f"{u}.npz", split=np.array(split), model=np.array("st-n6-1"),
+                 eid=np.repeat(np.arange(eid0, eid0 + ne), 8), asm_role=np.zeros(8 * ne, int),
+                 wheel=np.tile(np.arange(8), ne), ep_wheel=np.tile(np.arange(8), ne),
+                 p=np.full((8 * ne, 4), 0.25, np.float32), g_mean=np.ones(8 * ne, np.float32))
     cmd = [sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(tmp_path / "p"), "--calib-out",
            str(tmp_path / "c"), "--confirmatory", "--conf-out", str(tmp_path / "conf.csv.gz")]
     import datetime as dt
@@ -324,6 +330,8 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
     main = c[(c.claim == "C-MAIN") & (c.split != "cal")]
     assert main.eid.min() >= 40 and (main.status == "confirmatory").all()
     assert (c[c.split == "cal"].status == "exploratory").all()
+    w = np.load(tmp_path / "wheels_conf_models.npz")
+    assert w["p"].shape[1] == 4 and w["eid"].min() >= 40 and "mode" not in w.files
     p = pd.read_csv(tmp_path / "p" / "latency_models.csv") if (tmp_path / "p" / "latency_models.csv").exists() else None
 
 

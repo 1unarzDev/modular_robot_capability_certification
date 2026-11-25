@@ -37,6 +37,8 @@ def add_args(p):
     p.add_argument("--plate", default="plated")
     p.add_argument("--reserve-shard0", action="store_true",
                    help="shard 0 gets no units (the confirmatory scorer excludes shard 0, the canary's)")
+    p.add_argument("--wheels-model", default="st-n6-1",
+                   help="model whose per-wheel mode posteriors go to OUT/wheels/<unit>.npz (C-EXPLAIN)")
     p.add_argument("--env-families", default="",
                    help="C-ENV missions, family:n or family:lo:hi (e.g. test:600,E-H1:300,conf-ID:0:1500)")
     p.add_argument("--env-model", default="st-n6-1")
@@ -144,6 +146,7 @@ def run_unit(unit, ctx):
     blind = split in a.blind_splits.split(",")
     cols = {k: [] for k in list(base) + ["model"] + list(QCOLS) + ["c" + q for q in QCOLS] +
             ["b" + q for q in QCOLS] + ["sec_direct", "sec_comp", "sec_gen", "shard"]}
+    wsd = {k: [] for k in ("eid", "asm_role", "wheel", "ep_wheel", "p", "g_mean")}
     for mi, (tag, (model, cfg)) in enumerate(models.items()):
         bb = TR.ARCHS[cfg["arch"]].get("blackbox")
         cf = np.full((gs.C, L, 5), np.nan, np.float32)
@@ -167,6 +170,19 @@ def run_unit(unit, ctx):
             s_dir[e] = time.perf_counter() - t1
             cs = gs.ep_cand[e]
             cf[cs] = q
+            if tag == a.wheels_model:      # per-wheel mode posterior sidecar (C-EXPLAIN); no truth is stored
+                mk = b["mask"]
+                pw = s["p"][mk].cpu().numpy()
+                ab_ = o["ab"][mk].cpu().numpy()
+                for ai, asm_i in enumerate(gs.ep_asm[e]):
+                    n_a = int(gs.asm_n[asm_i])
+                    o0 = int(gs.asm_n[gs.ep_asm[e][:ai]].sum())
+                    wsd["eid"].append(np.full(n_a, int(D["ep_index"][e])))
+                    wsd["asm_role"].append(np.full(n_a, int(D["asm_role"][asm_i])))
+                    wsd["wheel"].append(np.arange(n_a))
+                    wsd["ep_wheel"].append(o0 + np.arange(n_a))
+                    wsd["p"].append(pw[o0:o0 + n_a])
+                    wsd["g_mean"].append(ab_[o0:o0 + n_a, 0] / ab_[o0:o0 + n_a].sum(1))
             if bb or (e % a.compose_every) or tag not in a.compose_select.split(","):
                 continue
             m, mm = b["mask"], b["mod_mask"] > 0
@@ -205,6 +221,12 @@ def run_unit(unit, ctx):
         ctx.meta[f"{tag}/sec_direct_median"] = float(np.nanmedian(s_dir))
         if np.isfinite(s_comp).any():
             ctx.meta[f"{tag}/sec_comp_median"] = float(np.nanmedian(s_comp))
+    if wsd["eid"]:
+        buf = io.BytesIO()
+        np.savez_compressed(buf, split=np.array(split), model=np.array(a.wheels_model),
+                            **{k: np.concatenate(v).astype(np.float32 if k in ("p", "g_mean") else np.int64)
+                               for k, v in wsd.items()})
+        atomic_bytes(ctx.out_dir / "wheels" / f"{unit}.npz", buf.getvalue())
     ctx.meta["models"] = ",".join(models)
     ctx.meta["hardware"] = torch.cuda.get_device_name(0)
     out = {}

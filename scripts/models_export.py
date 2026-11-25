@@ -225,6 +225,32 @@ def _qfn(prefix):
                        np.maximum(df[prefix + "q50"] - df[prefix + "q05"], 1e-3).to_numpy(float))
 
 
+def confirmatory_wheels(roots, out_path, model="st-n6-1"):
+    """C-EXPLAIN input (CONFIRMATORY §6b): per-wheel mode posteriors of `model` on conf_test 40-3039, from the
+    models_eval2 wheel sidecars, as one npz next to dec_conf_models: eid, asm_role (0 parent, 1.. merge partners),
+    wheel (index within its assembly, 4 k + corner), ep_wheel (index over the episode's assemblies in role order, the
+    generator's wheel order), p (W, 4) = P(ok, weak, coast, brake), g_mean (Beta mean of the weak gain). The per-leg
+    posterior median rho_dec of each candidate is `point` of the amortized_comp rows in dec_conf_models. Truth is
+    not stored (regenerate it from the episode index)."""
+    parts = []
+    for r in roots:
+        for f in sorted(pathlib.Path(r).rglob("wheels/conf_test-*.npz")):
+            with np.load(f) as z:
+                if str(z["model"]) != model:
+                    continue
+                d = {k: z[k] for k in ("eid", "asm_role", "wheel", "ep_wheel", "p", "g_mean")}
+            keep = (d["eid"] >= 40) & (d["eid"] < 3040)
+            parts.append({k: v[keep] for k, v in d.items()})
+    if not parts:
+        return None
+    out = {k: np.concatenate([p_[k] for p_ in parts]) for k in parts[0]}
+    o = np.lexsort((out["ep_wheel"], out["eid"]))
+    out = {k: v[o] for k, v in out.items()}
+    pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_path, classes=np.array(["ok", "weak", "coast", "brake"]), model=np.array(model), **out)
+    return out_path
+
+
 def confirmatory_rows(e2, now=None, allow_early=False):
     """dec_conf_models rows: per (claim, method) the T1-cal (exploratory) rows and the conf_* rows with lower
     (simultaneous) and lower_marg (marginal), fixed-T1-reference rho_dec truth, claim, shard, parent_n, variant."""
@@ -480,6 +506,8 @@ def main():
         if rows:
             pd.concat(rows).to_csv(f, index=False)
         print(f"confirmatory rows {sum(len(r) for r in rows)} -> {f}")
+        w = confirmatory_wheels(a.roots, f.parent / "wheels_conf_models.npz")
+        print(f"confirmatory wheels -> {w}")
         e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
     else:                                   # never look at confirmatory rows in the exploratory export
         e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
