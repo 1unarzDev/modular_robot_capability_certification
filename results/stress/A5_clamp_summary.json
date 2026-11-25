@@ -1,0 +1,34 @@
+{
+ "det_v2_imu": {
+  "flipped": 1.0,
+  "not_flipped": 1.0,
+  "n_flipped": 19,
+  "n": 600
+ },
+ "det_v2_any": {
+  "flipped": 1.0,
+  "not_flipped": 1.0,
+  "n_flipped": 19,
+  "n": 600
+ },
+ "det_v2clamp_imu": {
+  "flipped": 1.0,
+  "not_flipped": 1.0,
+  "n_flipped": 19,
+  "n": 600
+ },
+ "det_v2clamp_any": {
+  "flipped": 1.0,
+  "not_flipped": 1.0,
+  "n_flipped": 19,
+  "n": 600
+ },
+ "D_imu_v2_median": {
+  "flipped": 540.9292023595508,
+  "not_flipped": 609.8540184983575
+ },
+ "D_imu_clamp_median": {
+  "flipped": 242.79382379405203,
+  "not_flipped": 104.56932995947281
+ }
+}

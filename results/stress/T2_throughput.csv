@@ -1,3 +1,15 @@
 backend,threads,shape,wheels,E,effects,seconds,legs_per_s
 jax,gpu,square,16,4096,all,54.701,74.9
 jax,gpu,square,16,16384,all,213.212,76.8
+numba,4,pair,8,256,base,0.637,401.7
+numba,4,pair,8,256,all,0.653,392.1
+numba,4,pair,8,1024,base,2.6,393.8
+numba,4,pair,8,1024,all,2.58,396.9
+numba,4,square,16,256,base,1.228,208.5
+numba,4,square,16,256,all,1.263,202.8
+numba,4,square,16,1024,base,5.008,204.5
+numba,4,square,16,1024,all,5.128,199.7
+numba,4,2x3,24,256,base,1.824,140.4
+numba,4,2x3,24,256,all,1.905,134.4
+numba,4,2x3,24,1024,base,7.546,135.7
+numba,4,2x3,24,1024,all,7.683,133.3
