@@ -1,5 +1,7 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 20:33Z) cfcap-t2-motor (the t2-motor group only, f4e83a9) is submitted. t2-motor-misfit is held until the yaw probe is added: commit it and tell the coordinator. On 3090 boxes t2-eps runs ~5.5 min per 100-episode unit.
+
 OPS: (ops, 2026-11-25 19:55Z) #17 cfcap-t2-eps canary: `No module named 'engine'`. `/workspace/in/crane_ml` arrived late, and `cfcap/t2/deps.py:setup()` runs at import time. It only appends CRANE_ML when the directory already exists, so an input that arrives during the runner's input wait is never put on sys.path. The batch is resumed (crane_ml is on the boxes now). Suggested hardening: append the path unconditionally, or call `deps.setup()` again in `_run_simulate` after the inputs are present. cfcap-t2-extra submitted; t2_adv held by the coordinator.
 
 
@@ -359,3 +361,42 @@ compares the oracle-latent composition (b) against the truth.
   not supported for yaw.
 - Caveat stated in advance: run on the child itself, `yawc` probes the decision operating point. On hardware it
   stands for a parent probe at the child's wheel rates.
+
+## A5y results: child-rate yaw probe (exploratory; `scripts/stress_A5y.py`; `results/stress/A5y_auc.csv`, `A5y_rows.csv`)
+L3, square and 2x3, 200 episodes each (600), T2 `all+motor` against T1, labels with each plant's own reference.
+The bar was written before the run.
+
+| target | positives / negatives | v2 D | clamp D | yawc D (pre-stated) | clamp+yawc D | yawc tracking (post-hoc) |
+|---|---|---|---|---|---|---|
+| (a) ≥ 3-module yaw flips or shifts > 0.05 | 90 / 510 | 0.55 | 0.57 | **0.56** | 0.56 | 0.57 |
+| (a) yaw flips only, against faulted negatives | 10 / 403 | 0.28 | 0.44 | 0.36 | 0.36 | 0.83 |
+| (b) pooled, any flip or shift | 110 / 490 | 0.52 | 0.53 | 0.53 | 0.53 | 0.56 |
+| (b) flips only | 12 / 401 | 0.24 | 0.41 | 0.31 | 0.31 | 0.81 |
+
+- **Verdict against the bar.** yawc AUC on (a) is **0.56 < 0.75: NOT MET**, even though the probe sits at the
+  decision operating point on the child body, which is an upper bound.
+- **Why the total misfit statistic fails.** D is dominated by the T1-vs-T2 trace differences present in every
+  episode.
+- **Post-hoc tracking statistic** (exploratory, not pre-stated): |the probe's measured yaw ratio in T2 − T1's
+  prediction|. It detects the 10 yaw *flips* (AUC 0.83) but not the shifts (0.57).
+- **Most of the (a) positives are healthy decisions whose own-reference label moved.** That is the N3 confound:
+  T2's reference drops under the motor law, so the shifts are partly a relabelling. They are re-scored under N3.
+- `yawc` is folded into `t2_eval --misfit` (columns D_imu_yawc, D_duty_yawc) and into the `t2-motor-misfit` group,
+  now 20 shards × 10 units of 5 episodes.
+- `t2_motor.json` also gains `t2-knee`: theory's knee law at severities 1–3 with the other effects, 4000 episodes,
+  12 × 10 units. Emit validates.
+
+## N3 targets: fixed-reference relabelling (written 2026-11-25 before the re-scoring; exploratory)
+- **Label.** ρ_dec^fixed = ρ_abs^T2 / ρ_ref^T1(shape, leg), the robot's only table. It is compared side by side with
+  the own-reference label (the T2 reference, 8 nuisance draws).
+- **Inputs.** A5m, A5 P0, A5y and E2 are re-scored offline. ρ_abs is recovered from the stored own-reference ρ_dec ×
+  `t2.capability.rho_ref`, and stored directly for A5 and E2.
+- **Dominance class.**
+  - dominated: surge and sway legs (v2 visits the same speeds);
+  - undominated: diagonals of every child, and yaw of ≥ 3-module children;
+  - other: yaw of singles and pairs.
+- **Bar (H12), under all+motor with the fixed reference:**
+  - flips on undominated decisions > 1 % (upper 95 % CI, episode bootstrap);
+  - flips on dominated surge/sway ≤ 0.5 %.
+  - If both hold, regime 2 exists in T2 and the gate experiment moves to T2.
+  - If undominated flips stay ≤ 1 %, H12 is FALSIFIED: a robustness result.

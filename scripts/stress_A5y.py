@@ -47,6 +47,7 @@ def run(n):
         mf = MF.probe_misfit(asm, lat, par, eff, seed, kinds=KINDS, rng=np.random.default_rng([SEED0, si, 5]))
         for k in KINDS:
             out[f"{s}/D_imu_{k}"], out[f"{s}/D_duty_{k}"] = mf[k]
+        out[f"{s}/yawc_track"] = mf["yawc_track"]
         out[f"{s}/n_fault"] = (lat["mode"].numpy() > 0).sum(1)
         out[f"{s}/faults"] = np.array([json.dumps([[int(w), int(lat["mode"][b, w]), round(float(lat["g"][b, w]), 3)]
                                                    for w in np.nonzero(lat["mode"][b].numpy())[0]]) for b in range(n)])
@@ -80,8 +81,9 @@ def analyze():
                 r[f"D_imu_{k}"] = float(z[f"{s}/D_imu_{k}"][b])
                 r[f"D_duty_{k}"] = float(z[f"{s}/D_duty_{k}"][b])
             r["D_imu_clamp+yawc"] = r["D_imu_clamp"] + r["D_imu_yawc"]
+            r["yawc_track"] = float(z[f"{s}/yawc_track"][b]) if f"{s}/yawc_track" in z.files else np.nan
             rows.append(r)
-    stats = ("D_imu_v2", "D_imu_clamp", "D_imu_yawc", "D_imu_clamp+yawc", "D_duty_yawc")
+    stats = ("D_imu_v2", "D_imu_clamp", "D_imu_yawc", "D_imu_clamp+yawc", "D_duty_yawc", "yawc_track")
     res = []
     for target, label, faulted_neg in (("a", "yaw_flip|yaw_shift05", False), ("a_flips", "yaw_flip", True),
                                        ("b", "any_flip|any_shift05", False), ("b_flips", "any_flip", True)):

@@ -42,8 +42,8 @@
    "task": "t2_eval",
    "stage": 1,
    "lane": "cpu",
-   "shards": 14,
-   "units_per_shard": 12,
+   "shards": 20,
+   "units_per_shard": 10,
    "unit_s": 290,
    "overhead_s": 300,
    "priority": 10,
@@ -55,7 +55,7 @@
     "--episodes",
     "1000",
     "--per-unit",
-    "6",
+    "5",
     "--backend",
     "auto",
     "--conds",
@@ -66,9 +66,41 @@
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
    ],
-   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp2 --mode simulate --split test --episodes 4 --per-unit 4 --conds all+motor --misfit --no-obs (NUMBA_NUM_THREADS=4, CPU only, host shared): 45.2 s/episode (20 candidates/episode; per-candidate v2 and clamp misfit = T1 torch-CPU + T2 probe runs); a 6-episode unit = ~270 s at 4 threads; RSS < 1.5 GB, VRAM 0.",
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp2 --mode simulate --split test --episodes 4 --per-unit 4 --conds all+motor --misfit --no-obs (NUMBA_NUM_THREADS=4, CPU only, host shared): 45.2 s/episode (20 candidates/episode; per-candidate v2 and clamp misfit = T1 torch-CPU + T2 probe runs); a 6-episode unit = ~270 s at 4 threads; RSS < 1.5 GB, VRAM 0. With the child-rate yaw probe (yawc, 5.7 s routine) added to v2 + clamp: ~+25 % per candidate (estimate from routine lengths 14.7 + 9.7 + 5.7 s vs 14.7 + 9.7 s), so --per-unit 5 keeps ~290 s units; 200 units = 20 x 10.",
    "role": "stress",
-   "purpose": "Per-candidate v2 and clamp probe misfit of T2 (motor law) against T1 with latents known on 1000 test episodes, to validate a clamp-gated certificate for singles and the child-rate yaw gap.",
+   "purpose": "Per-candidate v2, clamp and child-rate yaw probe misfit of T2 (motor law) against T1 with latents known on 1000 test episodes, to validate a clamp-gated certificate for singles and the yaw probe for larger children.",
+   "ride": "torch"
+  },
+  {
+   "name": "t2-knee",
+   "task": "t2_eval",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 12,
+   "units_per_shard": 10,
+   "unit_s": 300,
+   "overhead_s": 300,
+   "priority": 5,
+   "task_args": [
+    "--mode",
+    "simulate",
+    "--split",
+    "test",
+    "--episodes",
+    "4000",
+    "--per-unit",
+    "35",
+    "--backend",
+    "auto",
+    "--conds",
+    "all+knee2,all+knee1,all+knee3"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp1 --mode simulate --split test --episodes 20 --per-unit 20 --conds all+motor,motor (NUMBA_NUM_THREADS=4, 4070 host shared with another heavy job, CPU only): 5.53 s/episode (17 candidates/episode, 2 conditions, parent v2 obs under all+motor, per-candidate features); a 50-episode unit = ~280 s at 4 threads; RSS < 1 GB, VRAM 0. Knee groups: 3 conditions ~ 1.5x the 2-condition cost (8.3 s/episode), 35-episode unit ~290 s.",
+   "role": "stress",
+   "purpose": "Simulate the T2 test episodes under theory's shared knee motor law (cfcap/t0/envelope.py) at severities 1-3 with the other T2 effects, so E1 (T0) and T2 score the gated certificate on the same wrong law.",
    "ride": "torch"
   }
  ]

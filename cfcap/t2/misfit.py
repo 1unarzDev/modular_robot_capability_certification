@@ -69,4 +69,14 @@ def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp", "yawc"), rn
         R2 = cap2.simulate(asm, lat, par, tabs, T, effects, backend=backend, seed=seed)
         out[kind] = misfit(R1["twist"].numpy().astype(float), R2["twist"], R1["duty"].numpy().astype(float),
                            R2["duty"])
+        if kind == "yawc":
+            # tracking statistic (post-hoc, A5y): |yaw ratio measured in T2 - T1's prediction| over the two holds
+            Tn = min(R1["twist"].shape[1], R2["twist"].shape[1])
+            cmdz = tabs[:, 1:Tn + 1, 2]
+            hold = (np.abs(cmdz) > 0.999 * np.abs(cmdz).max(1, keepdims=True)) & (np.arange(Tn)[None] % 1 == 0)
+            g1 = R1["twist"].numpy()[:, :Tn, 2].astype(float)
+            g2 = R2["twist"][:, :Tn, 2]
+            ratio = lambda g: (np.where(hold, g * np.sign(cmdz), 0).sum(1) /                         # noqa: E731
+                               np.maximum(np.where(hold, np.abs(cmdz), 0).sum(1), 1e-9))
+            out["yawc_track"] = np.abs(ratio(g2) - ratio(g1))
     return out
