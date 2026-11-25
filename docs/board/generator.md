@@ -37,10 +37,17 @@ reproducible. Plate states (plated / plateless θ, module mass 12.9 / 5.2 kg) ar
   other assembly (kind 2: parent or a child + the whole other, random face-touching placement); restricted to the
   split's allowed families and sizes (train-like ≤ 6 modules, train families only).
 - Labels: closed-loop T1 rollouts on the 10 decision legs of `cfcap.t1.capability` (3 s, window [0.8, 2.95] s):
-  ρ, ρ_healthy (same latents, faults cleared), ρ_rel = ρ / ρ_healthy (D17). A candidate without a faulted wheel
-  has ρ_healthy = ρ exactly and its twin rollout is skipped (tested equal to running it).
+  ρ (= ρ_abs), ρ_healthy (same latents, faults cleared), ρ_rel = ρ / ρ_healthy (D17, secondary: capxfer comparison
+  only). A candidate without a faulted wheel has ρ_healthy = ρ exactly and its twin rollout is skipped (tested equal).
+- **Decision label (coordinator decision 2026-11-25): ρ_dec = ρ_abs / ρ_ref(shape, leg)**, τ applies to ρ_dec.
+  ρ_ref = ρ of the nominal healthy plant of that shape (plate θ as a point domain, no DR, no spread, no faults, no
+  payload, least-norm loads), `cfcap/gen/rho_ref.py`. Shape key = translation-normalised cells + module yaws. A fixed
+  table: computed once per key, cached, and written as `rho_ref_<plate>.json` next to the shards (loaded before and
+  saved after each shard, so all shards share it). Shards from schema v1 (no ρ_dec) can be completed after the fact:
+  ρ_dec = cand_rho / ρ_ref(key of the candidate's cm_cell/cm_yaw). Error from faults inside the motor spread is
+  irreducible and reported as such.
 
-## Schema `cfcap.gen/v1` (one `np.savez_compressed` per shard)
+## Schema `cfcap.gen/v2` (v1 + `cand_rho_ref`, `cand_rho_dec`) (one `np.savez_compressed` per shard)
 Path `<out>/<plate>/<split>/shard_<k:05d>.npz` + `shard_<k>.json` sidecar (sha256, timings) + `manifest.json`
 (config incl. every prior, `dom_keys`, `legs`, `topologies`, codes). Shard k holds episodes [k·n, (k+1)·n), n fixed per
 split. Resume: a shard with a matching sidecar sha256 is skipped. Load: `cfcap.gen.shard.load(path)`;
@@ -54,7 +61,7 @@ split. Resume: a shard with a matching sidecar sha256 is skipped. Load: `cfcap.g
 | mod (M) | `mod_asm`, `mod_cell` (M,2) i8 grid cell, `mod_yaw` i8 (×90°), `mod_vbatt_off`, `mod_mu` | module m's wheels are rows 4m..4m+3 (fl, fr, rl, rr) |
 | wheel (W=4M) | `wheel_mode` i8 (0 ok, capxfer WEAK/COAST/BRAKE codes), `wheel_g`, `wheel_stall`, `wheel_noload`, `wheel_yaw_err`, `wheel_load_z` | truth latents, not robot-visible |
 | wheel obs | `obs_<kind>_duty` (W,T) f16 pre_duty; `obs_<kind>_dcnt` (W,T) i16 encoder counts per 20 ms (speed = dcnt/6533·2π/0.02); `obs_tug_ref` (W,T) f16 | robot-visible |
-| cand (C) | `cand_ep`, `cand_kind` (0 self, 1 child, 2 merge), `cand_family`, `cand_topo`, `cand_fam_split`, `cand_n_mod`, `cand_cm_off`, `cand_payload` (C,3) candidate frame, `cand_n_fault`, `cand_char_length`, **`cand_rho`, `cand_rho_healthy`, `cand_rho_rel`, `cand_drift`** (C,10) f32 | legs order = `t1.capability.LEGS` |
+| cand (C) | `cand_ep`, `cand_kind` (0 self, 1 child, 2 merge), `cand_family`, `cand_topo`, `cand_fam_split`, `cand_n_mod`, `cand_cm_off`, `cand_payload` (C,3) candidate frame, `cand_n_fault`, `cand_char_length`, **`cand_rho_dec`** (decision label), `cand_rho` (ρ_abs), `cand_rho_ref`, `cand_rho_healthy`, `cand_rho_rel`, `cand_drift`, all (C,10) f32 | legs order = `t1.capability.LEGS` |
 | cm (CM) | `cm_mod` (row in mod table: candidate wheels = 4·cm_mod + 0..3), `cm_cell` (CM,2), `cm_yaw`; `cw_load_z` (4·CM) | candidate frame cells |
 
 ## Findings

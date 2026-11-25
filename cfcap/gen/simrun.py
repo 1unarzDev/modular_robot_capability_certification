@@ -21,6 +21,7 @@ import numpy as np
 import torch
 
 from cfcap.gen import episode as E
+from cfcap.gen import rho_ref as RR
 from cfcap.t1 import capability as cap
 from cfcap.t1 import params as P
 from cfcap.t1 import plant
@@ -272,7 +273,9 @@ def rho_rows(xr, tw, Lc):
 def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=True, stats=None):
     """Closed-loop rho on the 10 decision legs for every candidate, with its paired fault-free rollout (D17 relative
     capability). A candidate without a faulted wheel has rho_healthy = rho exactly, so its twin is skipped unless
-    skip_healthy_twin=False. Returns per episode a dict of (n_cand, L) float32 arrays rho, rho_healthy, rho_rel, drift."""
+    skip_healthy_twin=False. Decision label rho_dec = rho / rho_ref(shape, leg), the nominal healthy reference
+    (cfcap.gen.rho_ref; keys not yet cached are simulated in the same runs). Returns per episode a dict of (n_cand, L)
+    float32 arrays rho, rho_healthy, rho_rel, rho_ref, rho_dec, drift."""
     L = len(cap.LEGS)
     jobs, meta = [], []
     for ei, ep in enumerate(eps):
@@ -287,6 +290,14 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
             reps = 2 if twin else 1
             jobs.append(dict(asm=c.asm, lat=lat, cmd=np.tile(tabs, (reps, 1, 1)), plate=ep.plate))
             meta.append((ei, ci, twin, np.tile(tw, (reps, 1)), c.asm.char_length()))
+    n_cand_jobs = len(jobs)
+    ref_keys = []
+    for plate in E.PLATES:
+        asms = [c.asm for ep in eps if ep.plate == plate for c in ep.cands]
+        rj, rk, rtw, rlc = RR.jobs_for(plate, asms, E.params(plate))
+        jobs += rj
+        ref_keys += [(plate, k) for k in rk]
+        meta += [(None, None, False, tw, lc) for tw, lc in zip(rtw, rlc)]
     res = _run_by_plate(jobs, cap.T_LEG, ("twist",), engine, max_wheels, stats, reduce=window_mean)
     out = [dict(rho=np.zeros((len(ep.cands), L), np.float32), rho_healthy=np.zeros((len(ep.cands), L), np.float32),
                 drift=np.zeros((len(ep.cands), L), np.float32)) for ep in eps]
@@ -296,11 +307,18 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
         rho, drift = rho_rows(torch.cat([r["xr"] for r in res]), tw_all, Lc_all)
         rho, drift = rho.numpy(), drift.numpy()
         o = 0
-        for ei, ci, twin, tw, _ in meta:
+        for ji, (ei, ci, twin, tw, _) in enumerate(meta):
+            if ji >= n_cand_jobs:
+                RR.put(*ref_keys[ji - n_cand_jobs], rho[o:o + L])
+                o += len(tw)
+                continue
             out[ei]["rho"][ci] = rho[o:o + L]
             out[ei]["drift"][ci] = drift[o:o + L]
             out[ei]["rho_healthy"][ci] = rho[o + L:o + 2 * L] if twin else rho[o:o + L]
             o += len(tw)
-    for d in out:
+    for ep, d in zip(eps, out):
         d["rho_rel"] = d["rho"] / d["rho_healthy"]
+        d["rho_ref"] = np.stack([RR.get(ep.plate, RR.key(c.asm)) for c in ep.cands]).astype(np.float32) \
+            if ep.cands else np.zeros((0, L), np.float32)
+        d["rho_dec"] = d["rho"] / d["rho_ref"]
     return out

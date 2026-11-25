@@ -103,6 +103,20 @@ def gpu_pilot(n, block, kinds, engine):
                rho_rel_min=round(float(rr.min()), 3), rho_rel_max=round(float(rr.max()), 3),
                rho_rel_lt_0p8_share=round(float((rr < 0.8).mean()), 4),
                peak_vram_gb=round(torch.cuda.max_memory_reserved() / 1e9, 2))
+    from cfcap.gen import rho_ref as RR
+    by = {}
+    for (pl, k), v in RR._CACHE.items():
+        cells = ";".join(",".join(t.split(",")[:2]) for t in k.split(";"))
+        by.setdefault(cells, []).append(v)
+    spread = [dict(cells=c, n_yaw_variants=len(v), max_abs_spread=round(float(np.ptp(np.stack(v), 0).max()), 5),
+                   mean=round(float(np.mean(v)), 4)) for c, v in by.items() if len(v) > 1]
+    if spread:
+        write_csv(RES / "rho_ref_yaw_spread.csv", sorted(spread, key=lambda r: -r["max_abs_spread"]))
+    rd = D["cand_rho_dec"]
+    row.update(rho_ref_keys=len(RR._CACHE), rho_ref_yaw_spread_max=max([r["max_abs_spread"] for r in spread] or [0]),
+               rho_dec_min=round(float(rd.min()), 3), rho_dec_max=round(float(rd.max()), 3),
+               rho_dec_lt_0p8_share=round(float((rd < 0.8).mean()), 4),
+               rho_ref_min=round(float(D["cand_rho_ref"].min()), 3), rho_ref_max=round(float(D["cand_rho_ref"].max()), 3))
     write_csv(RES / "pilot.csv", [row])
     write_csv(RES / "pilot_blocks.csv", blocks)
     write_csv(RES / "pilot_bytes.csv", [dict(array=k, dtype=str(D[k].dtype), shape="x".join(map(str, D[k].shape)),

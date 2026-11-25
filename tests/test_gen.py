@@ -159,3 +159,24 @@ def test_shard_deterministic_and_resumable(tmp_path):
     c0, c1 = C["ep_cand_off"][e:e + 2]
     np.testing.assert_allclose(D["cand_rho_rel"][a0:a1], C["cand_rho_rel"][c0:c1], atol=1e-4)
     np.testing.assert_array_equal(D["cand_family"][a0:a1], C["cand_family"][c0:c1])
+
+
+@cuda
+def test_rho_ref_nominal_and_rho_dec():
+    from cfcap.gen import rho_ref as RR
+    from cfcap.gen import simrun as S
+    from cfcap.t1 import capability as cap
+    eps = [E.make_episode("plated", "train", i) for i in range(3)]
+    lab = S.label_episodes(eps, engine="graph")
+    ep, l = eps[0], lab[0]
+    np.testing.assert_allclose(l["rho_dec"], l["rho"] / l["rho_ref"], rtol=1e-6)
+    assert (l["rho_ref"] > 0.5).all() and (l["rho_ref"] < 1.1).all()
+    c = ep.cands[-1]
+    lat = RR.nominal_latents(c.asm, "plated", 1)
+    lat = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat.items()}
+    lat["dom"] = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat["dom"].items()}
+    ref = cap.capability([(c.asm, lat)], E.params("plated"), engine="graph")[0]["rho"].cpu().numpy()[0]
+    np.testing.assert_allclose(l["rho_ref"][-1], ref, atol=2e-4)
+    # the same shape key in another episode gets the identical (cached) reference
+    k = RR.key(c.asm)
+    np.testing.assert_array_equal(RR.get("plated", k), l["rho_ref"][-1])
