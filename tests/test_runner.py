@@ -340,3 +340,50 @@ def test_require_inputs_waits_then_runs(tmp_path, monkeypatch):
 
 def test_wait_inputs_defaults():
     assert R.INPUT_WAIT_S == 360 and R.INPUT_POLL_S == 15
+
+
+def test_override_args():
+    a = ["--split", "cal", "--episodes=10000", "--flag", "--gen-shards", "2", "--sweep-deltas", "0.1,0.2"]
+    out = MJ.override_args(a, {"--episodes": "50", "--gen-shards": "1", "--sweep-deltas": None, "--new": "x"})
+    assert out == ["--split", "cal", "--episodes", "50", "--flag", "--gen-shards", "1", "--new", "x"]
+
+
+def test_batch_canary_per_kind(staged, monkeypatch):
+    monkeypatch.setattr(MJ, "stage", lambda allow_dirty=False, log=print: dict(INFO))
+    plan = {**PLAN, "groups": [
+        group(name="gen-cal", shards=2, task_args=["--split", "cal", "--gen-shards", "2", "--episodes", "10000"]),
+        group(name="gen-h3", shards=1, unit_s=30, task_args=["--split", "H3", "--gen-shards", "1", "--episodes", "5000"]),
+        group(name="t0", task="t0_a2", lane="free", profile="cpu", shards=2, units_per_shard=5, unit_s=100,
+              task_args=["--seeds", "1000:2000", "--per-unit", "10"])]}
+    doc = MJ.emit(plan, log=lambda *a: None)
+    jobs = doc["jobs"]
+    cs = [j for j in jobs if j["spec"].get("canary")]
+    assert [c["job_id"] for c in cs] == ["cfcap-test.canary.gpu-command", "cfcap-test.canary.py-command"]
+    assert jobs[:2] == cs and all(c["priority"] == 0 and c["est_seconds"] <= 240 for c in cs)
+    g, t = cs
+    assert g["spec"]["group"] == "gen-h3"                       # the shortest group of the batch
+    assert "--episodes 50" in g["spec"]["run"] and "--gen-shards 1" in g["spec"]["run"]
+    assert "--shard 0 --n-shards 1" in g["spec"]["run"] and "--canary-units 1" in g["spec"]["run"]
+    assert g["kind"] == "gpu_command" and g["needs"]["gpu"] and g["repos"] == jobs[2]["repos"]
+    assert t["kind"] == "py_command" and "--seeds 1000:1002" in t["spec"]["run"]
+    assert {j["campaign"] for j in jobs} == {"cfcap-test"}
+    assert all(j["priority"] >= 100 for j in jobs if not j["spec"].get("canary"))
+    assert len({json.dumps(j["repos"]) for j in jobs}) == 1
+    re = MJ.emit(plan, log=lambda *a: None, campaign="cfcap-test2")["jobs"]
+    assert {j["campaign"] for j in re} == {"cfcap-test2"} and all(j["job_id"].startswith("cfcap-test2.") for j in re)
+    assert MJ.emit(plan, log=lambda *a: None, canary=False)["jobs"] == jobs[2:]
+
+
+def test_cpu_lane_tags_and_ride(staged):
+    c = MJ.group_jobs(PLAN, group(lane="cpu", profile="cpu"), INFO, False)[0][0]
+    assert c["kind"] == "py_command" and c["needs"]["tags"] == ["cloud-ok", "cpu"] and "gpu" not in c["needs"]
+    assert "inputs_rsync" not in c["spec"] and "CAPXFER_THETA_DIR=$S/capxfer/theta" in c["spec"]["run"]
+    r = MJ.group_jobs(PLAN, group(lane="cpu", profile="cpu", ride="torch"), INFO, False)[0][0]
+    assert r["needs"]["tags"] == ["cloud-ok", "torch"] and "gpu" not in r["needs"]
+
+
+def test_canary_units_runs_first_units_only(tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    assert run_main([*ST, "--out", str(out), "--canary-units", "1"], monkeypatch) == 0
+    m = read(out / "manifest.json")
+    assert m["status"] == "complete" and m["units_total"] == 1 and m["canary_units"] == 1

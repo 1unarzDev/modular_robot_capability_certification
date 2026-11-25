@@ -123,16 +123,54 @@ def stage(allow_dirty: bool = False, log=print) -> dict:
 
 # ------------------------------------------------------------------ jobs
 
-def run_line(g: dict, lane: str, shard: int, n: int) -> str:
-    task_args = " ".join(shlex.quote(str(a)) for a in g.get("task_args") or [])
+# Batch canaries (the coordinator gates each batch = project/campaign/kind@refs: 2 jobs lease until one is valid).
+# Per task, the flag overrides that shrink one job to ~1-3 min; None drops the flag. A group's `canary_task_args`
+# (dict of overrides, or a full list) wins; `canary_est_s` gives its measured wall. The runner's --canary-units 1
+# caps every canary at its shard's first unit.
+CANARY_OVERRIDES = {
+    "selftest": {"--units": "2", "--unit-s": "5", "--steps": "5"},
+    "gen_shard": {"--gen-shards": "1", "--episodes": "50", "--block": "50"},
+    "nuisance": {"--shapes": "pair", "--probe-sets": "v2", "--episodes": "pair=1", "--ep-per-unit": "pair=1",
+                 "--particles": "64", "--max-stages": "20", "--sweep-deltas": None, "--sweep-episodes": None},
+    "t0_a2": {"--seeds": "1000:1002", "--per-unit": "2"},
+}
+CANARY_EST_S = 240.0
+
+
+def override_args(args: list, over: dict) -> list:
+    """task_args with flag values replaced ({flag: value}; None drops the flag and its value; new flags appended)."""
+    out, seen, i = [], set(), 0
+    args = [str(a) for a in args]
+    while i < len(args):
+        a = args[i]
+        flag, eq, val = a.partition("=")
+        has_val = bool(eq) or (i + 1 < len(args) and not args[i + 1].startswith("--"))
+        step = 1 if eq or not has_val else 2
+        if flag.startswith("--") and flag in over:
+            seen.add(flag)
+            if over[flag] is not None:
+                out += [flag, str(over[flag])]
+        else:
+            out += args[i:i + step]
+        i += step
+    for f, v in over.items():
+        if f not in seen and v is not None:
+            out += [f, str(v)]
+    return out
+
+
+def run_line(g: dict, lane: str, shard: int, n: int, task_args_list: list | None = None, runner_extra: str = "") -> str:
+    ta = (g.get("task_args") or []) if task_args_list is None else task_args_list
+    task_args = " ".join(shlex.quote(str(a)) for a in ta)
     common = (f"-m cfcap.runner {shlex.quote(g['task'])} --shard {shard} --n-shards {n} --seed {int(g.get('seed', 0))}"
-              + (f" {task_args}" if task_args else ""))
+              + (f" {task_args}" if task_args else "") + (f" {runner_extra}" if runner_extra else ""))
     # Repos are checked out at $PWD/src/<name> (worker.py: work/src/<name>, cwd = the work dir). The box's backend
     # is `bash -lc {spec[run]}`: str.format runs once on that template, so a {repos[...]} inside spec.run would reach
     # bash literally; $PWD/src is the same path, spelled so it works.
     code = ("S=$PWD/src; test -e $S/cfcap/cfcap/runner.py || { echo 'cfcap repo not checked out at '$S >&2; exit 3; }; "
             "export PYTHONPATH=$S/cfcap:$S/capxfer CAPXFER_ROOT=$S/capxfer ")
-    if lane == "free":
+    if lane in ("free", "cpu") and not g.get("extra_inputs"):
+        # CPU lanes read theta from the capxfer repo (no input push, so any matching worker can run them).
         # Free workers' python3 may lack numpy/torch: prefer CFCAP_PY, then the capxfer venv when the host has one
         # (innovation), else python3; the runner exits 3 on a missing module. No input push: theta from the repo.
         return (code + "CAPXFER_THETA_DIR=$S/capxfer/theta OMP_NUM_THREADS=${CRANE_CPUS:-1} "
@@ -165,7 +203,10 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
                         "raise shards or lower units_per_shard")
     if est < MIN_JOB_S:
         warn.append(f"{g['name']}: {est / 60:.1f} min per job is under 5 min; pack more units per shard")
-    tags = {"rented": ["cloud-ok", profile, "rented"], "cpu": ["cloud-ok", "cpu", "rented"], "free": []}[lane]
+    # lane cpu: py_command on rented CPU boxes (tags cloud-ok, cpu), or with `ride: "torch"` on the spare cores of
+    # torch boxes (tags cloud-ok, torch, no needs.gpu: crane-vast counts it as torch backlog, 8 per box).
+    cpu_tags = ["cloud-ok", g.get("ride") or "cpu"] + (["rented"] if g.get("extra_inputs") else [])
+    tags = {"rented": ["cloud-ok", profile, "rented"], "cpu": cpu_tags, "free": []}[lane]
     needs: dict = {"os": ["linux"]}
     if tags:
         needs["tags"] = tags
@@ -176,7 +217,9 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
     repos = [{"name": "cfcap", "url": str(CFCAP), "ref": info["cfcap_commit"]},
              {"name": "capxfer", "url": str(STAGE / "capxfer"), "ref": info["capxfer_stage_commit"]}]
     inputs: list[str] = []
-    if lane == "free":
+    if lane in ("free", "cpu") and not g.get("extra_inputs"):
+        pass
+    elif lane == "free":
         if g.get("extra_inputs"):
             raise PlanError(f"group {g['name']}: the free lane has no input push; extra_inputs need a rented lane")
     else:
@@ -212,8 +255,46 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
     return jobs, warn
 
 
+def batch_canaries(plan: dict, jobs: list[dict], groups: dict, log=print) -> list[dict]:
+    """One canary per batch (campaign, kind, refs) at priority 0: the group's shard-0 job with its task args shrunk
+    (CANARY_OVERRIDES / canary_task_args) and --canary-units 1, so the batch opens after minutes, not hours."""
+    out = []
+    by_kind: dict[str, list[dict]] = {}
+    for j in jobs:
+        by_kind.setdefault(j["kind"], []).append(j)
+    for kind, js in by_kind.items():
+        base = min(js, key=lambda j: (j["est_seconds"], j["spec"]["shard"]))
+        g = groups[base["spec"]["group"]]
+        ov = g.get("canary_task_args")
+        if isinstance(ov, list):
+            args = [str(a) for a in ov]
+        else:
+            known = CANARY_OVERRIDES.get(g["task"], {})
+            if not known and not ov:
+                log(f"warning: canary {kind}: no shrink rule for task {g['task']!r}; it runs one unit of "
+                    f"{g['name']} (~{float(g['unit_s']) / 60:.0f} min): give the group canary_task_args")
+            args = override_args(g.get("task_args") or [], {**known, **(ov or {})})
+        est = float(g.get("canary_est_s") or min(CANARY_EST_S, base["est_seconds"]))
+        lane = g.get("lane", "rented")
+        # n_shards 1: shard 0 of the shrunk args always has units (e.g. gen_shard --gen-shards 1).
+        spec = {**base["spec"], "task_args": args, "canary": True, "shard": 0, "n_shards": 1,
+                "run": run_line(g, lane, 0, 1, args, "--canary-units 1")}
+        c = {**base, "job_id": f"{plan['campaign']}.canary.{kind.replace('_', '-')}", "priority": 0,
+             "est_seconds": est, "spec": spec,
+             "purpose": f"Batch canary for {plan['campaign']} ({kind}): a minutes-long run of task {g['task']} from "
+                        f"group {g['name']} that must finish valid before the batch's long jobs lease."}
+        c.pop("expect", None)
+        out.append(c)
+    return out
+
+
 def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bool = True, log=print,
-         first_only: bool = False) -> dict:
+         first_only: bool = False, canary: bool = True, campaign: str | None = None,
+         cfcap_ref: str | None = None) -> dict:
+    """campaign: re-emit the plan under another campaign name (job ids follow it: a new batch, `--resubmit-as`).
+    cfcap_ref: pin this cfcap commit instead of HEAD. Every job of the file carries the same refs (one batch per kind)."""
+    if campaign:
+        plan = {**plan, "campaign": campaign}
     for k in ("campaign", "submitter", "groups", "stop"):
         if k not in plan:
             raise PlanError(f"plan lacks {k!r}")
@@ -221,6 +302,8 @@ def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bo
     if not restage:
         info["capxfer_stage_commit"] = git(STAGE / "capxfer", "rev-parse", "HEAD")
         info["cfcap_commit"] = git(CFCAP, "rev-parse", "HEAD")
+    if cfcap_ref:
+        info["cfcap_commit"] = git(CFCAP, "rev-parse", "--verify", f"{cfcap_ref}^{{commit}}")
     jobs, warns, rows = [], [], []
     for g in sorted(plan["groups"], key=lambda g: (int(g.get("stage", 1)), int(g.get("priority", 0)))):
         js, w = group_jobs(plan, g, info, draft, first_only)
@@ -231,6 +314,15 @@ def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bo
         price = 0.0 if lane == "free" else PRICE[g.get("profile", "torch")]
         rows.append((int(g.get("stage", 1)), g["name"], g["task"], lane, g.get("profile", "torch"), len(js),
                      js[0]["est_seconds"] / 60 if js else 0, bh, bh * price, "pilot" if g.get("pilot") else "DRAFT"))
+    refs = {json.dumps(j["repos"], sort_keys=True) for j in jobs}
+    if len(refs) > 1:
+        raise PlanError(f"{len(refs)} different repo ref sets in one campaign file; one batch per kind needs one")
+    if canary and jobs:
+        cs = batch_canaries(plan, jobs, {g["name"]: g for g in plan["groups"]}, log=log)
+        jobs = cs + jobs
+        for c in cs:
+            log(f"canary {c['job_id']}: priority 0, est {c['est_seconds'] / 60:.1f} min, "
+                f"args {' '.join(c['spec']['task_args'])}")
     if len(jobs) > 500:
         warns.append(f"{len(jobs)} jobs: research submit takes at most 500 per call; split the file")
     log(f"{'stage':>5} {'group':<22} {'task':<10} {'lane':<6} {'prof':<5} {'jobs':>4} {'min/job':>7} {'box-h':>6} "
@@ -320,6 +412,9 @@ def main(argv=None) -> int:
     e.add_argument("--allow-dirty", action="store_true")
     e.add_argument("--no-restage", action="store_true", help="reuse the current stage")
     e.add_argument("--validate", action="store_true")
+    e.add_argument("--no-canary", action="store_true", help="do not prepend the per-batch canary jobs")
+    e.add_argument("--resubmit-as", metavar="CAMPAIGN", help="emit the plan under this campaign name (new batch)")
+    e.add_argument("--cfcap-ref", help="pin this cfcap commit instead of HEAD")
     e.add_argument("--first-shard-only", action="store_true",
                    help="only shard 0 of each group (canary; same ids and bodies as the full emit)")
     v = sub.add_parser("validate")
@@ -331,7 +426,8 @@ def main(argv=None) -> int:
             return 0
         if a.cmd == "emit":
             plan = json.loads(Path(a.plan).read_text())
-            doc = emit(plan, a.draft, a.allow_dirty, restage=not a.no_restage, first_only=a.first_shard_only)
+            doc = emit(plan, a.draft, a.allow_dirty, restage=not a.no_restage, first_only=a.first_shard_only,
+                       canary=not a.no_canary, campaign=a.resubmit_as, cfcap_ref=a.cfcap_ref)
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(doc, indent=1) + "\n")
             print(f"wrote {a.out} ({'DRAFT: not submittable' if 'draft_jobs' in doc else 'submittable'})")

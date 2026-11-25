@@ -421,7 +421,7 @@ class Runner:
                 "status": status, "units_total": len(self.units), "units_done": len(self.done),
                 "rows": sum(int(r.get("rows") or 0) for r in self.done.values()), "files": files,
                 "job_id": self.job_id, "host": socket.gethostname(), "code": {"cfcap": _git_version(REPO)},
-                "stop_signal": self.stop_signal, "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+                "stop_signal": self.stop_signal, "canary_units": self.args.canary_units or None, "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
     def write_manifest(self, status: str) -> None:
         m = self.manifest(status)
@@ -511,6 +511,8 @@ class Runner:
                 for p in (self.out / sub).glob("*") if (self.out / sub).is_dir() else []:
                     p.unlink()
         self.units = [str(u) for u in self.task.units(self.args, self.args.shard, self.args.n_shards)]
+        if self.args.canary_units:
+            self.units = self.units[:self.args.canary_units]     # a batch canary: the first units only, exit 0
         bad = [u for u in self.units if not UNIT_ID.match(u)]
         if bad or len(set(self.units)) != len(self.units):
             print(f"cfcap.runner: bad or duplicate unit ids ({bad[:3]})", file=sys.stderr)
@@ -659,6 +661,8 @@ def build_parser(task: Task | None = None) -> argparse.ArgumentParser:
     p.add_argument("--fresh", action="store_true", help="discard outputs of another run in --out")
     p.add_argument("--max-units", type=int, default=0, help="stop (exit 75) after this many new units (tests)")
     p.add_argument("--list", action="store_true", help="print the shard's unit ids and exit")
+    p.add_argument("--canary-units", type=int, default=0,
+                   help="run only the first N units of the shard and finish (exit 0): a batch canary job")
     p.add_argument("--require-inputs", default="", help="comma list of paths under $CRANE_INPUTS_DIR to wait for "
                    "(up to 6 min, polling 15 s) before the first unit; exit 3 if they never arrive")
     if task and task.add_args:
@@ -669,7 +673,8 @@ def build_parser(task: Task | None = None) -> argparse.ArgumentParser:
 
 def _task_argv(argv: list[str], task: Task) -> list[str]:
     """The task's own flags as given (the resume fingerprint), in order."""
-    runner_flags = {"--shard", "--n-shards", "--seed", "--out", "--task-spec", "--max-units", "--require-inputs"}
+    runner_flags = {"--shard", "--n-shards", "--seed", "--out", "--task-spec", "--max-units", "--require-inputs",
+                    "--canary-units"}
     runner_bools = {"--compress", "--fresh", "--list"}
     out, it = [], iter(argv[1:])
     for a in it:
