@@ -22,8 +22,16 @@ kill and resume. No job has been submitted or rented. The canary jobs are ready 
   - `train` → `cfcap.models.train:TASK`, `smc` → `cfcap.baselines.smc:TASK`, `t2_eval` → `cfcap.t2.eval:TASK`. These
     roles still have to provide them. Any other task can be run with `--task-spec mod:attr`.
 - **`scripts/make_jobs.py`**:
-  - `stage` exports `git archive` of ~/cfcap@HEAD, and builds a small git repo of capxfer `capxfer/`, `params/`,
-    `configs/` and `theta/theta_{plated,plateless}.json`. That is 3.2 MB, with no corpus or results.
+  - **Box contract (compute session, 2026-11-25 evening):** code goes as **pinned repos**, data as `inputs_rsync`.
+    - Every job carries `repos: [cfcap@HEAD (~/cfcap), capxfer@<stage sha>]`. `research submit` uploads the bundles,
+      and the worker checks them out at `<work>/src/<name>`.
+    - `spec.run` uses `S=$PWD/src`, not `{repos[...]}`. The box backend formats only `bash -lc {spec[run]}`, once, so a
+      placeholder inside `spec.run` would reach bash literally; I checked this against `command.py` and `boot.sh`.
+    - `inputs_rsync` holds only `stage/theta` (→ `/workspace/in/theta`) plus any stage-2 `extra_inputs`.
+  - `stage` builds `stage/capxfer`, a small git repo of capxfer `capxfer/`, `params/`, `configs/` and `theta/`, about
+    3 MB with no corpus or results. The real capxfer worktree is ~100k files. `stage` also builds `stage/theta`.
+  - `emit --first-shard-only` emits shard 0 of each group as a canary. Its job ids and bodies are identical to the full
+    emit, so the later full submit returns `exists` for it.
   - `emit PLAN.json` writes rc-job/1 jobs:
     - `est_seconds` = overhead_s + units × unit_s, with no padding;
     - a group without `pilot` evidence is emitted only as `draft_jobs`, which cannot be submitted.
@@ -34,9 +42,9 @@ kill and resume. No job has been submitted or rented. The canary jobs are ready 
 
     | Lane | Kind | Tags and needs | Inputs | Limit |
     |---|---|---|---|---|
-    | `rented` | `gpu_command` | `[cloud-ok, torch\|jax, rented]`, `needs.gpu`, `vram_gb` | `inputs_rsync` | |
-    | `cpu` | `py_command` | `[cloud-ok, cpu, rented]` | `inputs_rsync` | |
-    | `free` | `py_command` | no `cloud-ok` tag, so it never rents | repo bundles of cfcap and the stage | 60 min (innovation's cap) |
+    | `rented` | `gpu_command` | `[cloud-ok, torch\|jax, rented]`, `needs.gpu`, `vram_gb` | repos + θ by `inputs_rsync` | |
+    | `cpu` | `py_command` | `[cloud-ok, cpu, rented]` | repos + θ by `inputs_rsync` | |
+    | `free` | `py_command` | no `cloud-ok` tag, so it never rents | repos only (θ from the capxfer repo) | 60 min (innovation's cap) |
 
 - **Dry run** (`scripts/box_dryrun.sh`; exploratory). It ran job `cfcap-canary.st-torch.s000` exactly as a box would:
   - the inputs were rsynced into `in/` the way crane-vast does it;
@@ -54,12 +62,18 @@ kill and resume. No job has been submitted or rented. The canary jobs are ready 
   - The `gen_shard` adapter is tested against a stub `write_shard` (shard mapping, resume). It has not run on the
     GPU: the GPU lock was held by other roles' pilots, so I cancelled my run.
   - `jobs.json` passed `validate`.
-  - Tests: `tests/test_runner.py` 20 pass; the full suite passed (94) before the adapter test was added.
+  - **Re-run after the contract change:** repos were checked out at their pinned refs into `work/src/`, and θ was
+    rsynced to `in/theta` (box root /tmp/cfcap-box2). It gave the same outcome: SIGTERM → 75 with 2/6 units kept;
+    kill -9 → 3/6 kept; resume → exit 0, 6/6 units, hashes ok, the commit recorded as cf70611 and clean.
+  - Tests: `tests/test_runner.py` 23 pass. They cover the repo and θ layout, the input wait (late arrival, and the
+    timeout → exit 3) and the first-shard emit.
+- **Input wait.** `--require-inputs a,b`, which make_jobs adds on the rented lanes, waits up to 6 min, polling every
+  15 s, for each `$CRANE_INPUTS_DIR/<x>`. Then it exits 3. `ctx.input()` waits the same way. A signal during the wait
+  exits 75.
 - **Path bug for other roles.** Inputs land at **`/workspace/in/<basename>`** (boot.sh `CRANE_INPUTS_DIR`, crane-vast
   `rsync SRC box:/workspace/in/`), not at `/workspace/inputs/`. The docstrings of `scripts/gen_shard.py` and
   `scripts/stageA0_throughput.py` give `/workspace/inputs/`.
-  - Jobs emitted by make_jobs use `/workspace/in/cfcap` and `/workspace/in/capxfer` (with `theta/`), and set
-    `CAPXFER_ROOT` and `CAPXFER_THETA_DIR`.
+  - Jobs emitted by make_jobs set `CAPXFER_ROOT=$S/capxfer` and `CAPXFER_THETA_DIR=/workspace/in/theta`.
 
 ## Capacity (read 2026-11-25 18:30–18:50 UTC)
 
@@ -94,7 +108,7 @@ The `jax` profile: slim + `jax[cuda12]`, with **no torch**, so capxfer and T1 ca
 - Per profile, it rents about backlog / 2 h boxes after a 10 min wait.
 - The profiles share the cap of 8, and the biggest backlog is served first. So ≥ 16 box-h must be queued to fill 8 boxes,
   and a large torch backlog starves jax.
-- Inputs are pushed **once, at a box's boot**: a box that is already up never receives new inputs.
+- Inputs: the crane-vast tick now re-pushes changed inputs to every live box of the profile, so no drain is needed.
 
 ## Proposal (draft plan `scripts/campaigns/cfcap_b1.draft.json`)
 
@@ -117,24 +131,26 @@ limit today is wall time: 5.5 h are left in the UTC day, and the override lapses
 decisions in §6 B/C: the diversity → generalisation curve, and the 2×2 grid {SMC-T1, amortized} × {T1, T2}.
 
 **Schedule (keeps 8 boxes busy):**
-1. **Canary.** Submit `cfcap-canary.json`: 2 torch shards and 1 free shard, ~$0.05. Check that its outputs arrive under
+1. **Canary.** Submit `cfcap-canary.json`: 2 torch shards and 1 free shard, ~$0.05. After that, submit each
+   campaign's `emit --first-shard-only` file before its full file (two broken outcomes in a row trip a batch). Check that its outputs arrive under
    `~/.cache/vast-out/<box>/crane/cfcap-canary.*`.
 2. **Stage 1, jax first.** Submit the jax group alone, so autoscale gives jax 1 box.
 3. **Stage 1, torch 10 min later.** Submit the torch groups: about 26 box-h, which asks for 13 boxes and is capped at
    the 7 left. The lower priority number leases first: train (+10), then smc-t1 (+20), then gen-ref (+30), with the
    long jobs first and the short shards filling the tail. When the jax box leaves (~1.5 h), the 8th slot goes to torch.
    Expected wall time is ~3.8 h. The free t0-sweep runs alongside on innovation.
-4. **Gate.** Stage 2 reads outputs pulled back from stage 1 (weights, T2 episodes). Submit it **only after every
-   stage-1 box has left** (`crane-vast status`: 0 boxes) and the outputs are merged into
-   `$CFCAP_OUT/compute/stage2/{b1-weights,b1-t2eps}`. Otherwise an old box leases a stage-2 job without its inputs and
-   exits 3, which trips the canary. The gate costs ~35 min: 15 idle + 10 wait + 10 boot.
-   - If the weights are under ~50 MB, ship them as a repo bundle instead, so any live box can run stage 2 with no gate.
+4. **Stage-2 handoff.** Stage 2 reads stage-1 outputs pulled back from the boxes (weights, T2 episodes), merged into
+   `$CFCAP_OUT/compute/stage2/{b1-weights,b1-t2eps}`.
+   - Because the tick re-pushes inputs to live boxes, stage 2 can be submitted while stage-1 boxes are still up.
+   - The runner waits up to 6 min for the pushed inputs.
+   - The remaining gap is the pull-back: outputs come back when a box leaves, so the last stage-1 jobs must be pulled
+     and merged first.
 5. **Stage 2.** ~4.5 box-h, about 3 boxes. Fill the other 5 with Stage D fillers (adversarial CEM, EVOI oracles) once
    their pilots exist.
 
 **Draft `compute/REQUESTS.md` row** (not appended; the `{…}` fields come from the roles' pilots):
 
-| 2026-11-25 | 09 cfcap | cfcap Stage B/C campaign `cfcap-b1`: stage 1 training grid (arch × diversity × 3 seeds), GPU-SMC on the T1 test split, T2 test episodes, reference splits; stage 2 T2 eval and SMC-T2 | torch (+1 jax), interruptible only, ≤ 8 boxes until 2026-11-26 06:00Z (owner) | {from `make_jobs.py emit` summary; draft 32.2 + ~1 boot} | {models: peak VRAM of one training run; baselines: SMC peak VRAM; stress: T2 JAX peak; generator: gen shard RAM/VRAM} | runner canary `scripts/box_dryrun.sh` (exit 75 on SIGTERM, resume, 30 s units = 30 s); {models: pilot cmd → path, s/epoch-chunk}; {baselines: cmd → path, s/episode}; {stress: cmd → path, s/episode}; {generator: `scripts/gen_shard.py` → path, s/shard} | {models: …; baselines: …; stress: …} (each must exist before submission) | `$CFCAP_OUT/compute/stage/cfcap` (git archive of ~/cfcap@{sha}), `$CFCAP_OUT/compute/stage/capxfer` (capxfer source + params + configs + θ JSONs); stage 2 adds `stage2/b1-weights`, `stage2/b1-t2eps`; no corpus | requested |
+| 2026-11-25 | 09 cfcap | cfcap Stage B/C campaign `cfcap-b1`: stage 1 training grid (arch × diversity × 3 seeds), GPU-SMC on the T1 test split, T2 test episodes, reference splits; stage 2 T2 eval and SMC-T2 | torch (+1 jax), interruptible only, ≤ 8 boxes until 2026-11-26 06:00Z (owner) | {from `make_jobs.py emit` summary; draft 32.2 + ~1 boot} | {models: peak VRAM of one training run; baselines: SMC peak VRAM; stress: T2 JAX peak; generator: gen shard RAM/VRAM} | runner canary `scripts/box_dryrun.sh` (exit 75 on SIGTERM, resume, 30 s units = 30 s); {models: pilot cmd → path, s/epoch-chunk}; {baselines: cmd → path, s/episode}; {stress: cmd → path, s/episode}; {generator: `scripts/gen_shard.py` → path, s/shard} | {models: …; baselines: …; stress: …} (each must exist before submission) | repos: cfcap@{sha} (~/cfcap) and capxfer@{stage sha} (`$CFCAP_OUT/compute/stage/capxfer`: capxfer source + params + configs); inputs_rsync: `$CFCAP_OUT/compute/stage/theta` (θ JSONs); stage 2 adds `stage2/b1-weights`, `stage2/b1-t2eps`; no corpus | requested |
 
 **Cost monitor:** `watch -n 300 ~/cfcap/scripts/cost_watch.sh 35 2026-11-25 cfcap-b1 crane`. It shows the boxes and
 burn, the ledger spend since 11-25 against $35 (flagging any on-demand spend), and the campaign queue.
