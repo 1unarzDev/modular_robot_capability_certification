@@ -195,3 +195,8 @@ Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and 
     the child's yaw rate.
   - Prediction under test now: a child-rate yaw probe ≥ 0.75 AUC on those, which would confirm "the theory names the
     probe".
+
+**H4 evidence, 11-25 ~20:55Z (ops measurements, exploratory):** nuisance-SMC costs ≥ 500 s per episode on an RTX 3090
+(the pilot2 canary), against 3.4 ms per episode for the amortized encoder (models pilot). Composition adds
+18–31 ms per candidate. If SMC's accuracy is comparable, the latency side of H4 is decisive. Accuracy is still
+unmeasured: the small SMC campaign plus models eval2.
