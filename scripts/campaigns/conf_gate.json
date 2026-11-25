@@ -1,0 +1,84 @@
+{
+ "campaign": "cfcap-stress-conf-gate",
+ "lineage": "cfcap-stress",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the exploratory knee calibration (cal 0-599) and the confirmatory C-GATE rows (conf_test 3040-5039 at severities 0-3) are complete or the owner cap is reached. Nobody opens conf labels before 2026-11-26 01:45Z.",
+ "_doc": "Role stress, lineage cfcap-stress. Task stress_gate (cfcap/t2/gate_task.py, constructions of cfcap/t2/gate.py = theory E1 with T2 truth and T2 probe observations). gate-cal is EXPLORATORY (split cal, root 92599/97): scripts/stress_conf_gate.py margins fits robust / lawcal / par margins from it and the json is committed before export. conf-gate: confirmatory, seed root 92599/22, the same 2000 episodes at every severity; shard 0 = exploratory spare.",
+ "groups": [
+  {
+   "name": "gate-cal",
+   "task": "stress_gate",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 6,
+   "units_per_shard": 10,
+   "unit_s": 200,
+   "overhead_s": 300,
+   "priority": 5,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.gate_task:TASK",
+    "--split",
+    "cal",
+    "--start",
+    "0",
+    "--stop",
+    "600",
+    "--sevs",
+    "0,1,2,3",
+    "--root",
+    "92599,97",
+    "--per-unit",
+    "10",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: python -m cfcap.runner stress_gate --task-spec cfcap.t2.gate_task:TASK --shard 0 --n-shards 1 --out /tmp/gt --split test --start 10 --stop 12 --per-unit 2 --root 1,1 (4070 host, NUMBA_NUM_THREADS=4, CPU only): 6.0 s for 2 episodes x 4 severities (240 rows); a single E1-sized episode with 15 children x 2 severities took 8.2 s, so ~8-16 s per episode at 4 severities; a 10-episode unit ~80-160 s at 4 threads; RSS < 1.5 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Exploratory T2 knee-law calibration episodes (generator cal split, severities 0-3) on which the C-GATE robust, lawcal and par margins are fitted before any confirmatory row is read.",
+   "ride": "torch"
+  },
+  {
+   "name": "conf-gate",
+   "task": "stress_gate",
+   "stage": 1,
+   "lane": "cpu",
+   "shards": 21,
+   "units_per_shard": 10,
+   "unit_s": 200,
+   "overhead_s": 300,
+   "priority": 10,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.gate_task:TASK",
+    "--split",
+    "conf_test",
+    "--start",
+    "3040",
+    "--stop",
+    "5040",
+    "--sevs",
+    "0,1,2,3",
+    "--root",
+    "92599,22",
+    "--per-unit",
+    "10",
+    "--spare-shard0",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: python -m cfcap.runner stress_gate --task-spec cfcap.t2.gate_task:TASK --shard 0 --n-shards 1 --out /tmp/gt --split test --start 10 --stop 12 --per-unit 2 --root 1,1 (4070 host, NUMBA_NUM_THREADS=4, CPU only): 6.0 s for 2 episodes x 4 severities (240 rows); a single E1-sized episode with 15 children x 2 severities took 8.2 s, so ~8-16 s per episode at 4 severities; a 10-episode unit ~80-160 s at 4 threads; RSS < 1.5 GB, VRAM 0.",
+   "role": "stress",
+   "purpose": "Confirmatory C-GATE in T2: conf_test 3040-5039 under theory's knee law at severities 0-3 (paired, seed root 92599/22), truth with the fixed reference, the two-constant fit and identified-set bounds at v2 and v2+clamp, closed-form dominance flags; shard 0 is an unscored spare.",
+   "ride": "torch"
+  }
+ ]
+}
