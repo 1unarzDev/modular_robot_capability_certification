@@ -432,3 +432,19 @@ Flips T1 → T2 by dominance class, with an episode-bootstrap 95 % CI:
   −0.021. Still plug-in.
 - **For A5y:** the misfit AUCs above were computed against own-reference positives. Re-scoring them on
   fixed-reference positives is part of N5.
+
+## N5 targets: the feasible parent probe `wheelrate` (written 2026-11-25 before the run; exploratory)
+- **Probe.** `wheelrate` uses per-wheel speed references with a body-twist command of 0. In every module, the
+  antagonistic diagonal pairs (fl, rr) and then (fr, rl) are commanded to opposite speeds. Each wheel's magnitude is
+  its own |ω| on the child's yaw leg: the IK of `t1.capability.leg_twists` yaw, the Prop. 2b closed form. The
+  schedule is a 0.5 s settle, then 4 legs (pair A ±, pair B ±), each a 0.4 s ramp, 1.0 s hold and 0.3 s ramp down,
+  then a 0.5 s tail. The net twist stays small by construction.
+- **Episodes.** The 600 A5y episodes (L3, square, 2x3; T2 all+motor). Here the probed body is the child: it stands
+  for a parent whose wheels reach the child's yaw wheel rates. Unlike `yawc`, the body does not yaw.
+- **Statistic and target.** The statistic is D_imu + D_duty, as specified (the parts are also reported). AUC is
+  taken on target (a): yaw flips or yaw shifts > 0.05, with **fixed-reference** labels (N3). AUC on own-reference
+  labels is reported alongside, and v2, clamp and yawc are reported the same way.
+- **Bar.**
+  - wheelrate AUC ≥ 0.75 → the claim "the theory names the probe" stands with a feasible probe;
+  - yawc ≥ 0.75 but wheelrate < 0.75 → "split-to-see" only;
+  - both < 0.75 → drop the yaw-probe claim.
