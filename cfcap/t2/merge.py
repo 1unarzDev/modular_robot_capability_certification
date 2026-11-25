@@ -112,7 +112,7 @@ def probe_v2(g, lat, par, seed, device="cuda"):
 def score_pair(rec, par, device="cuda", t2_seed=0, backend="auto"):
     """Rows (one per merge) of truths and certifier outputs for one pair: dict of arrays (M, L) / (M,)."""
     from cfcap.baselines import compose as CO
-    from cfcap.baselines.episode import ref_table
+    from cfcap.baselines.episode import lat_to, ref_table
     from cfcap.t1 import capability as cap1
     from cfcap.t2 import build, capability as cap2, eval as ev
     backend = ev.resolve_backend(backend)
@@ -120,9 +120,9 @@ def score_pair(rec, par, device="cuda", t2_seed=0, backend="auto"):
     mods = [(0, k) for k in range(rec["k1"])] + [(1, k) for k in range(rec["k2"])]
     cands = [CO.MergeCand(m["asm"], list(mods), None, m["payload"]) for m in ms]
     ref = ref_table(cands, "plated", device)                                    # (M, L) fixed T1 reference
-    t1 = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability([(m["asm"], m["lat_truth"]) for m in ms], par,
+    t1 = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability([(m["asm"], lat_to(m["lat_truth"], device)) for m in ms], par,
                                                                        device=device)])
-    tc = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability([(m["asm"], m["lat_comp"]) for m in ms], par,
+    tc = np.stack([o["rho"].cpu().numpy()[0] for o in cap1.capability([(m["asm"], lat_to(m["lat_comp"], device)) for m in ms], par,
                                                                        device=device)])
     t2 = np.stack([o["rho"][0] for o in cap2.capability([(m["asm"], m["lat_truth"]) for m in ms], par, build.ALL,
                                                          backend=backend, seed=t2_seed)])

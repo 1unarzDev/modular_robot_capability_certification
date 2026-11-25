@@ -519,3 +519,23 @@ reproduce A5m's T1 labels (checked).
   variant (for example the 95th percentile).
 - The pair margin exceeds the single one because the perturbation doubles the indeterminate load split, which only
   multi-module bodies have.
+
+## N5 results: wheelrate parent probe (exploratory; `scripts/stress_A5y.py`, `results/stress/A5y_auc.csv` with `ref_label`, `A5y_rows.csv`)
+These are the 600 A5y episodes (L3, square, 2x3; T2 all+motor) rerun with the new probe. `wheelrate` is per-wheel
+speed tables in T2 (`kernel.run(pw=...)`), the module twist-free wheel mode (null vector of each module's IK map) at
+the child's yaw-leg wheel rates. A nominal healthy body stays still (< 0.01 m/s, test). With the per-wheel friction
+scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting wheels are no longer balanced.
+
+| target (fixed reference) | pos / neg | v2 D | clamp D | yawc D | wheelrate D_imu + D_duty | tracking residual (yawc) |
+|---|---|---|---|---|---|---|
+| (a) yaw flip or shift > 0.05 | 473 / 127 | 0.40 | 0.39 | 0.44 | **0.44** | 0.55 |
+| (a) yaw flips, faulted negatives | 51 / 370 | 0.22 | 0.26 | 0.27 | 0.40 | 0.69 |
+| (b) pooled flips | 57 / 364 | 0.20 | 0.26 | 0.25 | 0.39 | 0.68 |
+
+- **Verdict against the bar.** wheelrate AUC 0.44 and yawc 0.44 on (a), both < 0.75: **drop the yaw-probe claim**
+  ("the theory names the probe" is not supported for yaw).
+- **Target (a) is near-degenerate under the fixed reference.** 79 % of the ≥ 3-module episodes have some yaw shift
+  > 0.05. The motor law moves almost every body, and the trace misfit cannot rank them.
+- **Gate statistic (committed above before 22:15Z).** With the fixed reference and more flips (51 rather than 10),
+  the tracking residual's flip AUC drops from 0.83 to **0.69**. It is still the best of the statistics, and the
+  choice is unchanged. The lower AUC is recorded here before any confirmatory data.
