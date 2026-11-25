@@ -39,7 +39,25 @@
    ],
    "pilot": "local 4070 smoke /tmp/decide_smoke: python -m cfcap.runner decide --task-spec cfcap.decide.task:TASK --shapes pair --episodes 2 --per-unit 2 --particles 64 --draws 16 --max-stages 40 -> exit 0, 148 s/episode (SMC 132 s, probes+labels 16 s), peak VRAM 0.13 GB",
    "role": "decision",
-   "purpose": "Canary for the T1 decision-episode task on a rented 3090: one unit per parent shape, measuring seconds per episode for SMC, probe predictions and labels."
+   "purpose": "Canary for the T1 decision-episode task on a rented 3090: one unit per parent shape, measuring seconds per episode for SMC, probe predictions and labels.",
+   "canary_task_args": [
+    "--task-spec",
+    "cfcap.decide.task:TASK",
+    "--shapes",
+    "pair",
+    "--episodes",
+    "1",
+    "--per-unit",
+    "1",
+    "--nseed",
+    "1909",
+    "--particles",
+    "64",
+    "--draws",
+    "16",
+    "--max-stages",
+    "20"
+   ]
   },
   {
    "name": "decide-main",
