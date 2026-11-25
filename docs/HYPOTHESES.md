@@ -145,3 +145,10 @@ Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and 
 - Exact share of certified decisions that are undominated (E1 reports it).
 - Whether ĝ-physics (MARS-style) is within 5 pts of the learned posterior in-model.
 - Whether FDR selection (cfBH) is the better error notion for fleet assignment.
+
+**E4 (real-data counterfactual pairs), 11-25:** the corpus can't supply faulted pairs (codex, docs/codex/e4_pairs.md).
+- 329 metadata matches (114 held-out, 21 with unloaded parents), all healthy.
+- Full-axis TRUTH capability labels are not verifiable from summaries; the probe gain is an ODOM peak.
+- The 43 weak-wheel coupling trials have no faulted lone counterpart.
+- **Decision:** real faulted square→single pairs come from the 11-24 field collection (capxfer B1/B2, cfcap's derived
+  view) once it lands. The corpus allows at most a healthy cross-layout no-false-alarm check, which is low priority.
