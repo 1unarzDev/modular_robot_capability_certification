@@ -149,7 +149,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     runs = find_runs(a.roots)
     print(f"{len(runs)} train runs")
-    dec, div, lat = [], [], []
+    dec, div, lat, div_rel = [], [], [], []
     ens = {}
     for run in runs:
         cfg, d = run["cfg"], run["dir"]
@@ -168,9 +168,11 @@ def main():
         for (split, df), lo in zip(evs, sim_lo):
             if split == "cal":
                 continue
-            for (topo, n), g in df.groupby(["parent_topo", "parent_n"]):
-                idx = g.index.to_numpy()
-                cf, uc = decision_metrics(lo[idx], g.truth.to_numpy())
+            df = df.assign(_rel=TR.relevant(df), _lo=lo)
+            for (topo, n, rel_only), g in [(k + (False,), g) for k, g in df.groupby(["parent_topo", "parent_n"])] + \
+                    [(k + (True,), g) for k, g in df[df._rel].groupby(["parent_topo", "parent_n"])]:
+                lo_g = g._lo.to_numpy()
+                cf, uc = decision_metrics(lo_g, g.truth.to_numpy())
                 q = g[list(TR.QCOLS)].to_numpy(float)
                 y = g.truth.to_numpy()
                 held = int(split in ("H3", "H4") or n > d_info["max_n"] or (
@@ -180,7 +182,7 @@ def main():
                             test_n=int(n), heldout=held, status=a.status, split=split)
                 for metric, v in (("cert_frac", cf), ("unsafe_commit", uc), ("pinball", pinball(q, y)),
                                   ("cov90", float(((y >= q[:, 0]) & (y <= q[:, -1])).mean()))):
-                    div.append(dict(base, metric=metric, value=v))
+                    (div_rel if rel_only else div).append(dict(base, metric=metric, value=v))
             wf = d / f"wheels_{split}.npz"
             if wf.exists() and not bb:
                 with np.load(wf) as z:
@@ -237,6 +239,11 @@ def main():
     if dec:
         pd.concat(dec).to_csv(out / "dec_models.csv.gz", index=False)
     pd.DataFrame(div).to_csv(out / "diversity.csv", index=False)
+    # decision-relevant stratum (faulted candidates + |rho_dec - tau| < 0.1): outside the paper glob, so the F2 script
+    # never double counts; same columns plus stratum
+    strata = out.parent / "strata"
+    strata.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(div_rel).assign(stratum="relevant").to_csv(strata / "diversity_relevant.csv", index=False)
     loc = ROOT / "results/models/latency.csv"
     if loc.exists():                                  # local pilot timings (batch 1, own pilot data)
         for r in pd.read_csv(loc).itertuples():

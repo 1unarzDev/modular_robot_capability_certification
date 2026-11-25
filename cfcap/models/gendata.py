@@ -27,6 +27,7 @@ from cfcap.models import posterior as M
 from cfcap.t1 import params as P
 
 DT = 0.02
+W_REL = 3.0
 IK_RADIUS = 0.0501
 
 
@@ -155,9 +156,12 @@ class GenSet:
             if key not in built:
                 built[key] = E.build("cand", D["cm_cell"][k0:k1], D["cm_yaw"][k0:k1], ["M1"] * (k1 - k0), plate)
             asms.append(built[key])
-        self.ref = reference.rho_ref_many(asms, plate).astype(np.float32)     # (C, L) nominal healthy rho
-        D["cand_rho_ref"] = self.ref
-        D["cand_rho_dec"] = (D["cand_rho"] / self.ref).astype(np.float32)
+        if "cand_rho_ref" in D and "cand_rho_dec" in D:                        # generator schema v2
+            self.ref = D["cand_rho_ref"].astype(np.float32)
+        else:
+            self.ref = reference.rho_ref_many(asms, plate).astype(np.float32)  # (C, L) nominal healthy rho
+            D["cand_rho_ref"] = self.ref
+            D["cand_rho_dec"] = (D["cand_rho"] / self.ref).astype(np.float32)
         fin = lambda x: np.nan_to_num(np.clip(x, 0.0, 2.0), nan=1.0).astype(np.float32)
         self.label = label
         self.target = t(fin(D["cand_rho_dec"] if label == "dec" else D["cand_rho_rel"]))
@@ -166,6 +170,13 @@ class GenSet:
         self.ep_asm = [np.arange(D["ep_asm_off"][e], D["ep_asm_off"][e + 1]) for e in range(self.E)]
         self.ep_cand = [np.arange(D["ep_cand_off"][e], D["ep_cand_off"][e + 1]) for e in range(self.E)]
         self.ep_wheels = np.array([self.asm_n[a].sum() for a in self.ep_asm])
+        # decision-relevant oversampling (training only): candidates holding a faulted wheel, or with a label within
+        # 0.1 of a requirement tau in {0.6, 0.7, 0.8} on any leg, weigh W_REL x in the direct-head loss
+        y = D["cand_rho_dec"] if label == "dec" else D["cand_rho_rel"]
+        rel = (D["cand_n_fault"] > 0) | ((y > 0.5) & (y < 0.9)).any(1)
+        self.cand_rel = rel
+        self.cand_w = np.where(rel, W_REL, 1.0)
+        self.cand_w_t = t(self.cand_w.astype(np.float32))
         self.N = self.E
 
     # ---------------------------------------------------------------- batches
@@ -211,7 +222,8 @@ class GenSet:
         b.update(cand_pos=torch.where(cmask, cpos, 0), cand_mask=cmask,
                  cand_geom=self.cand_geom[torch.as_tensor(cands, device=dev)],
                  rho_rel=self.rho_rel[torch.as_tensor(cands, device=dev)],
-                 target=self.target[torch.as_tensor(cands, device=dev)])
+                 target=self.target[torch.as_tensor(cands, device=dev)],
+                 cf_w=self.cand_w_t[torch.as_tensor(cands, device=dev)][:, None])
         return b
 
 

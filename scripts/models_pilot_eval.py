@@ -155,7 +155,7 @@ def main():
             cal += calib_rows(tag, shape, p, mode, kind)
             if "cf" in o:
                 cfr += cf_rows(f"direct_{tag}", shape, o["cf"].cpu().numpy().reshape(-1, 10, len(M.QUANTILES)), y,
-                               size)
+                               size, faulted)
             # latency: one episode, batch 1
             b = ss.batch(torch.arange(1, device="cuda"))
             ts = []

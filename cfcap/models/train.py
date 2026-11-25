@@ -456,6 +456,13 @@ def _pin(q, y, taus=(0.05, 0.25, 0.5, 0.75, 0.95)):
     return float(np.nanmean(np.maximum(t * d, (t - 1) * d)))
 
 
+def relevant(z):
+    """Decision-relevant stratum of (candidate, leg) rows: candidate holds a faulted wheel, or its rho_dec label is
+    within 0.1 of a requirement tau in {0.6, 0.7, 0.8} (coordinator 2026-11-25)."""
+    y = np.asarray(z["truth"])
+    return (np.asarray(z["has_fault"]) > 0) | ((y > 0.5) & (y < 0.9))
+
+
 # ------------------------------------------------------------------ summary
 def summarize(records, args):
     import os
@@ -480,8 +487,12 @@ def summarize(records, args):
             with np.load(f) as z:
                 q = np.stack([z[c] for c in QCOLS], -1)
                 y = z["truth"]
-                m[f"{s}/pinball"] = _pin(q, y)
-                m[f"{s}/cov90"] = float(((y >= q[:, 0]) & (y <= q[:, -1])).mean())
+                rel = relevant(z)
+                for tag, sel in (("", np.ones(len(y), bool)), ("rel/", rel)):
+                    if sel.any():
+                        m[f"{s}/{tag}pinball"] = _pin(q[sel], y[sel])
+                        m[f"{s}/{tag}cov90"] = float(((y[sel] >= q[sel, 0]) & (y[sel] <= q[sel, -1])).mean())
+                m[f"{s}/rel_share"] = float(rel.mean())
                 cq = np.stack([z["c" + c] for c in QCOLS], -1)
                 ok = np.isfinite(cq).all(1)
                 if ok.any():

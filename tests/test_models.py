@@ -167,3 +167,58 @@ def test_build_morph_matches_named(square):
     np.testing.assert_allclose(b.wheel_pos, asm.wheel_pos)
     child = D.build_morph([(0, 0, 1), (1, 0, 3)], par)
     assert child.n == 8 and not np.allclose(child.r_hat, D.build_morph("pair", par).r_hat)
+
+
+def _fake_eval(rng, n_ep=30, eid0=0):
+    rows = []
+    for e in range(n_ep):
+        for c in range(3):
+            for leg in range(10):
+                y = 1.0 if rng.uniform() < 0.7 else rng.uniform(0.4, 1.0)
+                rows.append((eid0 + e, e, c, c % 3, 1 + c, int(y < 1), leg, y))
+    a = np.array(rows, float)
+    n = len(a)
+    q50 = a[:, 7] + rng.normal(0, 0.03, n)
+    d = dict(eid=a[:, 0].astype(np.int32), ep_row=a[:, 1].astype(np.int32), cand=a[:, 2].astype(np.int32),
+             kind=a[:, 3].astype(np.int32), cand_size=a[:, 4].astype(np.int32), has_fault=a[:, 5].astype(np.int32),
+             cand_family=np.zeros(n, np.int64), cand_fam_split=np.zeros(n, np.int32), parent_family=np.zeros(n, np.int64),
+             parent_n=np.full(n, 4, np.int32), parent_topo=np.full(n, 5, np.int32), leg=a[:, 6].astype(np.int32),
+             truth=a[:, 7].astype(np.float32), truth_rel=a[:, 7].astype(np.float32), rho_ref=np.ones(n, np.float32),
+             comp_seconds=np.full(n, 0.5, np.float32))
+    for k, z in zip(("q05", "q25", "q50", "q75", "q95"), (-0.08, -0.03, 0, 0.03, 0.08)):
+        d[k] = (q50 + z).astype(np.float32)
+        d["c" + k] = (q50 + 1.2 * z).astype(np.float32)
+    return d
+
+
+def test_export_and_summarize(tmp_path):
+    import json
+    import subprocess
+    import sys
+    from cfcap.models import train as TR
+    rng = np.random.default_rng(0)
+    for shard in (0, 1):                                           # grid b1: shard 0 = st n6 s1, 1 = bb n6 s1
+        d = tmp_path / f"run{shard}"
+        (d / "units").mkdir(parents=True)
+        (d / "manifest.json").write_text(json.dumps(dict(task="train", shard=shard, task_argv=["--grid", "b1"])))
+        for s in TR.EVAL_SPLITS:
+            np.savez(d / "units" / f"eval-{s}.npz", **_fake_eval(rng))
+            (d / "units" / f"eval-{s}.json").write_text(json.dumps(dict(unit=f"eval-{s}",
+                                                                        meta=dict(infer_ms_per_episode=3.0))))
+    assert TR.grid("b1")[0] == dict(arch="st", div="n6", seed=1) and TR.grid("b1")[1]["arch"] == "bb"
+    out = tmp_path / "paper"
+    r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    import pandas as pd
+    dec = pd.read_csv(out / "dec_models.csv.gz")
+    assert {"amortized_marg", "amortized_sim", "amortized_comp", "blackbox_gnn"} <= set(dec.method)
+    for c in ("method", "route", "posterior", "train", "test_plant", "split", "status", "eid", "shape", "cand", "kind",
+              "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower"):
+        assert c in dec.columns
+    t = dec[(dec.method == "amortized_sim") & (dec.split == "test")]
+    assert (t.lower <= t.point + 1e-6).all()
+    div = pd.read_csv(out / "diversity.csv")
+    assert set(div.metric) >= {"cert_frac", "unsafe_commit", "pinball", "cov90"}
+    assert (tmp_path / "strata" / "diversity_relevant.csv").exists()
+    assert (out / "latency_models.csv").exists()

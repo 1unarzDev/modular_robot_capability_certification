@@ -171,11 +171,15 @@ def beta_nll(ab, g):
              + (b - 1) * torch.log1p(-g))
 
 
-def pinball(q, y, taus):
-    """q (...,Q), y (...) -> mean pinball loss."""
+def pinball(q, y, taus, w=None):
+    """q (...,Q), y (...) -> mean pinball loss; w: optional weights broadcastable to y (weighted mean)."""
     t = torch.as_tensor(taus, device=q.device, dtype=q.dtype)
     d = y[..., None] - q
-    return torch.maximum(t * d, (t - 1) * d).mean()
+    l = torch.maximum(t * d, (t - 1) * d).mean(-1)
+    if w is None:
+        return l.mean()
+    w = torch.broadcast_to(w, l.shape)
+    return (l * w).sum() / w.sum().clamp(min=1e-6)
 
 
 def loss_fn(out, batch, w_g=1.0, w_nu=0.3, w_cf=5.0, w_ce=1.0, taus=QUANTILES):
@@ -192,7 +196,7 @@ def loss_fn(out, batch, w_g=1.0, w_nu=0.3, w_cf=5.0, w_ce=1.0, taus=QUANTILES):
     parts = dict(ce=ce, beta=lg, nuis=lnu)
     loss = w_ce * ce + w_g * lg + w_nu * lnu
     if "cf" in out:
-        lc = pinball(out["cf"], batch.get("target", batch.get("rho_rel")), taus)
+        lc = pinball(out["cf"], batch.get("target", batch.get("rho_rel")), taus, batch.get("cf_w"))
         parts["cf"] = lc
         loss = loss + w_cf * lc
     return loss, parts
