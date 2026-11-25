@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 23:33Z: queue priorities now follow the coordinator's order: b1r/hetr 1 (eval2 0–16 once submitted), baselines-conf2 10, conf-gate/conf-merge/confirm2 20, decide2 25, b1x 30, b2r2 31, smc-small 35, nuis3 40, theory-ride 88. Spend $12.9, projection ~$24.
 - **23:30Z URGENT, models_eval2: the key weights are lost.**
   - Export is done: 70 train runs, `results/models/paper`. 43 weights are staged in `$CFCAP_OUT/compute/stage2/models-b1-weights` (156 MB).
   - **st-n6-1 (b1 s000), bb-n6-1 (b1w s001), b1x s006 and hetx s000/s003 finished, but their outputs are on no live box and not in vast-out.** The boxes were destroyed unpulled, or free workers kept them as artifacts. This is reported to the compute session.
