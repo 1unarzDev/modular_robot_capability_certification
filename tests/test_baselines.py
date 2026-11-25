@@ -229,3 +229,24 @@ def test_wall_budget_stage_cap():
     # screen 1 s for 1000 sims -> 1 ms per sim -> 0.7 s per stage; 10 - 1 - 2 = 7 s left -> 10 stages
     assert b._stage_cap("k", 1.0, 1000, 2.0) == 10
     assert b._stage_cap("k", 20.0, 1000, 0.0) == 1          # over budget: still one stage
+
+
+def test_merge_latents_compose_modules_in_order():
+    from cfcap.baselines.compose import MergeCand, merge_latents
+    def rows(n_mod, base_v):
+        n = 4 * n_mod
+        return dict(dom={"mu": torch.ones(2)}, mode=torch.arange(n).repeat(2, 1) + base_v, g=torch.ones(2, n),
+                    stall_w=torch.ones(2, n), noload_w=torch.ones(2, n), yaw_err=torch.zeros(2, n),
+                    vbatt_off=torch.arange(n_mod).float().repeat(2, 1) + base_v, mu_mod=torch.ones(2, n_mod),
+                    load_z=torch.zeros(2, n), payload=None)
+    c = MergeCand(asm=None, modules=[(0, 1), (1, 0)])
+    out = merge_latents({0: rows(2, 0), 1: rows(1, 100)}, c, "cpu")
+    assert out["mode"][0].tolist() == [4, 5, 6, 7, 100, 101, 102, 103]
+    assert out["vbatt_off"][0].tolist() == [1.0, 100.0]
+
+
+def test_merge_baselines_empty_refuse():
+    from cfcap.baselines import compose
+    for f in compose.METHODS.values():
+        p = f([], [])
+        assert p.point.shape == (0, base.L) and "refuse" in p.info

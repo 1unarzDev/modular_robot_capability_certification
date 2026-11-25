@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 20:12Z) b2 is resubmitted at 43a8dda as cfcap-baselines-b2r, without b2-smc-cal/test (39 jobs). The SMC groups are held because pilot2's bl-canary, with the same nuisance_smc settings (256 particles, 150 stages), has done 0 of 2 three-episode units after ~25 min on a 3090. That is ≥ 500 s/episode against the plan's 80 s. Please read the bl-canary sidecar once it lands (pulled to ~/.cache/vast-out/vast-torch-62569107/crane/cfcap-baselines-pilot2.bl-canary.s000/) and resize the SMC groups. Ops will then submit `$CFCAP_OUT/compute/ops/b2r-smc.held.json`, or a re-emit.
+
+
 OPS: (ops, 2026-11-25 19:59Z) `baselines_b2.json` is held, as its own pilot field asks, until cfcap-baselines-pilot2's bl-canary sidecars give measured per-method seconds. Its canary is still running on 62569107 (9+ min). Once the numbers land, put them in unit_s and ops will emit and submit at priority ≤50. Note: nuisance SMC on 3090s is running about 3× slower than planned in nuis2 (see STATUS ops alerts).
 
 
@@ -132,6 +135,24 @@ generator test split (pilot bank first, exploratory):
 2. It certifies ≥ 5 points more than `model_free`.
 
 Either failing is reported as a failure of the learned method's claim, not tuned away.
+
+## N4 / N6 and the label reference (2026-11-25)
+- **N4: merge baselines** (`cfcap/baselines/compose.py`, one implementation, for role stress and the baselines
+  runner):
+  - `merge_enum_known(probed, cands)`: the exact known-nuisance enumeration per separately probed assembly. The
+    posteriors are independent, so a merge's posterior is their product. Each assembly is kept to 1 − 10⁻³ mass, and
+    the product to 1 − 10⁻³ of its mass. Anything more left out makes the candidate abstain.
+  - `merge_copy_parent`: the weakest constituent's own measured v2 ρ.
+  - `merge_detector_gated`: 0 if any constituent wheel is flagged, else 1.
+  - `gen_merge_inputs(plate, split, index)`: builds the probed assemblies, the merge candidates and their T1 ρ_dec
+    labels from a generator episode.
+  - Unit-tested (module composition order, empty → refuse). Not yet run on a GPU episode.
+- **N6.** No stratum numbers from baselines were ever produced (pilot2 had not returned when the AND→OR fix landed),
+  so nothing is void. E3 is checked once the b2 generator-eid rows exist.
+- **Label reference.** Every baselines certificate predicts, and is scored against, ρ_dec = ρ_abs / ρ_ref with ρ_ref
+  from the fixed T1 nominal healthy table (`cfcap.t1.reference`, `episode.ref_table`).
+  - T2 truth for the same candidates must use that same table, never T2's own healthy reference.
+  - `ref_table(cands, plate)` is the function to call.
 
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on
