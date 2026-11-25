@@ -1,6 +1,6 @@
 # nuisance (specialist board)
 
-**Status:** pre-registered; runner task + campaign `cfcap-nuis` committed and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (T1 local pilot cancelled behind the GPU lock; T0 A2 task measured locally at 15.9 s/parent, 1 thread).
+**Status:** pre-registered; runner task + campaign `cfcap-nuis2` committed (supersedes `cfcap-nuis`; primary label ρ_dec = ρ_abs/ρ_ref from `cfcap/t1/reference.py`, ρ_rel secondary) and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (T1 local pilot cancelled behind the GPU lock; T0 A2 task measured locally at 15.9 s/parent, 1 thread).
 
 ## Pre-registered pilot design and thresholds (written before the run; exploratory)
 
@@ -26,8 +26,9 @@ Design (script `scripts/nuisance_pilot.py`, outputs `results/nuisance/`).
 - Labels: for every connected child and 10 random merges with a healthy, nuisance-known 1–2-module assembly, 64
   posterior draws are pushed through `t1.capability` (relative=True) on the 10 decision legs. The child's normal-load
   split is redrawn from the prior (it is not observable in the parent); merges keep the parent's floor (global DR).
-- Decision unit (episode, candidate, leg, τ), τ ∈ {0.7, 0.8}. **Ambiguous iff q05 < τ ≤ q95** of the 64 posterior ρ_rel
-  draws. CIs: bootstrap over episodes (2,000 resamples, per shape and pooled).
+- Decision unit (episode, candidate, leg, τ), τ ∈ {0.7, 0.8}. **Ambiguous iff q05 < τ ≤ q95** of the 64 posterior
+  draws. Amended 2026-11-25 before any data (coordinator decision): the label is ρ_dec = ρ_abs/ρ_ref(shape, leg); ρ_rel
+  is reported as a secondary column only. Thresholds unchanged. CIs: bootstrap over episodes (2,000 resamples, per shape and pooled).
 - Probe sets on the same episodes (same truth latents): v2, v2+clamp (±0.45 m/s surge, sway; 8.8 s), v2+tug (per-wheel
   diagonal tug-of-war ±0.40 m/s at body rest; 8 s).
 
@@ -54,7 +55,7 @@ Thresholds (fixed now, same as `scripts/stageA_targets.md` A2/A3):
   the fault-cleared rollout) differs. This is a labelling property of ρ_rel, not a sensing limit. No ambiguity numbers
   yet.
 
-## Proposal for full-scale collection (`scripts/campaigns/nuisance_pilot.json`, campaign `cfcap-nuis`)
+## Proposal for full-scale collection (`scripts/campaigns/nuisance_pilot.json`, campaign `cfcap-nuis2`)
 | Group | Lane | Jobs × min | Box-h | $ | Serves |
 |---|---|---|---|---|---|
 | nuis-canary: 1 unit per shape at v2 and v2+clamp+moddiff+tug, 2 eps each | rented torch | 1 × 35 | 0.6 | 0.10 | measured s/episode on a 3090; catches box bugs before the grid |

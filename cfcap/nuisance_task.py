@@ -9,8 +9,8 @@ Work items = (shape, probe set, episode block); one runner unit = one item. Item
 (all probe sets of a block next to each other) and dealt round-robin to shards, so every shard carries a balanced mix
 of shapes and probe sets and an interrupted campaign still has matched probe comparisons. Episode truth, merges and
 observation noise derive from numpy seeds of (nseed, shape, episode) only: identical on every host and probe set.
-Unit rows = one per (episode, candidate, decision leg) with the 64-draw posterior q05/q50/q95 of rho_rel and the
-truth; per-episode SMC diagnostics and timings go to the unit sidecar (meta.episodes).
+Unit rows = one per (episode, candidate, decision leg) with the 64-draw posterior q05/q50/q95 and the truth of the
+primary label rho_dec = rho_abs / rho_ref(shape, leg) (columns truth, q05, q50, q95) and of rho_rel (*_rel columns); per-episode SMC diagnostics and timings go to the unit sidecar (meta.episodes).
 """
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def _summary(recs, a):
 
 
 TASK = Task("nuisance", _units, _run, _args, _summary, ("numpy", "torch"),
-            "nuisance-marginalised T1 SMC posterior -> rho_rel decision ambiguity (role nuisance)")
+            "nuisance-marginalised T1 SMC posterior -> rho_dec decision ambiguity (rho_rel secondary) (role nuisance)")
 
 
 # ----------------------------------------------------------------------------- T0 A2/A3 scale-up (seed blocks)

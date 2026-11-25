@@ -1,4 +1,4 @@
-"""Nuisance pilot driver and analysis (exploratory). Core: cfcap/nuisance_post.py; runner task: cfcap/nuisance_task.py.
+"""Nuisance pilot driver and analysis (exploratory). Primary label rho_dec (truth/q05/q50/q95), secondary rho_rel (*_rel). Core: cfcap/nuisance_post.py; runner task: cfcap/nuisance_task.py.
 
 Pre-registration and thresholds: docs/board/nuisance.md.
 
@@ -107,6 +107,8 @@ def analyze(a):
         d["tau"] = tau
         d["amb"] = ((d.q05 < tau) & (tau <= d.q95)).astype(int)
         d["cover"] = ((d.truth >= d.q05) & (d.truth <= d.q95)).astype(int)
+        if "q05_rel" in d:                                   # secondary label (capxfer comparison only)
+            d["amb_rel"] = ((d.q05_rel < tau) & (tau <= d.q95_rel)).astype(int)
         long.append(d)
     L = pd.concat(long, ignore_index=True)
     # restrict probe comparisons to episodes run under every probe set present for that tag/shape
@@ -117,7 +119,8 @@ def analyze(a):
             s, lo, hi, na, nd, ne = boot_share(g)
             k = k if isinstance(k, tuple) else (k,)
             rows.append(dict(breakdown=name, **dict(zip(keys, k)), amb_share=s, amb_lo=lo, amb_hi=hi, n_amb=na,
-                             n_dec=nd, n_ep=ne, coverage=g.cover.mean()))
+                             n_dec=nd, n_ep=ne, coverage=g.cover.mean(),
+                             amb_share_rel=g.amb_rel.mean() if "amb_rel" in g else np.nan))
     summ = pd.DataFrame(rows)
     summ.to_csv(RES / "summary.csv", index=False)
     # probe reductions vs v2 on matched episodes

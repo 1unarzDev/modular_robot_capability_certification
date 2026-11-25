@@ -7,7 +7,8 @@ Per episode: a parent (pair / square / 2x3, plated theta, module yaws 0), 0-2 tr
 v2+moddiff, v2+clamp+moddiff+tug) is simulated in T1 and observed (pre_duty + N(0, 0.005), quantised encoder speed,
 gz + IMU noise). The posterior over the joint (mode vector, g, nuisances) is sampled by tempered SMC; 64 posterior
 draws are pushed through t1.capability (relative=True) for every connected child and 10 random merges with a healthy
-1-2-module assembly. A decision (episode, candidate, leg, tau) is ambiguous iff q05 < tau <= q95 of the draws.
+1-2-module assembly. Primary label rho_dec = rho_abs / rho_ref(shape, leg) (cfcap.t1.reference); rho_rel is kept in
+the *_rel columns. A decision (episode, candidate, leg, tau) is ambiguous iff q05 < tau <= q95 of the draws.
 
 Latent space (standard-normal reparametrisation z, prior N(0, I)):
   global DR (params.theta_dr): 13 uniform keys + CoM offset (2 normal); per wheel: g (mixture inverse CDF, used only if
@@ -44,6 +45,7 @@ from cfcap.t0 import candidates as Cd
 from cfcap.t1 import capability as cap
 from cfcap.t1 import params as P
 from cfcap.t1 import plant
+from cfcap.t1.reference import rho_ref_many
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RES = ROOT / "results/nuisance"
@@ -543,7 +545,8 @@ def fresh_split(lat, gen):
 
 
 def labels(space, par, cands, other_lat, modes_rows, z_rows, gen):
-    """rows: truth first then posterior draws. Returns list of rho_rel (rows, L) per candidate."""
+    """rows: truth first then posterior draws. Returns per candidate (rho_dec (rows, L), rho_rel (rows, L));
+    rho_dec = rho_abs / rho_ref(shape, leg) (cfcap.t1.reference, coordinator decision 2026-11-25) is primary."""
     lat = space.to_lat(modes_rows, z_rows)
     B = modes_rows.shape[0]
     targets = []
@@ -555,7 +558,9 @@ def labels(space, par, cands, other_lat, modes_rows, z_rows, gen):
             lc = fresh_split(concat(plant.subset(lat, c.modules), lo_), gen)
         targets.append((c.asm, lc))
     out = cap.capability(targets, par, relative=True)
-    return [o["rho_rel"] for o in out]
+    ref = rho_ref_many([c.asm for c in cands], "plated")                   # (C, L) nominal healthy reference
+    ref = torch.as_tensor(np.asarray(ref, np.float32), device=DEV)
+    return [(o["rho"] / ref[i][None], o["rho_rel"]) for i, o in enumerate(out)]
 
 
 
@@ -612,7 +617,7 @@ def run_batch(shape, probe_set, episodes, seed=909, particles=256, draws=64, max
     t_smc, sims_smc = time.time() - t0, simr.n_sims
     t1 = time.time()
     dec = {k: [] for k in ("delta", "shape", "probe", "episode", "cand", "kind", "size", "has_fault", "leg", "truth", "q05",
-                           "q50", "q95")}
+                           "q50", "q95", "truth_rel", "q05_rel", "q50_rel", "q95_rel")}
     eps = []
     for e, ep in enumerate(episodes):
         pick = torch.randperm(particles, device=DEV, generator=gen)[:draws]
@@ -623,15 +628,19 @@ def run_batch(shape, probe_set, episodes, seed=909, particles=256, draws=64, max
         rr = labels(space, par, cands, others[e], Mr, Zr, lg)
         true_set = set(np.flatnonzero(modes_t[e].cpu().numpy()).tolist())
         gt = space.to_lat(modes_t[e:e + 1], z_t[e:e + 1])["g"][0]
-        for c, r in zip(cands, rr):
-            r = r.float().cpu().numpy()
+        for c, (r, rl) in zip(cands, rr):
+            r, rl = r.float().cpu().numpy(), rl.float().cpu().numpy()
             qs_ = np.quantile(r[1:], [0.05, 0.5, 0.95], axis=0)
+            ql_ = np.quantile(rl[1:], [0.05, 0.5, 0.95], axis=0)
             cw = set(c.src[c.src >= 0].tolist())
             for li, leg in enumerate(cap.LEGS):
-                for k, v in (("delta", float(delta)), ("shape", shape), ("probe", probe_set), ("episode", int(ep)), ("cand", c.name),
-                             ("kind", c.kind), ("size", int(c.size)), ("has_fault", int(bool(cw & true_set))),
-                             ("leg", leg), ("truth", float(r[0, li])), ("q05", float(qs_[0, li])),
-                             ("q50", float(qs_[1, li])), ("q95", float(qs_[2, li]))):
+                for k, v in (("delta", float(delta)), ("shape", shape), ("probe", probe_set), ("episode", int(ep)),
+                             ("cand", c.name), ("kind", c.kind), ("size", int(c.size)),
+                             ("has_fault", int(bool(cw & true_set))), ("leg", leg),
+                             ("truth", float(r[0, li])), ("q05", float(qs_[0, li])), ("q50", float(qs_[1, li])),
+                             ("q95", float(qs_[2, li])), ("truth_rel", float(rl[0, li])),
+                             ("q05_rel", float(ql_[0, li])), ("q50_rel", float(ql_[1, li])),
+                             ("q95_rel", float(ql_[2, li]))):
                     dec[k].append(v)
         eps.append(dict(shape=shape, probe=probe_set, delta=delta, episode=int(ep), n_faults=len(true_set),
                         faults=";".join(f"{w}:{int(modes_t[e, w])}:{float(gt[w]):.2f}" for w in sorted(true_set)),
