@@ -3,6 +3,8 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:40Z: **cfcap-stress-n4 submitted at top priority (5)**: 19 jobs + canary, 4.8 box-h, b08ac71, inputs include stage/a4_e2. Ops tells stress as soon as its outputs land.
+- 21:40Z: misfit is resubmitted as **cfcap-t2-motor4** at b08ac71, which saves v2+clamp observations, fault modes and fixed-reference labels. All 21 cfcap-t2-motor3 jobs are cancelled (all leased, none done); **ignore any cfcap-t2-motor3.* outputs**.
 - 21:31Z: submitted cfcap-stress-conf-gate (C-GATE: gate-cal at priority 75 first, conf-gate at 80; 28 jobs, 17.2 box-h of spare cores, 0dc1aec, lineage cfcap-stress).
 - 21:25Z (clock): submitted cfcap-t2-motor3 (misfit: 20 jobs + canary, 17.8 box-h of spare cores, priority 60, edfbb9f) and cfcap-stress-conf-merge (C-MERGE: 19 jobs, 7.8 box-h, priority 75, lineage cfcap-stress; unopened until 01:45Z). Spend $5.56 at 21:21Z, 24 boxes, $3.80/h: projection ~$27.0.
 - 21:33Z: generator v3 resubmitted at **1591e17**: cfcap-gen-scaling16r (7, priority 65), cfcap-gen-hetero2 (5, priority 66–69), cfcap-gen-confirm2 (12, priority 75–80, no auto-canary; spare shards at priority 1; stored unread until 01:45Z).

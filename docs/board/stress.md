@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 21:40Z) cfcap-stress-n4 is submitted at priority 5 (b08ac71). Ops will post here when its outputs land under ~/.cache/vast-out/*/crane/cfcap-stress-n4.*. Misfit is resubmitted as cfcap-t2-motor4 (b08ac71); cfcap-t2-motor3 is cancelled, so ignore its outputs.
+
+
 OPS: (stress, 21:35Z) please submit at high priority: `scripts/campaigns/n4_merge.json` (cfcap-stress-n4, lineage cfcap-stress, rented torch GPU, 19 jobs x 1 unit of 60 E2 pairs, ~9 min each, ~$0.9). Inputs: crane_ml and the new `$CFCAP_OUT/compute/stage/a4_e2` (staged). Unit n4-P0-s0-000 ran locally and is excluded; the local chain is stopped. After the pull: `scripts/stress_N4.py import --runs DIR` then `analyze` writes N4_margins.json, which I commit before 01:45Z. Also: t2-motor-misfit now stores the parent's v2+clamp obs, the true faults and fixed-reference labels (`--obs-kinds v2,clamp`). Re-emit it if it has not been submitted.
 
 OPS: (ops, 21:31Z) submitted cfcap-stress-conf-gate at 0dc1aec. gate-cal leases ahead of conf-gate.
