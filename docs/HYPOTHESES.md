@@ -100,6 +100,13 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **21:35Z H3 (probing) in regime 2, T0: SUPPORTED** (decision board pre-registration edfbb9f, seeds 2100–2699, 583
+  episodes; `results/decision/envpost_*`).
+  - EVOI matches always-clamp usefulness at 18 % of the probe time, and beats the dominance trigger by 3.3 s
+    [2.5, 4.1].
+  - Effect size ~3 % of oracle utility, with 0 unsafe for all policies. Not shown in T1/T2.
+- **21:35Z, N7 (size-aware single/pair margin): NARROW MISS** (`results/stress/N7_verdict.json`). Unsafe 4.3 → 0.85 %
+  (single), but CF −7 pts against the ≤ 5 bar.
 - **21:40Z H13 (trust gate): FALSIFIED** (exploratory E1, `results/theory/gate_cert.csv`). Replaced in CONFIRMATORY
   A-GATE by the `robust` certificate (dominance + clamp, calibrated) and by `lawcal` with a held-out severity.
 - **21:40Z H12 (silent extrapolation): SUPPORTED in T0 at s = 3** (par undominated unsafe 31 %, raw 51 %). At s = 1–2

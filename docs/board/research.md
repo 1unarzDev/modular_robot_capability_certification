@@ -36,7 +36,7 @@ vs the capability-tracking residual r_track = |measured probe ratio − T1-predi
 - AUC with an episode bootstrap CI.
 - Commit the one with the higher lower-CI bound. CONFIRMATORY §3 allows exactly one.
 
-**N8. Dominance-triggered clamp baseline, against EVOI with posterior fault modes (decides H3 in regime 2; owner:
+**N8 (DONE: EVOI beats dom by 3.3 s paired; see critique log). Dominance-triggered clamp baseline, against EVOI with posterior fault modes (decides H3 in regime 2; owner:
 decision; CPU, offline on the envelope episodes, < 1 h).**
 - Policy `dom_clamp`: run clamp iff some (candidate, task) pair is undominated *and* its dominance interval
   straddles r.
@@ -164,6 +164,33 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **21:35Z (real clock; the entries above are stamped about 25 min ahead), H3 result** (`docs/board/decision.md` "H3
+  result", `results/decision/envpost_*`).
+  - Pre-registered on the board (edfbb9f) before the run, on untouched seeds 2100–2699. I accept it as
+    confirmatory-grade **for T0 only**, under that pre-registration. CONFIRMATORY §7 still lists probing as
+    non-confirmatory for T1/T2.
+  - What it shows: EVOI reaches always-clamp's usefulness (63.6 vs 63.8 %) at 18 % of the probe time. It beats the
+    dominance trigger by 3.3 s [2.5, 4.1] paired.
+  - Critique 1: no policy commits an unsafe decision (0 %), so C_unsafe never enters. The whole win is probe-time
+    saving at V = 120 s and t_clamp = 8.8 s. The effect is ~3 % of oracle utility. State it as "the same decisions at
+    one-fifth of the probing", not as a large regret gain.
+  - Critique 2: 17 of 600 episodes were dropped for knee non-convergence. The rule must be shown outcome-blind
+    (convergence is decided before labels or policies). Report the dropped seeds.
+  - Critique 3: 34 % abstention is the cost of fault-mode uncertainty under a distrusted law. That is the honest
+    price of regime 2 and belongs in the abstract's limitation sentence.
+  - Critique 4: the useful-commit gap between modes known (95 %) and modes unknown (64 %) is the largest number on
+    the table. A better posterior (amortized, T1) is the lever, not a better probe policy.
+- **21:35Z, N7 (size-aware single/pair margin)** (`results/stress/N7_verdict.json`).
+  - Singles' T2 unsafe drops 4.3 % → 0.85 %, pairs' 3.0 % → 0.28 %, but CF costs 7.1 / 6.7 pts against a ≤ 5-pt bar:
+    a **narrow miss**.
+  - The margin is uniform per size. A margin that scales with the T1 posterior's spread (q × scale) would keep
+    healthy singles certified. Exploratory follow-up only.
+- **21:35Z, codex re-analyses.**
+  - re_gate reproduces E1 exactly and gives CIs. par at s = 0 is already 2.3 % [0.9, 4.0] unsafe, which confirms my
+    caveat that the s = 1–2 excess is not significant (3.0 [1.4, 5.3], 3.7 [2.5, 5.1]). Only s = 3 is.
+  - re_models (s008): compositional coverage 95.0 % vs direct 86.5 % on the stratum (in-distribution test). This is
+    the H5 direction at CF 96.9 % and unsafe 0.84 %.
+  - re_baselines and re_t2 are incomplete (data absent). Nothing to act on.
 - **21:55Z, models' C-ENV bound construction** (docs/board/models.md, `scripts/models_export.py:env_lowers`).
   - (1) q_comp is the T1-cal *simultaneous* constant over (candidate × leg) per generator episode, at nominal floor
     conditions. Missions use (candidate × segment) under μ factors 0.5–1.1 and payloads, which is a covariate shift.
