@@ -12,7 +12,7 @@
    "stage": 1,
    "lane": "rented",
    "profile": "torch",
-   "shards": 10,
+   "shards": 14,
    "units_per_shard": 15,
    "unit_s": 100,
    "overhead_s": 180,
@@ -27,9 +27,9 @@
     "--split",
     "test",
     "--episodes",
-    "1500",
+    "2000",
     "--index0",
-    "500",
+    "0",
     "--per-unit",
     "10",
     "--methods",
@@ -50,7 +50,7 @@
    ],
    "pilot": "ESTIMATE (2026-11-25): ~10 s per generator episode for enum_known (local 4070: 1.8-4.4 s posterior + 2.6 s propagation on 2x3), capxfer (~3 s), rls_interval (1.4 s CPU), nominal, oracle and the episode's own generation/labels; replace with cfcap-baselines-pilot2 measurements.",
    "role": "baselines",
-   "purpose": "Enumeration, capxfer, RLS, nominal and oracle on generator test episodes 500-1999: tighter certified-fraction intervals for the cheap baselines."
+   "purpose": "Cheap and trivial baselines on generator test episodes 0-1999 (the models role's ids), for the exploratory certified-fraction and E3 tables."
   },
   {
    "name": "b2-cheap-H3",

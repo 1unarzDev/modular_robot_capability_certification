@@ -183,6 +183,47 @@ Either failing is reported as a failure of the learned method's claim, not tuned
   is written at 256; if the sweep picks more, update `--particles` and `unit_s`, then re-emit.
 - **Accuracy curve:** TBD (filled from smc_particle_sweep.csv when stage 1 returns).
 
+## Confirmatory (docs/CONFIRMATORY.md; plans emitted 2026-11-25; no confirmatory label opened)
+- **Output.** `scripts/baselines_pilot.py conf-export --runs ~/.cache/vast-out` writes
+  `results/baselines/confirmatory/dec_conf_baselines.csv.gz`, with the columns of paper §5a.
+  - Columns are §1a plus `claim`, `shard` and `parent_n`.
+  - `truth` is ρ_dec from the generator's fixed T1 reference.
+  - It also carries exploratory `cal` rows (point, scale and a cross-fit lower) for every method, for the matched
+    point.
+  - It **refuses to run before 2026-11-26 01:45Z** (except with `--mock`). An optional `--t2-truth` adds T2 rows with
+    the same T1-calibrated bounds.
+- **Methods by claim:**
+  - **C-MAIN** (conf_test 40–3,039):
+    - `always_go`, `never_go`;
+    - `metadata_nf`: calibration (candidate size, leg) quantiles, no observation;
+    - `detector_gated`, `ghat_physics`, `copy_parent`, `min_over_members`;
+    - `capxfer`: Theorem 5, re-calibrated;
+    - `credible_lower`: enum_known's Bayes q05, raw;
+    - `cfBH`: conformal selection at FDR 0.1 on enum_known. Its lower is the largest τ at which the entry was
+      selected, or −inf;
+    - `oracle`;
+    - `nuisance_smc`: the first 200 indices, separate plan.
+  - **C-SCALE:** `capxfer`, `metadata_nf`.
+  - **C-HET:** `metadata_nf`.
+  - **Not produced here:** `raw` (amortized posterior, q = 0, which is models') and `dominance_pi` (theory).
+- **Single reference.** `cfcap/t1/reference.py` now delegates to the generator's `cfcap.gen.rho_ref`: the mecanum
+  nominal reference of the shape, the same numbers as the labels.
+  - Candidate latents carry the module wheel types (`wtype`) for het episodes.
+- **Shard 0 is unscored by the scorer**, so every test group's shard 0 is a sacrificial block:
+  - conf-main: exactly conf_test 0–39 (76 shards × 40);
+  - other groups: ids ≥ 5000, outside the claim ranges.
+- **Plans** (lineage cfcap-baselines):
+
+  | file | jobs | box-h | $ |
+  |---|---|---|---|
+  | `baselines_conf.json` | 276 | 53.5 | 9.6 |
+  | `baselines_conf_smc.json` (optional, descriptive SMC on conf_test 40–239, 256 particles) | 42 | 41.9 | 7.5 |
+
+  `baselines_conf.json` covers conf-cal (exploratory cal 0–1999), conf-main, conf-scale-H4 / H4b (0–1199 each) and
+  conf-het ×3 (0–999 each). conf-cal replaces b2-cheap-cal, so calibration comes from one code version. b2-cheap-test
+  now covers test 0–1999.
+- **Unit times are estimates.** The H4 / H4b estimate (~35 s per episode) is the least certain.
+
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on
 test.
