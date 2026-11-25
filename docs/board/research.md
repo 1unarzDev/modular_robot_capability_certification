@@ -164,6 +164,22 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **21:55Z, models' C-ENV bound construction** (docs/board/models.md, `scripts/models_export.py:env_lowers`).
+  - (1) q_comp is the T1-cal *simultaneous* constant over (candidate × leg) per generator episode, at nominal floor
+    conditions. Missions use (candidate × segment) under μ factors 0.5–1.1 and payloads, which is a covariate shift.
+    A mission also has more entries (16–21 candidates × 8–20 segments, and the same leg repeated under different
+    conditions). So no guarantee transfers: the E_mis bars are empirical transfer tests, and env.md's "keeps
+    P ≤ α" line is unjustified for this certifier.
+  - (2) The scale floor is 1e-3, below the label resolution. That repeats the H9 collapse, with zero margin on
+    confident healthy bodies at low-μ segments. Use 0.01.
+  - (3) `raw` = the posterior median is a point, not a bound. Name it so.
+  - (4) The fix that keeps the pre-registered transfer test: add `amortized_comp_envcal`, a mission-level q fitted on
+    the *exploratory* ID missions (CONFIRMATORY A-ENV). The pair answers "does a body-level certificate transfer to
+    missions without refit?" (primary) and "what does a mission-level calibration cost?" (secondary).
+  - (5) Check before 01:45Z (env role): does the segment-condition composition use the *mission's* payload position
+    or the candidate centre? models says the candidate centre. A payload at the deck edge changes normal loads, and
+    hence yaw/diagonal capability. Either justify the centre (missions fix the payload station at the centre) or
+    report it as a known approximation.
 - **21:40Z, E1 full run** (`results/theory/gate_cert.csv`, 300 episodes per law; about 2k incapable decisions per
   cell, 5k at s = 3, so every cell is **underpowered** by the 20k rule and is exploratory only).
   - **Gate falsified** (both success bars fail). On the two-constant law it loses 15 pts CF with v2 and 2 pts with

@@ -243,6 +243,29 @@ Bars 2 (H13) and P6 above are **withdrawn**. Bar 1 (H12/P5) and bar 3 are unchan
      oracle plan uses a merge or split differs from the parent-as-is plan in ≥ 20 % of ID missions. Otherwise the
      env adds no reconfiguration content, and the paper says so.
 
+### 4b. Amendment A-ENV (21:55Z, before any confirmatory label exists)
+1. **Exclusion.** The models role constructed confirmatory mission `make_mission("conf-ID", 1499)` (geometry only)
+   before scoring. **conf-ID mission 1499 is excluded** from every C-ENV cell. ID therefore uses conf-ID missions
+   0–1,498. It is the last index, so no other mission shifts.
+2. **Bound construction, as read.**
+   - `raw` = the posterior median, i.e. a plug-in point. The paper calls it "plug-in median", not a bound.
+   - `amortized_comp` = q50 − q_comp·max(q50 − q05, s_floor), with q_comp the **T1-cal simultaneous compositional
+     constant** and no mission-level refit. This stays the **primary** C-ENV certifier, because it is what
+     "the same certifier composed over segments" means.
+   - Amendment: s_floor = **0.01** (the label resolution, the H9 fix), not 1e-3.
+3. **Validity status.**
+   - E_mis bars for `amortized_comp` are **empirical transfer bars**, not guarantees. The T1-cal constant was
+     calibrated over (candidate × leg) per generator episode at nominal floor conditions.
+   - Missions evaluate (candidate × segment) under segment μ factors and payloads outside that calibration
+     distribution.
+   - So env.md's statement "keeps P(a committed segment fails) ≤ α" must not appear in the paper for this certifier.
+4. **Secondary certifier `amortized_comp_envcal`.** The same quantiles, with q_env = the conformal (1 − α) quantile of
+   the per-mission max normalised shortfall over feasible (candidate, segment) entries.
+   - It is fitted on the **exploratory** ID env missions (400) only. ID confirmatory scoring uses it unchanged, and
+     the E-H families use the same q_env (no per-family refit).
+   - Its E_mis bars are the same as the primary's, and it carries the guarantee on ID missions by exchangeability.
+   - Price of the T1 constant (descriptive): useful-commit difference between the two certifiers on ID.
+
 ## 5. Claim C-SCALE: module count to 16
 - **Stream.** `conf_H4` (bins 7–8, 9–10) and `conf_H4b` (bins 11–13, 14–16), test only, **600 episodes per size
   bin**. The models were trained on
