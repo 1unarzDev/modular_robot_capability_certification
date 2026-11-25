@@ -199,6 +199,11 @@ def _use_step(fn, compile_):
     """Temporarily point capxfer's integrator at `fn` (sim._get_step is a module-level lookup)."""
     orig = sim._get_step
     if compile_:
+        import torch._dynamo
+        cfg = torch._dynamo.config                   # one specialisation per (B, n, table) shape; allow many
+        for k in ("recompile_limit", "cache_size_limit", "accumulated_recompile_limit", "accumulated_cache_size_limit"):
+            if hasattr(cfg, k):
+                setattr(cfg, k, max(getattr(cfg, k), 1024))
         key = fn.__name__
         if key not in _COMPILED:
             _COMPILED[key] = torch.compile(fn, dynamic=False, fullgraph=True)

@@ -1,0 +1,3 @@
+TRIVIAL threshold (D1 det>=0.95 & median|g_hat-g|<=0.05, het off, pair+square): False
+LEAK threshold (drop >0.15 off->on): False drops={'pair': np.float64(0.14590000000000003), 'square': np.float64(0.14579999999999993)}
+(source: results/stageA/A1_summary.csv; exploratory)
