@@ -221,3 +221,149 @@ def _env_run(unit, ctx):
 
 ENVELOPE = Task("theory_envelope", lambda a, s, n: _seed_units(a, s, n, "env"), _env_run, _env_args, _summary,
                 ("numpy", "torch", "pandas"), "theory envelope-misspecification check (knee truth vs two-constant oracle)")
+
+
+# ----------------------------------------------------------------------------- GATE (E1: trust-gated certificate)
+GATE_SIZES = (2, 3, 4, 5, 6)
+PROBE_IDX = {"v2": slice(0, 6), "v2clamp": slice(0, 10)}        # parent legs: 6 v2 legs then 4 clamp legs
+PI_ST, PI_MU = 0.34, 0.9          # identified-set floor: stall >= 0.4 x (1-d)/(1+d) of the fit, mu >= 0.9 x prior centre
+DOM_SPEED_TOL, DOM_TAU_FRAC = 1.01, 0.02
+
+
+def gate_law(seed):
+    """E1 design: seed % 4 = knee severity (0 = two-constant truth), 300 parents per law for seeds 0..1199."""
+    return seed % 4
+
+
+def gate_episode(seed, P, th, sizes=GATE_SIZES, iters=40):
+    """One E1 parent: knee-law truth (severity gate_law(seed)), robot's two-constant fit at v2 / v2+clamp, and for
+    every connected child and decision leg: rho_true, rho_nom, and per probe set rho_par (fit), rho_pi (identified-set
+    low end), dominance flags and the probe misfit of the child's wheels. Returns a dict of (rows,) arrays."""
+    import numpy as np
+    from capxfer.sim import OK, WEAK, COAST, BRAKE
+    from cfcap.t0 import qs, stagea, candidates as C, probesets as PS, observe as O
+    from cfcap.t0 import envelope as EV
+    sev = gate_law(seed)
+    rng = np.random.default_rng(30_000 + seed)
+    parent = stagea.random_parent(rng, P, tuple(sizes))
+    n = parent.n
+    st, nl, mu = O.sample_het(rng, parent, True)
+    tm, tg = np.zeros(n, np.int64), np.ones(n)
+    for w in rng.choice(n, int(rng.integers(1, 3)), replace=False):
+        md = int(rng.choice([WEAK, WEAK, COAST, BRAKE]))
+        tm[w], tg[w] = md, (float(rng.uniform(0.3, 1.0)) if md == WEAK else 1.0)
+    env = EV.motor_envelope("knee" if sev else "none", sev, np.random.default_rng((40_000 + seed, sev)), n)
+    plant = qs.Plant(parent, P, th, stall=st, noload=nl, mu_f=mu)
+    d, nom = plant.d, plant.nom
+    vb = d["v_batt"] / nom["v0"]
+    om0 = nom["omega0"] * d["noload_scale"]
+    ts0 = nom["tau_s"] * d["stall_scale"]
+    driven = (tm == OK) | (tm == WEAK)
+    gw = np.where(tm == WEAK, tg, 1.0)
+    om_ref = np.concatenate([np.stack([l[1] for l in PS.probe_legs(plant, k)]) for k in ("v2", "clamp")])
+    obs = EV.solve_knee(plant, tm, tg, om_ref, env, iters)
+    fit = {}
+    for key, sl in PROBE_IDX.items():
+        om_o, u_o = np.abs(obs["om"][sl]), np.abs(obs["duty"][sl])
+        track = (u_o < 0.999) & (om_o > 0.5)
+        nl_k = om_o / (om0 * gw * vb * np.maximum(u_o, 1e-6))
+        nl_hat, mis = np.ones(n), np.zeros(n)
+        for i in np.flatnonzero(driven):
+            t = track[:, i]
+            nl_hat[i] = np.median(nl_k[t, i]) if t.any() else om_o[:, i].max() / (om0 * gw[i] * vb)
+            m_tr = np.abs(nl_k[t, i] / nl_hat[i] - 1).max() if t.any() else 0.0
+            sat = ~t & (om_o[:, i] > 0.5)
+            m_sat = np.clip(1 - om_o[sat, i] / (om0 * gw[i] * vb * nl_hat[i]), 0, None).max() if sat.any() else 0.0
+            mis[i] = max(m_tr, m_sat)
+        vmax = om_o.max(0)
+        # the robot's own model of the parent's probe torques (two-constant fit)
+        pf = qs.Plant(parent, P, th, stall=nl_hat, noload=nl_hat, mu_f=np.ones(n))
+        rp = qs.solve(pf, tm[None], tg[None], om_ref[sl])
+        tau_p = np.abs((rp["duty"][0] * gw * vb - rp["om"][0] / (om0 * nl_hat)) * ts0 * nl_hat).max(0)
+        fit[key] = dict(nl=nl_hat, mis=mis, vmax=vmax, tau_p=tau_p,
+                        nl_pi=np.where(driven, np.minimum(nl_hat, vmax / (om0 * gw * vb)), 1.0))
+    out = {k: [] for k in ("seed", "law", "cand", "cand_size", "has_fault", "leg", "rho_true", "rho_nom")}
+    for key in PROBE_IDX:
+        for c in ("rho_par", "rho_pi", "dom", "undom_speed", "undom_torque", "misfit"):
+            out[f"{c}_{key}"] = []
+    for cand in C.children(parent, P):
+        src = cand.src
+        nc = cand.asm.n
+        xis = qs.decision_legs(cand.asm)
+        cpl = qs.Plant(cand.asm, P, th, stall=st[src], noload=nl[src], mu_f=mu[src])
+        omr = cpl.ik(xis)
+        cenv = {k: (v[src] if isinstance(v, np.ndarray) else v) for k, v in env.items()}
+        rt = EV.solve_knee(cpl, tm[src], tg[src], omr, cenv, iters)
+        rho_t = qs.rho_of(rt["xi"], xis, cand.asm.char_length())
+        out.setdefault("conv", []).append(rt["conv"] & bool(obs["conv"].all()))
+        pn = qs.Plant(cand.asm, P, th)
+        rn = qs.solve(pn, np.zeros((1, nc), np.int64), np.ones((1, nc)), omr)
+        rho_n = qs.rho_of(rn["xi"][0], xis, cand.asm.char_length())
+        out["seed"].append(np.full(10, seed)); out["law"].append(np.full(10, sev))
+        out["cand"].append(np.array([cand.name] * 10)); out["cand_size"].append(np.full(10, cand.size))
+        out["has_fault"].append(np.full(10, int((tm[src] != OK).any()))); out["leg"].append(np.arange(10))
+        out["rho_true"].append(rho_t); out["rho_nom"].append(rho_n)
+        drv = driven[src]
+        for key, f in fit.items():
+            ph = qs.Plant(cand.asm, P, th, stall=f["nl"][src], noload=f["nl"][src], mu_f=np.ones(nc))
+            r = qs.solve(ph, tm[src][None], tg[src][None], omr)
+            rho_p = qs.rho_of(r["xi"][0], xis, cand.asm.char_length())
+            tau_c = np.abs((r["duty"][0] * gw[src] * vb - r["om"][0] / (om0 * f["nl"][src])) * ts0 * f["nl"][src])
+            us = (np.abs(r["om"][0]) > DOM_SPEED_TOL * f["vmax"][src][None]) & drv[None]
+            ut = (tau_c > f["tau_p"][src][None] + DOM_TAU_FRAC * ts0) & drv[None]
+            # identified-set low end: min over the class corners (stall floor / fit, ceiling / fit, mu box), since
+            # rho need not be monotone in every wheel's constants (yaw coupling)
+            # passive wheels: brake strength ~ st/nl is only known up to the motor-spread box
+            pas = ~drv
+            cs = [(sf, nf, mf, pb) for sf in (PI_ST, 0.67, 1.0) for nf in ("pi", "fit", "box") for mf in (PI_MU, 1.1)
+                  for pb in (0, 1)]
+            # hard speed clamp at the probed maximum (step envelope: an overdriven wheel may resist without bound)
+            cs += [(5.0, "pi", mf, pb) for mf in (PI_MU, 1.1) for pb in (0, 1)]
+            # sf = 1.0 means the box top (1.08, absolute): a saturated, overdriven wheel brakes in proportion to its
+            # stall scale, so the low end of rho can sit at the strongest motor, not the weakest
+            hr = (np.stack([np.where(pas, (1.08 if pb else 0.92), 1.08 if sf == 1.0 else (5.0 if sf == 5.0 else sf * f["nl"][src]))
+                            for sf, _, _, pb in cs]),
+                  np.stack([np.where(pas, (0.92 if pb else 1.08), f["nl_pi"][src] if nf == "pi" else
+                                     (f["nl"][src] if nf == "fit" else np.full(nc, 1.08)))
+                            for _, nf, _, pb in cs]),
+                  np.stack([np.full(nc, mf) for _, _, mf, _ in cs]))
+            rpi = qs.solve(ph, np.tile(tm[src], (len(cs), 1)), np.tile(tg[src], (len(cs), 1)), omr, het_rows=hr)
+            rho_pi = qs.rho_of(rpi["xi"], xis, cand.asm.char_length()).min(0)
+            out[f"rho_par_{key}"].append(rho_p)
+            out[f"rho_pi_{key}"].append(np.minimum(rho_pi, rho_p))
+            out[f"undom_speed_{key}"].append(us.any(1)); out[f"undom_torque_{key}"].append(ut.any(1))
+            out[f"dom_{key}"].append(~(us | ut).any(1))
+            out[f"misfit_{key}"].append(np.full(10, f["mis"][src][drv].max() if drv.any() else 0.0))
+    return {k: np.concatenate(v) for k, v in out.items()}
+
+
+def _gate_args(p):
+    p.add_argument("--seeds", default="0:1200")
+    p.add_argument("--per-unit", type=int, default=20)
+    p.add_argument("--threads", type=int, default=1)
+    p.add_argument("--plate", default="plated")
+
+
+def _gate_run(unit, ctx):
+    import time
+    import numpy as np
+    import torch
+    from cfcap.t0 import qs
+    a = ctx.args
+    torch.set_num_threads(a.threads)
+    P, th = qs.load_params(a.plate), qs.load_theta(a.plate)
+    _, lo, hi = unit.split("-")
+    parts, eps = [], []
+    for k, seed in enumerate(range(int(lo), int(hi))):
+        if ctx.should_stop():
+            raise Stop("between episodes")
+        t0 = time.time()
+        parts.append(gate_episode(seed, P, th))
+        eps.append(dict(seed=seed, rows=len(parts[-1]["leg"]), s=round(time.time() - t0, 2)))
+        ctx.progress((k + 1) / (int(hi) - int(lo)))
+    ctx.meta["episodes"] = eps
+    return {c: np.concatenate([p[c] for p in parts]) for c in parts[0]}
+
+
+GATE = Task("theory_gate", lambda a, s, n: _seed_units(a, s, n, "gate"), _gate_run, _gate_args, _summary,
+            ("numpy", "torch", "pandas"), "E1 trust-gated certificate rows (knee-law truth vs two-constant fit)")

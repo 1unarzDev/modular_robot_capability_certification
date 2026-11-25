@@ -1,0 +1,36 @@
+{
+ "campaign": "cfcap-theory-gate-cpu",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the 60 E1 units (1,200 parents x 4 motor laws interleaved): they score the trust-gated certificate against the pre-registered success/kill thresholds in docs/board/theory.md.",
+ "_doc": "Role theory, E1, lane cpu. Task cfcap/theory_task.py:GATE; wrong law cfcap/t0/envelope.py (shared with stress). Analysis: scripts/theory_gate.py analyze --from-runs <pulled output dirs>.",
+ "groups": [
+  {
+   "name": "gate",
+   "task": "theory_gate",
+   "stage": 1,
+   "lane": "cpu",
+   "profile": "cpu",
+   "shards": 6,
+   "units_per_shard": 10,
+   "unit_s": 200,
+   "overhead_s": 60,
+   "priority": 20,
+   "seed": 0,
+   "task_args": [
+    "--task-spec",
+    "cfcap.theory_task:GATE",
+    "--seeds",
+    "0:1200",
+    "--per-unit",
+    "20",
+    "--threads",
+    "1"
+   ],
+   "pilot": "theory 2026-11-25, local i7, 1 thread: gate_episode (cfcap/theory_task.py) 2.7-22 s per parent (2-6 modules; median ~6 s, both probe sets, knee fixed point to 1e-4); unit of 20 parents set to 200 s",
+   "role": "theory",
+   "purpose": "E1 trust-gated counterfactual certificate under a misspecified knee motor law: per-decision rows for the physics-trusting, model-free, gated and uncalibrated certificates."
+  }
+ ]
+}
