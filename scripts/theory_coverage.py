@@ -55,6 +55,9 @@ def cmd_closed(a):
         wr_all.append(wr)
         vmax = np.abs(v2).max(0)
         vmax_c = np.maximum(vmax, np.abs(clamp).max(0))
+        yawhi = pl.ik(np.array([[0, 0, 2 * PS.v2_twists(parent)[4, 2]], [0, 0, -2 * PS.v2_twists(parent)[4, 2]]]))
+        vmax_y = np.maximum(vmax, np.abs(yawhi).max(0))
+        vmax_cy = np.maximum(vmax_c, vmax_y)
         for cand in C.children(parent, P):
             xis = qs.decision_legs(cand.asm)
             om = qs.ik(cand.asm, xis, R)                                  # (10, n_c)
@@ -66,9 +69,11 @@ def cmd_closed(a):
                 act = w > 1e-9
                 und = w > vmax[src] * (1 + 1e-9)
                 und_c = w > vmax_c[src] * (1 + 1e-9)
+                und_y = w > vmax_y[src] * (1 + 1e-9)
+                und_cy = w > vmax_cy[src] * (1 + 1e-9)
                 dom.append(dict(ep=ep, parent_size=len(parent.modules), cand_size=cand.size, leg=li,
                                 leg_kind=LEG_KIND[li], n_wheels=len(w), n_active=int(act.sum()),
-                                n_undom_v2=int(und.sum()), n_undom_v2clamp=int(und_c.sum()),
+                                n_undom_v2=int(und.sum()), n_undom_v2clamp=int(und_c.sum()), n_undom_v2yawhi=int(und_y.sum()), n_undom_v2clampyawhi=int(und_cy.sum()),
                                 max_ratio_v2=float((w / vmax[src]).max()),
                                 yaw_rate=float(xis[li, 2]), Lc=cand.asm.char_length()))
     D = pd.DataFrame(dom)
@@ -88,6 +93,18 @@ def cmd_closed(a):
                                  share_undom_v2clamp=(d.n_undom_v2clamp > 0).mean(),
                                  ratio_median=d.max_ratio_v2.median())))
     Y.reset_index().to_csv(RES / "coverage_dominance_yaw_by_size.csv", index=False)
+    # Fig 2 side output: speed-undominated (extrapolated) share per decision leg x child size, by probe set
+    D["size_bin"] = np.where(D.cand_size >= 6, "6+", D.cand_size.astype(str))
+    LEGN = ("surge+", "surge-", "sway+", "sway-", "diag++", "diag--", "diag+-", "diag-+", "yaw+", "yaw-")
+    rows = []
+    for (li, sb), d in D.groupby(["leg", "size_bin"]):
+        for ps, col in (("v2", "n_undom_v2"), ("v2+clamp", "n_undom_v2clamp"), ("v2+yawhi", "n_undom_v2yawhi"),
+                        ("v2+clamp+yawhi", "n_undom_v2clampyawhi")):
+            rows.append(dict(leg=LEGN[li], leg_kind=LEG_KIND[li], child_size=sb, probe_set=ps, n_child_legs=len(d),
+                             share_legs_undominated=float((d[col] > 0).mean()),
+                             share_wheels_undominated=float(d[col].sum() / d.n_wheels.sum()),
+                             basis="speed coordinate, closed form (Prop. 2b); torque coordinate: see gate_cert.csv"))
+    pd.DataFrame(rows).to_csv(RES / "dominance_by_leg_size.csv", index=False)
     pd.DataFrame([dict(n_parents=a.n, max_abs_err_closed_form_radps=max_err,
                        w_dot_r_abs_min=float(np.concatenate(wr_all).min()),
                        w_dot_r_abs_max=float(np.concatenate(wr_all).max()),
