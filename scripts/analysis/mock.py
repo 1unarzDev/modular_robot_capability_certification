@@ -44,7 +44,8 @@ def dec_rows(rng, method, route, post, train, sd, sc, plant, split, n_ep=24, eid
                 rows.append(dict(method=method, route=route, posterior=post, train=train, test_plant=plant,
                                  split=split, status="exploratory", eid=eid0 + e, shape=shape,
                                  family=f"fam{size}", cand=c, kind=kind, cand_size=size, has_fault=hf, leg=leg,
-                                 truth=truth, point=point, scale=s, lower=lower, alpha=0.1,
+                                 truth=truth, truth_rel=min(1.0, truth / 0.97), rho_ref=0.97,
+                                 point=point, scale=s, lower=lower, alpha=0.1,
                                  seconds=0.003 if post == "amortized" else 4.0))
     return rows
 
@@ -78,11 +79,14 @@ def write(out: pathlib.Path, seed: int = 0):
             nb = int(rng.integers(0, 6))
             na = int(round(nb * (1 - red)))
             nd, ncap = 60, int(rng.integers(30, 55))
+            ncr, nir = int(rng.integers(5, 15)), int(rng.integers(3, 10))
             rows.append(dict(policy=pol, split="test", status="exploratory", eid=e, shape=SHAPES[e % 3],
                              n_probes=1 if pol == "fixed_v2" else 2, probe_time_s=t, action="commit", n_dec=nd,
                              n_capable=ncap, n_incapable=nd - ncap, n_certified=ncap - na,
                              n_unsafe=int(rng.random() < 0.05), n_amb_before=nb, n_amb_after=na,
-                             utility=float(ncap - na - 0.01 * t), wall_s=0.5))
+                             utility=float(ncap - na - 0.01 * t), wall_s=0.5, test_plant="T1",
+                             n_capable_rel=ncr, n_incapable_rel=nir, n_certified_rel=max(0, ncr - na),
+                             n_unsafe_rel=int(rng.random() < 0.05)))
     p = out / "probe" / "paper"
     p.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(p / "probe_policies.csv", index=False)

@@ -5,8 +5,15 @@ label (exploratory / confirmatory). A number whose input does not exist yet beco
 always compiles. The input contracts (file globs and columns) are SCHEMAS below and in docs/board/paper.md; a file
 that breaks its schema raises, it is never silently skipped.
 
+Label: `truth` is rho_dec = rho_abs / rho_ref(shape, leg) (coordinator decision 2026-11-25, docs/board/README.md);
+rho_rel may ride along as `truth_rel` (capxfer comparison only) and is never scored here.
+
 Scorer definitions (identical to cfcap/baselines/base.py:metrics, cross-checked in tests/test_paper_analysis.py):
   decision        = (episode, candidate, leg, tau), tau in TAUS
+  stratum         = 'all' or 'rel' (decision-relevant, the HEADLINE): the candidate holds a faulted module
+                    (has_fault) OR the label is near the threshold, |truth - tau| < REL_BAND. Most candidate labels
+                    are healthy and far above every tau, so 'all' is inflated by easy decisions; 'rel' is not.
+                    For tau-free coverage an entry is 'rel' if has_fault or it is near ANY tau.
   capable         = truth >= tau
   go              = finite lower >= tau          (NaN / -inf lower = refuse; capxfer scorer-bug lesson)
   cert_frac       = #(go & capable) / #capable
@@ -36,6 +43,8 @@ ALPHA = 0.10                    # nominal level used by the roles' conformal lay
 U_STAR = 0.01                   # matched unsafe-commit rate for "certified fraction at matched unsafe-go" (fixed
                                 # 2026-11-25 before any Stage C result; capxfer's sim unsafe-go was <= 1.3 %)
 B_BOOT = 1000
+REL_BAND = 0.10                 # near-threshold half-width of the decision-relevant stratum (coordinator, 2026-11-25)
+STRATA = ("rel", "all")         # rel first: it is the headline
 LEGS = ("surge+", "surge-", "sway+", "sway-", "yaw+", "yaw-", "diag++", "diag+-", "diag-+", "diag--")
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -45,13 +54,14 @@ SCHEMAS = {
         glob="*/paper/dec_*.csv*",
         req=("method", "route", "posterior", "train", "test_plant", "split", "status", "eid", "shape", "cand",
              "kind", "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower"),
-        opt=("family", "alpha", "seconds"),
+        opt=("family", "alpha", "seconds", "truth_rel", "rho_ref"),
     ),
     "probe": dict(
         glob="*/paper/probe_*.csv*",
         req=("policy", "split", "status", "eid", "shape", "n_probes", "probe_time_s", "action", "n_dec",
              "n_capable", "n_incapable", "n_certified", "n_unsafe", "n_amb_before", "n_amb_after"),
-        opt=("utility", "wall_s", "test_plant"),
+        opt=("utility", "wall_s", "test_plant", "n_capable_rel", "n_incapable_rel", "n_certified_rel",
+             "n_unsafe_rel"),
     ),
     "amb": dict(
         glob="*/paper/amb_het*.csv*",
@@ -123,35 +133,41 @@ def go_mask(lower, tau):
     return np.isfinite(lo) & (lo >= tau)
 
 
-def decision_counts(d: pd.DataFrame, lower_col: str = "lower", taus=TAUS) -> dict:
-    """Counts over decisions (rows x taus). d needs truth, eid and the lower column."""
+def rel_mask(d: pd.DataFrame, tau=None) -> np.ndarray:
+    """Decision-relevant stratum: faulted candidate, or label within REL_BAND of tau (of any TAU if tau is None)."""
     tr = d["truth"].to_numpy(float)
-    lo = d[lower_col].to_numpy(float)
-    ok = np.isfinite(tr)
-    tr, lo = tr[ok], lo[ok]
-    eid = d["eid"].to_numpy()[ok]
-    n_cap = n_inc = n_cert = n_uns = 0
-    uns_ep = set()
-    for tau in taus:
-        g = go_mask(lo, tau)
-        cap = tr >= tau
-        n_cap += int(cap.sum())
-        n_inc += int((~cap).sum())
-        n_cert += int((g & cap).sum())
-        u = g & ~cap
-        n_uns += int(u.sum())
-        uns_ep.update(eid[u].tolist())
-    n_ep = len(np.unique(eid))
+    hf = d["has_fault"].to_numpy(float) > 0.5 if "has_fault" in d else np.zeros(len(d), bool)
+    taus = TAUS if tau is None else (tau,)
+    near = np.zeros(len(d), bool)
+    for t in taus:
+        near |= np.abs(tr - t) < REL_BAND
+    return hf | near
+
+
+def _in_stratum(d, tau, stratum):
+    if stratum == "all":
+        return np.ones(len(d), bool)
+    if stratum == "rel":
+        return rel_mask(d, tau)
+    raise ValueError(stratum)
+
+
+def decision_counts(d: pd.DataFrame, lower_col: str = "lower", taus=TAUS, stratum: str = "all") -> dict:
+    """Counts over decisions (rows x taus) in the stratum. d needs truth, eid, has_fault (rel) and the lower column."""
+    c = ep_counts(d, d[lower_col].to_numpy(float), taus, stratum)
+    n_cap, n_inc, n_cert, n_uns = (int(c[k].sum()) for k in ("cap", "inc", "cert", "uns"))
+    n_ep = int(len(c))
     return dict(n_ep=n_ep, n_capable=n_cap, n_incapable=n_inc, n_certified=n_cert, n_unsafe=n_uns,
                 cert_frac=_ratio(n_cert, n_cap), unsafe_commit=_ratio(n_uns, n_inc),
-                ep_any_unsafe=_ratio(len(uns_ep), n_ep))
+                ep_any_unsafe=_ratio(int((c["uns"] > 0).sum()), n_ep), n_dec=n_cap + n_inc)
 
 
-def coverage(d: pd.DataFrame, lower_col: str = "lower") -> dict:
-    """Entry and episode-simultaneous coverage of truth by the lower bound (refusal = -inf covers)."""
+def coverage(d: pd.DataFrame, lower_col: str = "lower", stratum: str = "all") -> dict:
+    """Entry and episode-simultaneous coverage of truth by the lower bound (refusal = -inf covers). Episodes with no
+    entry in the stratum drop out."""
     tr = d["truth"].to_numpy(float)
     lo = np.nan_to_num(d[lower_col].to_numpy(float), nan=-np.inf)
-    ok = np.isfinite(tr)
+    ok = np.isfinite(tr) & _in_stratum(d, None, stratum)
     cov = lo[ok] <= tr[ok]
     eid = d["eid"].to_numpy()[ok]
     if not len(cov):
@@ -170,7 +186,9 @@ def matched_margin(z_incapable: np.ndarray, u_star: float = U_STAR) -> float:
     m = int(math.floor(u_star * n + 1e-12))      # unsafe decisions allowed
     if m >= n:
         return -math.inf
-    return float(np.nextafter(z[m], math.inf))  # exclude z[m] and everything below it
+    # exclude z[m] and everything below it, with a relative pad so that the equivalent test lower = point - k*scale
+    # >= tau cannot round back to 'go' at the boundary (found by test_matched_lower_rel_stratum_controls_rel_unsafe)
+    return float(z[m] + 1e-9 * max(1.0, abs(z[m])))
 
 
 def _point_scale(d: pd.DataFrame):
@@ -183,24 +201,28 @@ def _point_scale(d: pd.DataFrame):
     return p, s
 
 
-def z_scores(d: pd.DataFrame, taus=TAUS):
-    """Stack (z, capable, eid, row) over taus."""
+def z_scores(d: pd.DataFrame, taus=TAUS, stratum: str = "all"):
+    """Stack (z, capable, eid, row) over taus, decisions in the stratum only."""
     p, s = _point_scale(d)
     tr = d["truth"].to_numpy(float)
     eid = d["eid"].to_numpy()
     zs, caps, eids, rows = [], [], [], []
     for tau in taus:
-        ok = np.isfinite(tr)
-        zs.append(((p - tau) / s)[ok])
+        ok = np.isfinite(tr) & _in_stratum(d, tau, stratum)
+        with np.errstate(invalid="ignore"):
+            zs.append(((p - tau) / s)[ok])
         caps.append((tr >= tau)[ok])
         eids.append(eid[ok])
         rows.append(np.flatnonzero(ok))
     return np.concatenate(zs), np.concatenate(caps), np.concatenate(eids), np.concatenate(rows)
 
 
-def matched_lower(d_fit: pd.DataFrame, d_eval: pd.DataFrame, u_star: float = U_STAR, taus=TAUS):
-    """Pick k on d_fit at unsafe-commit u_star (pooled over taus), return lower = point - k*scale on d_eval and k."""
-    z, cap, _, _ = z_scores(d_fit, taus)
+def matched_lower(d_fit: pd.DataFrame, d_eval: pd.DataFrame, u_star: float = U_STAR, taus=TAUS,
+                  stratum: str = "all"):
+    """Pick one scalar k on d_fit so that the unsafe-commit rate among the stratum's incapable decisions (pooled over
+    taus) is u_star; return lower = point - k*scale on ALL rows of d_eval, and k. The stratum is defined by labels, so
+    it is used only to choose and to score the operating point, never to decide at test time."""
+    z, cap, _, _ = z_scores(d_fit, taus, stratum)
     z = np.where(np.isfinite(z), z, -np.inf)
     k = matched_margin(z[~cap], u_star)
     p, s = _point_scale(d_eval)
@@ -209,17 +231,18 @@ def matched_lower(d_fit: pd.DataFrame, d_eval: pd.DataFrame, u_star: float = U_S
     return np.where(np.isfinite(lo), lo, -np.inf), k
 
 
-def ep_counts(d: pd.DataFrame, lower, taus=TAUS) -> pd.DataFrame:
-    """Per-episode decision counts (capable, certified, incapable, unsafe) for a lower-bound vector."""
+def ep_counts(d: pd.DataFrame, lower, taus=TAUS, stratum: str = "all") -> pd.DataFrame:
+    """Per-episode decision counts (capable, certified, incapable, unsafe) in the stratum for a lower-bound vector."""
     tr = d["truth"].to_numpy(float)
     lo = np.asarray(lower, float)
     ok = np.isfinite(tr)
     eid = d["eid"].to_numpy()
     cols = {k: np.zeros(len(d)) for k in ("cap", "cert", "inc", "uns")}
     for tau in taus:
-        g = go_mask(lo, tau) & ok
-        cap = ok & (tr >= tau)
-        inc = ok & (tr < tau)
+        st = ok & _in_stratum(d, tau, stratum)
+        g = go_mask(lo, tau) & st
+        cap = st & (tr >= tau)
+        inc = st & (tr < tau)
         cols["cap"] += cap
         cols["cert"] += g & cap
         cols["inc"] += inc

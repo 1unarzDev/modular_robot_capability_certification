@@ -45,7 +45,8 @@ def run(res, paper):
         N.ph("sa.det.highg.min"), N.ph("sa.det.highg.max")
     f = res / "stress/A5_verdict.json"
     if f.exists():
-        v = json.loads(f.read_text())["P0"]
+        j = json.loads(f.read_text())
+        v = j.get("P0/rho_dec", j.get("P0"))   # rho_dec is the decision label (coordinator 2026-11-25)
         N.pct("sa.tTwo.flip", v["flip"], C.rel(f), d=1)
         N.pct("sa.tTwo.fliphi", v["flip_ci"][1], C.rel(f), d=1)
         N.pct("sa.tTwo.dfive", v["share_d05"], C.rel(f), d=1)

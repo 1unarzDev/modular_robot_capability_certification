@@ -60,6 +60,39 @@ def test_matches_baselines_metrics():
         assert math.isclose(c["ep_any_unsafe"], r["ep_any_unsafe"])
 
 
+def test_rel_stratum_hand_example():
+    # tau 0.7, band 0.1: rows (truth, has_fault): (0.95, 0) far+healthy -> out; (0.75, 0) near -> in;
+    # (0.99, 1) faulted -> in; (0.55, 0) far below, healthy -> out; (0.65, 0) near -> in
+    d = frame([0.95, 0.75, 0.99, 0.55, 0.65], [0.9, 0.72, 0.5, 0.71, 0.70])
+    d["has_fault"] = [0, 0, 1, 0, 0]
+    assert C.rel_mask(d, 0.7).tolist() == [False, True, True, False, True]
+    r = C.decision_counts(d, taus=(0.7,), stratum="rel")
+    a = C.decision_counts(d, taus=(0.7,), stratum="all")
+    assert (r["n_capable"], r["n_certified"], r["n_incapable"], r["n_unsafe"]) == (2, 1, 1, 1)
+    assert (a["n_capable"], a["n_certified"], a["n_incapable"], a["n_unsafe"]) == (3, 2, 2, 2)
+    # the easy healthy candidate inflates 'all'
+    assert r["cert_frac"] < a["cert_frac"]
+
+
+def test_rel_coverage_ignores_easy_entries():
+    d = frame([0.95, 0.75], [0.99, 0.7], eid=[0, 0])   # the easy entry is miscovered, the relevant one covered
+    d["has_fault"] = [0, 0]
+    assert C.coverage(d, stratum="all")["ep_cov"] == 0.0
+    assert C.coverage(d, stratum="rel")["ep_cov"] == 1.0
+
+
+def test_matched_lower_rel_stratum_controls_rel_unsafe():
+    rng = np.random.default_rng(3)
+    n = 4000
+    truth = np.clip(rng.uniform(0.5, 1.0, n), 0, 1)
+    d = pd.DataFrame(dict(truth=truth, eid=np.arange(n) // 10, has_fault=(rng.random(n) < 0.2).astype(int),
+                          point=truth + 0.03 * rng.standard_normal(n), scale=np.full(n, 0.03),
+                          lower=np.nan))
+    lo, _ = C.matched_lower(d, d, u_star=0.01, stratum="rel")
+    c = C.ep_counts(d, lo, stratum="rel")
+    assert c["uns"].sum() / c["inc"].sum() <= 0.01 + 1e-12
+
+
 def test_matched_margin_hits_target_and_is_tight():
     rng = np.random.default_rng(0)
     z = rng.standard_normal(1000)
@@ -85,7 +118,7 @@ def test_matched_lower_applies_margin_from_fit_split():
     ev = frame([0.9], [np.nan], point=[0.95], scale=[0.1])
     lo, k = C.matched_lower(fit, ev, u_star=0.0, taus=(0.7,))
     # all fit rows incapable at 0.7; max z = (0.9-0.7)/0.1 = 2 -> k just above 2 -> lower just below 0.75
-    assert 2.0 < k < 2.0 + 1e-9 and lo[0] < 0.75 and lo[0] > 0.7499
+    assert 2.0 < k < 2.0 + 1e-8 and lo[0] < 0.75 and lo[0] > 0.7499
 
 
 def test_coverage_episode_simultaneous():
@@ -146,8 +179,16 @@ def test_end_to_end_mock(tmp_path):
     # matched operating point: every method with cal rows stays at or under U_STAR on T1 cal by construction,
     # and the oracle certifies everything
     t1 = pd.read_csv(tmp_path / "paper/tables/t1_certificate.csv")
+    assert set(t1.stratum) == {"rel", "all"}
     assert t1[(t1.method == "oracle") & (t1.group == "all")].cf.min() == 1.0
     assert t1[(t1.method == "never_go")].cf.max() == 0.0
+    # headline macros are the rel stratum, 'all' variants exist beside them
+    for key in ("cfTOneBestCertTOneAll", "cfTOneCertNuisanceSmcTOne", "cfTOneCertNuisanceSmcTOneAll",
+                "cfTThreeUnsafeAmortizedTTwo", "cfTThreeUnsafeAmortizedTTwoAll", "cfTFourCertEvoi",
+                "cfTFourCertEvoiAll", "cfTTwoEpcovWorstAll"):
+        assert "cfPH" not in got[key], key
+    for t in ("t1_certificate_all", "t2_heldout_all"):
+        assert (tmp_path / f"paper/tables/{t}.tex").exists()
     for f in ("f1_ambiguity", "f2_diversity", "f3_throughput"):
         assert (tmp_path / f"paper/figs/{f}.pdf").stat().st_size > 1000
 
