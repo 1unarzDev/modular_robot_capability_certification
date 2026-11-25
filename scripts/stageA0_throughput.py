@@ -9,6 +9,14 @@ Self-contained: needs torch + numpy, PYTHONPATH with cfcap and capxfer, and CAPX
 theta_{plated,plateless}.json. No corpus, pandas or PyYAML needed.
 
   python scripts/stageA0_throughput.py --out results/stageA/A0_throughput.csv
+
+Rented RTX 3090 shard (inputs pushed to /workspace/inputs/{cfcap, capxfer (repo root), theta/theta_*.json}; tested
+locally with PyYAML, pandas and CAPXFER_ROOT absent):
+  cd /workspace/inputs && PYTHONPATH=/workspace/inputs/cfcap:/workspace/inputs/capxfer \
+    CAPXFER_THETA_DIR=/workspace/inputs/theta python cfcap/scripts/stageA0_throughput.py \
+    --engines graph,compile --wheels 65536 --max-vram-gb 22 --out /workspace/out/cfcap/$CRANE_JOB_ID/A0_throughput.csv \
+  && python cfcap/scripts/stageA0_throughput.py --engines compile --wheels 262144 --max-vram-gb 22 \
+    --out /workspace/out/cfcap/$CRANE_JOB_ID/A0_throughput.csv
 """
 from __future__ import annotations
 

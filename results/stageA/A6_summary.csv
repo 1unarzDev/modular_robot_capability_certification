@@ -1,0 +1,2 @@
+gpu,episodes,hypotheses,hyp_per_s_median,sec_per_episode_median,map_set_acc,map_set_and_g_acc,post_mass_true_set_median,peak_vram_gb,chunk,engine
+NVIDIA GeForce RTX 4070 Ti SUPER,20,62461,15895.05,3.93,1.0,1.0,1.0,4.05,4096,compile
