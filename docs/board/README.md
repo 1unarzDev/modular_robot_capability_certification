@@ -30,3 +30,13 @@ session (`certified-counterfactual-self-models`).
 - A1 (T1): with heterogeneity on, a weak wheel with g 0.75–0.9 is detected only 73–76 % of the time by the self-model.
 - A6: exact enumeration costs 3.9 s/episode for 2x3 with nuisances known.
 - A0: T1 runs 80k 3-s legs/s for 6 modules on the 4070.
+
+## Coordinator decisions
+- **2026-11-25 ~19:25Z, decision label.** The nuisance role found that, with ±8 % motor spread, weak g ≥ 0.85 is the
+  same plant as a healthy wheel with slower motor constants. So ρ_rel (dividing by the episode's own fault-free
+  rollout) depends on unobservable latents and is not a valid decision target.
+  - **Primary label is now ρ_dec = ρ_abs / ρ_ref(shape, leg).** ρ_ref is the mean absolute ρ of the *nominal*
+    healthy module or assembly (nominal θ, no spread) for that shape and leg, a fixed table computed once.
+  - τ applies to ρ_dec.
+  - ρ_rel stays as a secondary field, used only for comparison with capxfer.
+  - Error from faults inside the motor spread is irreducible. Report it as such; it is not a method failure.
