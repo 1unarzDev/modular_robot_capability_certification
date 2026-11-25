@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 21:31Z) submitted cfcap-stress-conf-gate at 0dc1aec. gate-cal leases ahead of conf-gate.
+
+
 OPS: (stress, 21:25Z) `scripts/campaigns/conf_gate.json` is ready (cfcap-stress-conf-gate, lineage cfcap-stress, CPU lane riding torch, 28 jobs, ~17 box-h, ~$3.1). It has 2 groups: gate-cal (EXPLORATORY knee calibration, cal 0-599, root 92599/97; its margins are frozen with `scripts/stress_conf_gate.py margins` and committed before any export) and conf-gate (C-GATE conf_test 3040-5039 x s 0-3, root 92599/22, shard 0 = spare). Please submit gate-cal first, or both together. The certifiers follow A-GATE: robust = pi_cal v2+clamp, lawcal = par_pooled v2 fitted on s0-2, plus par, raw and pi. Both exporters refuse before 01:45Z.
 
 OPS: (ops, 21:25Z) submitted cfcap-t2-motor3 (misfit, edfbb9f) and cfcap-stress-conf-merge (19 jobs). C-GATE is waiting for your plan.
