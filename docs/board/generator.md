@@ -65,10 +65,52 @@ split. Resume: a shard with a matching sidecar sha256 is skipped. Load: `cfcap.g
 | cm (CM) | `cm_mod` (row in mod table: candidate wheels = 4·cm_mod + 0..3), `cm_cell` (CM,2), `cm_yaw`; `cw_load_z` (4·CM) | candidate frame cells |
 
 ## Findings
-PILOT_PLACEHOLDER
+All exploratory. Local RTX 4070 Ti SUPER, plated train, engine compile, block 100, schema v1 (before ρ_ref):
+`scripts/gen_pilot.py --episodes 300` -> `results/generator/pilot.csv`, `pilot_blocks.csv`, `pilot_bytes.csv`.
+- **Throughput:** 17.9 episodes/s steady (blocks 2-3); 5.7 /s over the whole 300 because of ~40 s first-block
+  torch.compile warm-up (block 0: probe 19.7 s, label 20.5 s; later blocks 1.5-3.7 s and 2.5 s per 100 episodes).
+- **Bytes:** 68 KB/episode compressed (110 KB raw); observations are 94 % of raw (v2 at 50 Hz, f16 duty + i16 counts).
+- **Label cost share:** 46 % of steady wall (probes ~45 %, the rest episode construction and assembly). Label runs:
+  307 leg-trials/episode, 3,810 leg-trials/s including CPU prep (prep 19 % of label time), 21 % padded rows.
+- **Candidates per episode** (`results/generator/candidates_by_split.csv`, 300 episodes each): train 19.7 (median 18,
+  p90 29, max 46; 12.6 children + 6.0 merges + self), H3 25.4, H4 44.6, H6 20.7, H7 19.9. 56 % of train candidates
+  contain a faulted wheel. Held-out-family candidates: H3 15 %, H4 27 % of candidates.
+- **Labels:** ρ_rel in [0.07, 1.01]; only 2.3 % of (candidate, leg) ρ_rel < 0.8 (faults mostly hit 1 of many wheels).
+  ρ_dec numbers come from the 3090 reference run (pilot2 shards are v1: compute post hoc).
+- **Families** (`results/generator/families.csv`): 56 free polyominoes N ≤ 6, 37 train, 19 H3 (1 at N=4, 4 at N=5,
+  14 at N=6); fixed shapes at N=6: 124 train, 92 H3.
+- Tests `tests/test_gen.py` (18 + ρ_ref test): determinism (episode and shard, batch-composition invariant labels to
+  1e-4), splits disjoint (families and every candidate of train-like episodes), H3/H4/H6/H7 rules, label range,
+  healthy candidates ρ_rel = 1 exactly with the twin run, labels = `t1.capability` to 2e-4, resume and refusal of a
+  mismatched episodes_per_shard.
+- Not measured yet: whether yaws change ρ_ref (if not, the key drops yaws and the cache hit-rate jumps, saving the
+  ~30 % ρ_ref overhead). The reference run answers it (`rho_ref_<plate>.json`, keys differing only in yaw).
 
 ## Proposal for full-scale Stage B data
-PROPOSAL_PLACEHOLDER
+Training data are generated on the fly by the models (same deterministic generator, train split stream), so only the
+fixed **reference splits** are persisted: `scripts/campaigns/gen_ref.json` (18 rented-torch jobs, `make_jobs emit`:
+submittable).
+
+| per plate state (plated, plateless; never pooled) | episodes | shards × eps | min/job | rationale |
+|---|---|---|---|---|
+| cal | 20,000 | 2 × 10,000 | 17.6 | ~390k candidates; simultaneous (max-over-candidates) score is per episode, so n = 20k gives quantile SE ~0.15 % at α = 0.05 and ≥ 200 per Mondrian train family |
+| test | 20,000 | 2 × 10,000 | 17.6 | same size as cal; unsafe-go at 1 % resolved to ±0.14 % |
+| H3 | 5,000 | 1 × 5,000 | 12.3 | ~260 episodes per held-out family (19 families): per-family coverage SE ~1.4 % |
+| H4 | 5,000 | 2 × 2,500 | 12.9 | 7-10 modules, 45 candidates/episode (3.3× label cost) |
+| H6, H7 | 5,000 each | 1 × 5,000 | 10.1 | coverage SE ~0.3 % at α = 0.05 |
+
+- **Cost:** 4.3 3090-h, **$0.77** at $0.18/h (+ ~10 min boot per box). Rate assumed 14 train-like episodes/s on a
+  3090 (coordinator), /1.3 for the ρ_ref rows, H3 ×0.77, H4 ×0.36 by candidate modules; overhead 150 s per job.
+- **Storage:** ~68 KB/episode train-like, ~150 KB H4 → ~4.3 GB per plate, **~8.5 GB** total.
+- If models want a persisted train set after all: 200k plated = 4 h, $0.73, 13.6 GB (20 shards × 10k).
+- **Exchangeability of cal and test:** both are i.i.d. episodes of the same rule (`RULES["cal"] is RULES["test"]`),
+  differing only in the RNG stream (split code in the seed). The probe routine is fixed inside the episode, and no
+  episode is filtered, deduplicated or reweighted after generation, so (observations, candidate set, labels) are
+  exchangeable across cal and test, and so is any score computed from them. Rules for consumers: the exchangeable
+  unit is the **episode** (scores maxed over its candidates), so never split cal by candidate; never use cal for
+  model selection or early stopping (hold out train-stream episodes for that); calibrate per plate state; for
+  Mondrian per family, the family is a deterministic function of the episode, so within-family exchangeability
+  holds too. ρ_ref is a fixed deterministic table, identical for cal and test.
 
 ## Needs from other roles
 - **models:** confirm the schema works for you (the SendMessage to `models` did not reach). Observations are stored raw
