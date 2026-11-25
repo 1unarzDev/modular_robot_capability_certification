@@ -243,3 +243,16 @@ Spec: docs/board/research.md §E2. Script: `scripts/stress_A4_merge.py`. Output:
 - (c)'s per-pair simultaneous miscoverage ≤ α = 0.1 and CF ≥ 85 % at U* = 1 % are pending (they need (c)).
 - **Motor-law arm:** this waits for theory's wrong-law function (E1). It is not written here, to avoid a second
   definition.
+- **Addendum (written before the full 500-pair runs started; the paper role asked for `miscov_pair` and
+  `dec_merge.csv`).**
+  - (c) is not available yet, so the merge certificate here is the oracle-latent composition (b) with a
+    split-conformal margin, `comp_conformal`:
+    - even pair ids calibrate on T1: q = the conformal (1 − α) quantile of the per-pair worst shortfall
+      max(comp − truth_T1)₊, with α = 0.1;
+    - odd pair ids are the test pairs, with lower = comp − q.
+  - `comp_raw` is the same certificate with q = 0.
+  - `miscov_pair` = the share of test pairs with any (merge, leg) truth below its lower bound, reported for T1 and T2.
+  - Target: miscov_pair(comp_conformal) ≤ 0.1 in T1, by construction up to finite-sample error; T2 is reported
+    against the same 0.1.
+  - Rows go to `results/stress/paper/dec_merge.csv` in the paper §1a columns: method comp_raw / comp_conformal,
+    posterior oracle, kind merge, split merge_<arm>, eid = pair id, cand = merge index.

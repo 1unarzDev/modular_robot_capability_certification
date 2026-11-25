@@ -147,7 +147,7 @@ def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False):
         lat = E.plant_latents(ep, [(a.role, k) for k in range(a.m)], a.load_z, E.parent_payload(ep),
                               gyro=(a.gyro_bias, a.acc_bias))
         T = SR.probe_T("v2")
-        R = cap2.simulate(a.asm, lat, par, cmd, T, build.ALL, backend=backend, seed=seed)
+        R = cap2.simulate(a.asm, lat, par, cmd, T, build.ABLATIONS[conds[0]], backend=backend, seed=seed)   # obs under the first condition
         ob = dict(_observe_np(R, lat, rng), cmd=cmd[:R["t"].shape[0]], **info)
     return out, faulted, ob
 

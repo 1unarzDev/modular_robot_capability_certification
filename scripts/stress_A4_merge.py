@@ -32,6 +32,7 @@ RES = ROOT / "results/stress"
 TAUS = (0.6, 0.7, 0.8)
 SEED0 = 907000
 MAX_MERGES = 6
+ALPHA = 0.1
 
 
 def polyomino(rng, k):
@@ -151,7 +152,7 @@ def _boot(fl, cl, nb=1000, seed=0):
 
 def analyze():
     from cfcap.t1.capability import LEGS
-    rows, summ = [], []
+    rows, summ, dec = [], [], []
     for arm in ("P0", "P5"):
         fs = sorted(OUT.glob(f"A4_{arm}_s*.npz"))
         if not fs:
@@ -183,10 +184,48 @@ def analyze():
                                  share_d05=float((d > 0.05).mean()),
                                  success=bool(hi < (0.01 if plant == "T1" else 0.02)),
                                  kill=bool(plant == "T1" and fl.mean() > 0.02)))
+        # merge certificates from the oracle-latent composition (b): comp_raw (lower = composed point) and
+        # comp_conformal (lower = composed point - q, q the split-conformal (1 - alpha) quantile over T1 CALIBRATION
+        # pairs of the per-pair worst shortfall max(comp - truth_T1)_+; even pair ids calibrate, odd pairs are test).
+        # miscov_pair = share of test pairs with any (merge, leg) truth < lower (simultaneous over the pair).
+        pair = z["meta_pair"]
+        up = np.unique(pair)
+        cal = up[(up % 2) == 0]
+        short = {p: float(np.maximum(z["T1_comp"][pair == p] - z["T1_truth"][pair == p], 0).max()) for p in up}
+        sc = np.sort([short[p] for p in cal])
+        kq = int(np.ceil((len(sc) + 1) * (1 - ALPHA)))
+        q = float(sc[min(kq, len(sc)) - 1]) if len(sc) else np.inf
+        test = ~np.isin(pair, cal)
+        for meth, marg in (("comp_raw", 0.0), ("comp_conformal", q)):
+            lower = z["T1_comp"] - marg
+            for plant in ("T1", "T2"):
+                tr = z[f"{plant}_truth"]
+                tp = np.unique(pair[test])
+                mis = np.array([(tr[pair == p] < lower[pair == p]).any() for p in tp])
+                for r in summ:
+                    if r["arm"] == arm and r["plant"] == plant and r["group"] == "all":
+                        r[f"miscov_pair_{meth}"] = float(mis.mean())
+                        r[f"q_{meth}"] = marg
+                        r["alpha"] = ALPHA
+                        r["test_pairs"] = len(tp)
+                for i in np.nonzero(test)[0]:
+                    for l in range(len(LEGS)):
+                        dec.append(dict(method=meth, route="compositional" if marg else "raw", posterior="oracle",
+                                        train="T1", test_plant=plant, split="merge_" + arm, eid=int(pair[i]),
+                                        shape=f"{int(z['meta_k1'][i])}+{int(z['meta_k2'][i])}", family="",
+                                        cand=int(z["meta_merge"][i]), kind="merge", cand_size=int(z["meta_n_mod"][i]),
+                                        has_fault=int(z["meta_n_fault"][i] > 0), leg=l, truth=float(tr[i, l]),
+                                        point=float(z["T1_comp"][i, l]), scale=np.nan, lower=float(lower[i, l]),
+                                        alpha=ALPHA, seconds=np.nan))
     RES.mkdir(parents=True, exist_ok=True)
+    (RES / "paper").mkdir(exist_ok=True)
+    with open(RES / "paper" / "dec_merge.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(dec[0]))
+        w.writeheader()
+        w.writerows(dec)
     for name, rr in (("A4_merge_rows.csv", rows), ("A4_merge.csv", summ)):
         with open(RES / name, "w", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(rr[0]))
+            w = csv.DictWriter(fh, fieldnames=list(dict.fromkeys(k for r in rr for k in r)))
             w.writeheader()
             w.writerows(rr)
     for r in summ:
