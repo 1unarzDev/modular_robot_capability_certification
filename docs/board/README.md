@@ -56,3 +56,12 @@ session (`certified-counterfactual-self-models`).
 - **independent critics** review the draft without seeing our conclusions (`docs/reviews/`).
 - The coordinator turns the research lead's ranking and the critics' top fixes into role assignments. Every role
   reads HYPOTHESES.md before starting new work.
+
+## Codex workers (owner, 2026-11-25: use the codex-lb capacity)
+- Dispatch with `scripts/codex_task.sh NAME SANDBOX PROMPT_FILE`. The rules in `scripts/codex_prompts/_RULES.md` are
+  prepended to every prompt.
+- Reports go to `docs/codex/NAME.md`.
+- The coordinator reviews and commits the output. Codex does not commit and does not change source except as patch
+  files.
+- Suited to independent test audits, reference verification, second-implementation re-analysis of results, failure
+  annotation, and code review. Not suited to cluster operations.
