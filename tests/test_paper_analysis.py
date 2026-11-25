@@ -325,3 +325,45 @@ def test_latency_table_merges_decision_and_models(tmp_path):
     t = (tmp_path / "paper/tables/t3_latency.tex").read_text()
     assert "Exact posterior (knee-tolerant)" in t and "3.4 ms" in t and "12.32 s" in t
     assert n3.items[C.macro_name("t3.lat.envpost_ktol.max")][0] == "12.3"
+
+
+def test_t4_headline_ruling_columns(tmp_path):
+    import t4_probing
+    p = tmp_path / "decision/paper"
+    p.mkdir(parents=True)
+    rows = []
+    for pol, reg, served, unsafe in (("fixed_v2", 30.0, 7, 0), ("fixed_v2_clamp", 22.0, 9, 1),
+                                     ("dominance_clamp", 19.0, 9, 0), ("evoi", 17.0, 9, 0)):
+        for e in range(20):
+            rows.append(dict(policy=pol, split="test", status="exploratory", eid=e, shape="pair", n_probes=1,
+                             probe_time_s=12.0 if pol == "fixed_v2" else 18.0, action="commit", n_dec=10, n_capable=8,
+                             n_incapable=2, n_certified=8, n_unsafe=0, n_amb_before=0, n_amb_after=0,
+                             test_plant="T0-knee-post-ktol", regret=reg + (e % 2), n_unsafe_assigned=int(unsafe and e == 0),
+                             n_served=served, oracle_served=10, n_certified_task=9, n_capable_task=10,
+                             clamp_bought=int(e < 3) if pol == "fixed_v2_clamp" else np.nan))
+    pd.DataFrame(rows).to_csv(p / "probe_t0n1bK.csv", index=False)
+    n = t4_probing.run(tmp_path, tmp_path / "paper")
+    v = {k: x[0] for k, x in n.items.items()}
+    assert v["cfTFourUsefulEvoi"] == "90.0\\,\\%" and v["cfTFourUsefulFixedVTwo"] == "70.0\\,\\%"
+    assert v["cfTFourDregretEvoiClamp"] == "-5.0" and v["cfTFourDregretEvoiDominance"] == "-2.0"
+    assert v["cfTFourEpunsafeFixedVTwoClamp"] == "5.0\\,\\%" and v["cfTFourEpunsafeEvoi"] == "0.0\\,\\%"
+    assert v["cfTFourCerttaskEvoi"] == "90.0\\,\\%" and v["cfTFourClampBought"] == "3/20"
+    head = (tmp_path / "paper/tables/t4_probing.tex").read_text()
+    assert "useful commits" in head and "task-relevant cert" in head and "$\\Delta$ regret vs always-clamp" in head
+    sec = (tmp_path / "paper/tables/t4_probing_candidates.tex").read_text()
+    assert "certifies what the task needs, not every candidate" in sec
+    # paired CI excludes 0 for a constant -5 s difference
+    assert "-5.0 [-5.0, -5.0]" in head
+
+
+def test_t4_missing_optional_columns_show_dashes(tmp_path):
+    import t4_probing
+    p = tmp_path / "decision/paper"
+    p.mkdir(parents=True)
+    d = _probe_rows("T0-knee-post-ktol", ["fixed_v2", "evoi"])
+    d["regret"] = 1.0
+    d.to_csv(p / "probe_t0n1bK.csv", index=False)
+    n = t4_probing.run(tmp_path, tmp_path / "paper")
+    head = (tmp_path / "paper/tables/t4_probing.tex").read_text()
+    assert "task-relevant" not in head and "\\textemdash" in head
+    assert n.items[C.macro_name("t4.clamp.bought")][2] == "placeholder"

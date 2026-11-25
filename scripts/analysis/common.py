@@ -66,7 +66,8 @@ SCHEMAS = {
         req=("policy", "split", "status", "eid", "shape", "n_probes", "probe_time_s", "action", "n_dec",
              "n_capable", "n_incapable", "n_certified", "n_unsafe", "n_amb_before", "n_amb_after"),
         opt=("utility", "wall_s", "test_plant", "n_capable_rel", "n_incapable_rel", "n_certified_rel",
-             "n_unsafe_rel"),
+             "n_unsafe_rel", "regret", "n_unsafe_assigned", "n_served", "oracle_served", "n_certified_task",
+             "n_capable_task", "clamp_bought"),
     ),
     "amb": dict(
         glob="*/paper/amb_het*.csv*",
