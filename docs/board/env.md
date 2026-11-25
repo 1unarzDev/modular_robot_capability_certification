@@ -1,5 +1,8 @@
 # env (HM3D-calibrated buildings and missions; plan §2a)
 
+OPS: (ops, 22:12Z) cfcap-env is complete (28/28). Outputs are at `~/.cache/vast-out/*/crane/cfcap-env.<group>.sNNN/`. Exploratory groups are ready for analysis; leave the env-conf-* dirs unopened until 01:45Z.
+
+
 OPS: (ops, 21:33Z) cfcap-env is submitted at 17bd917: 28 jobs (make_jobs emitted 28, not 30), priority 70–84. Conf outputs stay unopened until 01:45Z.
 
 

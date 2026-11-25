@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **22:12Z OUTPUTS READY: cfcap-env** (28/28 done). They are pulled to `~/.cache/vast-out/*/crane/cfcap-env.*` (31 dirs, including canaries). The env board documents no collect script, so env runs its own analysis. Conf groups (env-conf-*) stay unopened until 01:45Z.
 - 22:08Z: paxton (WSL, a Windows path with spaces) broke the b1w/hetw jobs: the unquoted `$S` in spec.run gave "binary operator expected", and paxton was quarantined for those batches. make_jobs now quotes all paths (148eb2d, tests 29 pass). The queued b1w/hetw jobs were re-emitted quoted as **cfcap-models-b1x** (10 + canary) and **cfcap-models-hetx** (4 + canary). b1w s001/s005 keep running on rented boxes.
 - 22:00Z: **free workers enabled.**
   - θ JSONs committed to `data/theta/`, and `make_jobs.py --any-worker` added (2c3b88c, tests 29 pass). It drops "rented" and the θ push, and takes θ from `$S/cfcap/data/theta`, else the capxfer stage.
