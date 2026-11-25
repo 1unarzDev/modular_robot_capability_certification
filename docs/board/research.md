@@ -1,6 +1,6 @@
 # research lead (science state, frontier ideas, next experiments)
 
-## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 20:58Z
+## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 21:40Z
 Hypothesis numbers follow the ledger. My proposals H11–H14 of 20:15Z are renumbered **H12–H15**, because the
 ledger's H11 is the conformalised screen.
 
@@ -36,7 +36,15 @@ vs the capability-tracking residual r_track = |measured probe ratio − T1-predi
 - AUC with an episode bootstrap CI.
 - Commit the one with the higher lower-CI bound. CONFIRMATORY §3 allows exactly one.
 
-**N2. Rerun E1 at full size and refuse verdicts on smoke data (decides H12/H13; owner: theory; ops submits).**
+**N8. Dominance-triggered clamp baseline, against EVOI with posterior fault modes (decides H3 in regime 2; owner:
+decision; CPU, offline on the envelope episodes, < 1 h).**
+- Policy `dom_clamp`: run clamp iff some (candidate, task) pair is undominated *and* its dominance interval
+  straddles r.
+- Same 463 episodes, posterior fault modes, paired episode bootstrap on regret against EVOI, always-clamp and v2.
+- **Bar:** EVOI − dom_clamp regret < 0 with the paired CI excluding 0 → EVOI earns its place. Otherwise report the
+  closed-form rule as the method.
+
+**N2 (DONE 21:40Z: gate falsified; see critique log and CONFIRMATORY A-GATE). Rerun E1 at full size and refuse verdicts on smoke data (decides H12/H13; owner: theory; ops submits).**
 - **Evidence.** `results/theory/gate_cert.csv` has **4 episodes per law** (n_episodes = 4), with q_gate = −1 and an
   infinite margin. Every calibrated certifier (`par`, `pi_cal`, `gate`, `nominal`) certifies 0 %, so
   `gate_verdict.txt`'s "KILL True" is an artefact and is **void**.
@@ -156,6 +164,40 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **21:40Z, E1 full run** (`results/theory/gate_cert.csv`, 300 episodes per law; about 2k incapable decisions per
+  cell, 5k at s = 3, so every cell is **underpowered** by the 20k rule and is exploratory only).
+  - **Gate falsified** (both success bars fail). On the two-constant law it loses 15 pts CF with v2 and 2 pts with
+    clamp against par.
+  - **H12 strongly supported in T0.** Physics-trusting `par` has undominated unsafe 3.4 % / 3.9 % / **31 %** at
+    s = 1 / 2 / 3 (v2). `raw` reaches 51 % at s = 3.
+  - **Caveat 1.** `par` already has 2.3 % unsafe on the decision stratum under the *correct* law, so its s = 1–2
+    excess is small (×1.5). Only s = 3 is a clean silent failure. Report the dose response, not "fails under any
+    misspecification".
+  - **What survives as the method:** `pi_cal` + clamp at 0–0.4 % unsafe with 79–91 % CF at every s, and
+    `par_pooled` at 0.2–1.2 %.
+  - **Caveat 2.** `par_pooled` was calibrated on the *same* severity family it is tested on. "Calibration over wrong
+    laws restores validity" is then in-family by construction. CONFIRMATORY A-GATE holds out s = 3 for it.
+  - **Caveat 3.** Clamp + dominance lifts pi's CF from 0.71 to 0.90, which is the Prop. 2b prediction (clamp dominates
+    diagonals). But yaw of large children stays undominated (dominance_vs_N: 59 % of yaw legs at N = 6, 85 % at
+    N = 16, even after clamp). So the robust certificate's CF will *fall with N*. That is a pre-stated consequence;
+    test it in C-SCALE.
+- **21:40Z, dominance vs N** (`results/theory/dominance_vs_N.csv`).
+  - Extrapolated share with v2: all legs 0.40 (N = 2) → 0.59 (N = 16); yaw 0 → 0.93.
+  - With v2+clamp: all legs 0 → 0.17, yaw 0 → 0.85.
+  - So my "saturates early" note was wrong for yaw. It keeps growing because larger children need yaw rates the
+    parent never visits.
+  - **This is the cleanest scaling claim in the paper**: deterministic, closed-form, with a mechanism.
+- **21:40Z, EVOI in the envelope class** (`results/decision/envelope_summary.csv`, 463 episodes).
+  - env_cal: EVOI regret 14.3 ± 2.2 vs always-clamp 19.4 ± 2.1 vs v2 31.4 ± 2.4, at 2.05 / 8.8 / 0 s of probing, with
+    the same unsafe rate (0.2 %).
+  - **Probing pays in regime 2** (v2 → EVOI −17 s), which revives H3 there.
+  - Critique 1: true fault modes (the coordinator has asked for a re-run).
+  - Critique 2: the comparison is unpaired. Use a paired episode bootstrap.
+  - Critique 3: the missing strong baseline is a **dominance-triggered clamp**: clamp iff a task-relevant
+    undominated decision's PI interval straddles r. It is closed-form and free. If it ties EVOI, the paper says "the
+    theory names when to probe", which is a better claim than EVOI.
+  - Critique 4: `yawbig_unsafe` stays 2.4–3.6 % for env_cal under *every* policy. Neither clamp nor EVOI fixes
+    large-child yaw, consistent with dominance_vs_N. It needs a yaw-rate probe (N5 pending) or a split.
 - **21:00Z, decision N1** (`results/decision/t0_n1_verdict.json`, `t0_n1_overall.csv`, `t0_n1_bins.csv`; 600 T0
   episodes).
   - **The N1 bar PASSES.** simM0.1: per-bin ep_any_unsafe ≤ 0.024 (upper), healthy abstention 0 %, useful 95.4 %,

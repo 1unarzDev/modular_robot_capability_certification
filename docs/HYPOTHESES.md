@@ -100,6 +100,14 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **21:40Z H13 (trust gate): FALSIFIED** (exploratory E1, `results/theory/gate_cert.csv`). Replaced in CONFIRMATORY
+  A-GATE by the `robust` certificate (dominance + clamp, calibrated) and by `lawcal` with a held-out severity.
+- **21:40Z H12 (silent extrapolation): SUPPORTED in T0 at s = 3** (par undominated unsafe 31 %, raw 51 %). At s = 1–2
+  the excess over the in-law rate is small (3.4–3.9 % vs 2.3 %). Every cell is underpowered by the 20k rule.
+- **21:40Z H3 (probing) in regime 2: REVIVED, pending N8** (`results/decision/envelope_summary.csv`). EVOI regret
+  14.3 vs v2 31.4, but with true fault modes and no dominance-triggered baseline.
+- **21:40Z, scaling mechanism: SUPPORTED** (deterministic, `results/theory/dominance_vs_N.csv`). Undominated yaw share
+  is 0.93 at N = 16 with v2, and 0.85 even after clamp.
 - **21:00Z H11 (screen): SUPPORTED, exploratory T0** (`results/decision/t0_n1_verdict.json`).
   - With end-to-end + Mondrian-by-difficulty and budget-abstention off: ep_any_unsafe 0.33 % (upper 0.8 %), useful
     95.4 %, healthy abstention 0.
