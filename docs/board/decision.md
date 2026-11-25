@@ -53,6 +53,29 @@ campaign draft `scripts/campaigns/decide_pilot.json`. The T4 contract file is in
   - models: latent samples propagated the same way, or quantile heads used as pseudo-samples.
 - Oracle and nominal predictors are `degenerate(rho)` (a single particle).
 
+## N1 pre-registration (written 2026-11-25 before the run; exploratory)
+**Design.**
+- 600 fresh T0 episodes, seeds 939000–939599, with tasks drawn from 949000 + j.
+- Screen K = 5 (legacy statistic), M = 8 nuisance draws, particle budget 2048.
+- **No budget abstention.** Truncation beyond 1e-6 mass or 2048 particles is recorded as `mass_dropped`. An empty
+  screen still marks the support unknown, so the episode abstains.
+- Marginal probe likelihood, Gaussian normaliser, 3-fold leak-free cross-fit (`evaluate.fold_plan`).
+- Certifiers:
+  - `sim0.1`: marginal end-to-end, which absorbs the screen and the truncation by exchangeability;
+  - `simM0.1`: Mondrian by observable inference difficulty. Bins are `mass_dropped` ∈ {0, (0, 1e-3], > 1e-3} ×
+    `n_screen` tercile (terciles taken on the calibration folds), with ≥ 60 calibration episodes per bin. Bins below
+    that are merged across terciles within their mass bin first, then pooled.
+  - `raw` (plus `simF0.1`, `bayes05`).
+
+**Bar.**
+- `simM0.1`: per-bin ep_any_unsafe ≤ 0.10, with an episode-bootstrap upper 95 % CI ≤ 0.15.
+- Healthy-episode abstention ≤ 5 %.
+- Useful commits ≥ 95 %.
+
+**Verdict rule.** If the bins fail but `sim0.1` holds marginally (ep_any_unsafe ≤ 0.10), report the marginal claim
+only. H11 then becomes "end-to-end calibration absorbs approximate inference", and the screen threshold is a compute
+knob, not a safety knob.
+
 ## Findings, T0 pilot (exploratory; `scripts/decide_pilot.py`, `results/decision/pilot_t0_*.csv`)
 **Setup.**
 - 600 episodes: parents of 2–4 modules, 79 % faulted, heterogeneity on, plus merges with a healthy single.
