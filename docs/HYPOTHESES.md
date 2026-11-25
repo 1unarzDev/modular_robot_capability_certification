@@ -270,3 +270,14 @@ unmeasured: the small SMC campaign plus models eval2.
   - The oracle splits or merges in about 1/3 of plans (bar ≥ 20 %).
 - So split/merge decisions matter in building-like missions, and a certificate has room to help.
 - Confirmatory C-ENV is pending models' per-segment bounds.
+
+**Update 11-25 ~21:40Z (stress; pre-written bars):**
+- **N5 parent yaw probe: FAILED.** The wheelrate AUC is 0.44 (yawc 0.44) against a 0.75 bar. Under the fixed
+  reference, 79 % of ≥3-module episodes shift > 0.05, so no trace statistic ranks them. **Drop the "theory names the
+  yaw probe" claim.** Clamp's value stays (E1; envelope EVOI).
+- **N7 size-aware single/pair margin: narrowly NOT met.** Unsafe falls 4.3 → 0.85 % (singles) and 3.0 → 0.28 % (pairs),
+  but the CF loss is 7.1 / 6.7 pts against a ≤ 5 bar. Report it as a safety/usefulness trade-off.
+- **N3: neither supported nor falsified as pooled.** Undominated 2.76 %, dominated 1.82 % (all dominated flips are in
+  singles and pairs, from friction scatter and the kernel, even without the motor law). Within ≥3-module children the
+  predicted pattern is exact: surge/sway 0 %, yaw 3–6.75 %.
+- **N4 (merge with inferred latents): running.** Moved to rented boxes.
