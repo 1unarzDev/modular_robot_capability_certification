@@ -150,6 +150,21 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
   - `amortized_comp` and `raw` need per-row lower bounds (columns family, mission, cand, seg, lower) from the models
     role, computed under each segment's condition.
 
+## Payload placement (answer to the research lead)
+- In labelling, the payload is a point mass at the **candidate's centre**: (mass, 0, 0) in the candidate frame,
+  passed through `simrun.label_conditions`.
+- Missions give only a station and a mass, with no deck position. So the labels **approximate the load as centred**:
+  there is no CoM offset and no host module. This differs from the generator episodes, which put the payload on a
+  host module's deck with an offset of ±0.08 m.
+- An off-centre load would shift the normal loads and could lower yaw and diagonal capability. The env truth is
+  therefore optimistic for off-centre loads. It is a mission-model assumption, not a measured property.
+- The 2 kg/module load rating is a separate hard constraint and is also an assumption.
+
+## Confirmatory exclusions (A-ENV)
+- conf-ID mission 1499 is excluded: ID uses missions 0–1,498. `scripts/env_score.py` drops it (`EXCLUDE`).
+- The secondary certifier `amortized_comp_envcal` is scored next to the primary through
+  `--lower amortized_comp_envcal=PATH` (same row format).
+
 ## Needs
 - **decision:** confirm the interface. Mission-level policies (ours / raw / nominal / biggest_body /
   greedy_feasible / oracle) go in `cfcap/decide/`. They need lb under conditions.
@@ -176,6 +191,10 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
   - The certificate is a mission-level simultaneous score: max over the geometry-feasible (c, s) of
     (point − truth)/scale.
   - It is cross-fitted **by building**, so that no building straddles the calibration and test sides.
-  - Any plan chosen from the certified mask then keeps P(a committed segment fails) ≤ α.
+  - (env, A-ENV 0dc1aec) For `amortized_comp` (the T1-cal compositional constant) the E_mis bars are **empirical
+    transfer bars, not a guarantee**: that constant was calibrated at nominal floor and payload conditions, and
+    missions evaluate segments under μ factors and payloads outside that distribution. Only the secondary
+    `amortized_comp_envcal` (q_env fitted on exploratory ID env missions) carries a finite-sample guarantee, and only
+    on ID missions, by exchangeability.
 - One request: expose `T_RECONF` as a module constant in `missions.py`, so the decision layer charges the same
   split/merge time (decide uses T_SPLIT_S = 30 s).

@@ -3,7 +3,7 @@ docs/board/paper.md §5b (claim, method, family, building, mission, shard, commi
 reconfig, time_s, status).
 
     python scripts/env_score.py RUN_DIR [RUN_DIR ...] --out results/env/confirmatory/missions_conf_env.csv.gz \
-        [--lower amortized_comp=PATH] [--lower raw=PATH] [--claim C-ENV]
+        [--lower amortized_comp=PATH] [--lower amortized_comp_envcal=PATH] [--lower raw=PATH] [--claim C-ENV]
 
 Truth is the per-segment ok of the rows (footprint, load and fixed-T1-reference rho_dec >= req). Plans are (a, b):
 body a drives phase 0, body b phase 1 (`cfcap.env.missions.plan_options`). A method certifies segment (c, s) iff
@@ -32,10 +32,11 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from cfcap.env import buildings as B  # noqa: E402
 
-T_RECONF = 30.0
+from cfcap.env.missions import T_RECONF  # noqa: E402
 FAMNAME = {f"conf-{x}": x for x in ("E-H1", "E-H2", "E-H3", "E-H4")}
 FAMNAME["conf-ID"] = "ID"
 CODE2FAM = {v: k for k, v in B.FAM_CODE.items()}
+EXCLUDE = {("conf-ID", 1499)}      # docs/CONFIRMATORY.md A-ENV: constructed before scoring; ID = conf-ID 0-1,498
 
 
 def load_rows(dirs):
@@ -140,6 +141,8 @@ def main():
     out = []
     for (fam, mis), g in df.groupby(["family", "mission"]):
         fname = CODE2FAM[int(fam)]
+        if (fname, int(mis)) in EXCLUDE:
+            continue
         for r in score_mission(g, lowers):
             b = int(g.building.iloc[0])
             out.append(dict(claim=str(g["claim"].iloc[0]) if "claim" in g else "exploratory", family=FAMNAME.get(fname, fname),

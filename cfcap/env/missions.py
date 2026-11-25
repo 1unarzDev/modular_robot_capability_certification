@@ -40,6 +40,7 @@ L = len(LEGS)
 LEG = {n: i for i, n in enumerate(LEGS)}
 CLEARANCE = 0.10                 # m, total (0.05 per side)
 LOAD_PER_MODULE_KG = 2.0
+T_RECONF = 30.0                  # s per split / merge (= decide T_SPLIT_S; scripts/env_score.py)
 MU_Q = 0.05
 V_REF = 0.27                     # m/s: speeds are drawn as fractions of ~ the nominal healthy achieved surge speed
 SIGMA_STRAIGHT = (0.3, 1.0)       # codex task library surge r: q05 0.22, median 0.55, q95 0.97
