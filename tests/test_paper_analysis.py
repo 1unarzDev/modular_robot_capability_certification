@@ -12,6 +12,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts/an
 import common as C  # noqa: E402
 import make_all  # noqa: E402
 import mock  # noqa: E402
+import t3_grid  # noqa: E402
 
 
 def frame(truth, lower, eid=None, point=None, scale=None):
@@ -197,3 +198,50 @@ def test_mock_refused_into_repo_paper(tmp_path):
     res = mock.write(tmp_path / "res")
     with pytest.raises(SystemExit):
         make_all.main(["--results", str(res), "--paper", str(C.PAPER)])
+
+
+def _cell(unsafe, cert, sec):
+    return dict(unsafe_commit=unsafe, cert_frac=cert, sec=sec)
+
+
+def test_t3_verdict_cases():
+    v = t3_grid.verdict
+    assert v(_cell(0.01, 0.9, 0.01), _cell(0.02, 0.8, 4.0)) == "amortized wins on T2 robustness and latency"
+    assert v(_cell(0.02, 0.8, 4.0), _cell(0.01, 0.9, 0.01)) == "SMC wins on both: drop 'amortized'"
+    t = v(_cell(0.02, 0.9, 0.01), _cell(0.01, 0.8, 4.0))
+    assert t.startswith("T2 tradeoff") and "amortized faster" in t
+    assert "SMC wins on both" not in v(_cell(0.02, 0.9, 2.0), _cell(0.01, 0.8, 1.0))
+    assert "tradeoff" in v(_cell(np.nan, 0.9, 1.0), _cell(0.01, 0.8, 2.0))
+
+
+def test_duplicate_method_across_files_raises(tmp_path):
+    res = mock.write(tmp_path / "res")
+    d = pd.read_csv(res / "baselines/paper/dec_baselines.csv")
+    d[d.method == "nominal"].to_csv(res / "baselines/paper/dec_trivial.csv", index=False)
+    with pytest.raises(C.SchemaError):
+        C.load("dec", res)
+
+
+def test_merge_rows_stay_out_of_t1_and_feed_t5(tmp_path):
+    res = mock.write(tmp_path / "res")
+    nums = make_all.main(["--results", str(res), "--paper", str(tmp_path / "paper")])
+    got = {k: v[0] for n in nums for k, v in n.items.items()}
+    t1 = pd.read_csv(tmp_path / "paper/tables/t1_certificate.csv")
+    assert "compositional_enum" not in set(t1.method)
+    for key in ("cfTFiveVerdict", "cfTFiveCertComp", "cfTFiveFliphiTOne", "cfFFourVerdict", "cfFFourGateUnsafeWorst",
+                "cfFFourUndomShare", "cfTOneEThreeVerdict", "cfTOneEThreeGainPi"):
+        assert "cfPH" not in got[key], key
+    assert (tmp_path / "paper/figs/f4_gate.pdf").stat().st_size > 1000
+    for t in ("t5_merge_defect", "t5_merge_cert", "t1_by_size"):
+        assert (tmp_path / f"paper/tables/{t}.tex").exists()
+
+
+def test_f4_kill_rule(tmp_path):
+    g = pd.DataFrame([dict(law=l, severity=s, probe="v2", certifier=c, stratum="decision", cert_frac_capable=0.9,
+                           unsafe_rate=0.005, ep_any_unsafe=0.02, n=100)
+                      for l, s in (("two_constant", 0), ("knee", 1), ("knee", 2)) for c in ("par", "pi", "gate")])
+    (tmp_path / "theory").mkdir()
+    g.to_csv(tmp_path / "theory/gate_cert.csv", index=False)
+    import f4_gate
+    n = f4_gate.run(tmp_path, tmp_path / "paper")
+    assert n.items[C.macro_name("f4.verdict")][0].startswith("E1 killed")

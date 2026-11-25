@@ -45,6 +45,7 @@ U_STAR = 0.01                   # matched unsafe-commit rate for "certified frac
 B_BOOT = 1000
 REL_BAND = 0.10                 # near-threshold half-width of the decision-relevant stratum (coordinator, 2026-11-25)
 STRATA = ("rel", "all")         # rel first: it is the headline
+ALWAYS_GO_LOWER = 1e12          # finite 'certify everything' bound for the constant-yes baseline
 LEGS = ("surge+", "surge-", "sway+", "sway-", "yaw+", "yaw-", "diag++", "diag+-", "diag-+", "diag--")
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -74,12 +75,39 @@ SCHEMAS = {
              "metric", "value", "status"),
         opt=("split",),
     ),
+    # E1 (theory): certificates under a degrading motor law, T0. stratum in {all, decision, undominated}
+    # ('decision' = this paper's decision-relevant stratum). severity 0 = the two-constant law.
+    "gate": dict(
+        glob="theory/gate_cert*.csv",
+        req=("law", "severity", "probe", "certifier", "stratum", "cert_frac_capable", "unsafe_rate",
+             "ep_any_unsafe", "n"),
+        opt=("status", "cf_lo", "cf_hi", "unsafe_lo", "unsafe_hi", "cert_share_undominated"),
+    ),
+    # E2 (stress): composition defect of never-co-assembled merges, per payload arm x plant x group; matches what
+    # scripts/stress_A4_merge.py analyze writes. group in {all, faulted, n_mod<=3, n_mod4-6}.
+    "merge": dict(
+        glob="stress/A4_merge.csv",
+        req=("arm", "plant", "group", "merges", "pairs", "decisions", "flip", "flip_lo", "flip_hi", "absd_q50",
+             "absd_q95", "absd_q99"),
+        opt=("status", "share_d05", "success", "kill", "miscov_pair", "cf_ustar"),
+    ),
     "lat": dict(
         glob="*/paper/latency*.csv*",
         req=("method", "shape", "n_wheels", "sec_per_decision", "hardware", "status"),
         opt=("n",),
     ),
 }
+
+
+MERGE_FILE = "dec_merge"         # E2's merge-only decision rows: scored in the merge table, kept out of T1-T3
+
+
+def split_merge_rows(dec: pd.DataFrame):
+    """(rows for T1-T3, rows from the E2 merge file)."""
+    if dec.empty or "_src" not in dec:
+        return dec, dec.iloc[:0]
+    m = dec["_src"].astype(str).str.contains(MERGE_FILE)
+    return dec[~m], dec[m]
 
 
 class SchemaError(ValueError):
@@ -108,7 +136,15 @@ def load(kind: str, res: pathlib.Path = RES) -> tuple[pd.DataFrame, list[str]]:
         srcs.append(rel(f))
     if not frames:
         return pd.DataFrame(columns=list(sc["req"]) + list(sc["opt"]) + ["_src"]), []
-    return pd.concat(frames, ignore_index=True), srcs
+    out = pd.concat(frames, ignore_index=True)
+    if kind == "dec":
+        # one (method, plant, split) block must come from one file, or rows would be double counted
+        # (E2's dec_merge file is a separate population with its own oracle; checked on its own)
+        grp = out["_src"].str.contains(MERGE_FILE)
+        n = out.groupby([grp, "method", "test_plant", "split"])["_src"].nunique()
+        if (n > 1).any():
+            raise SchemaError(f"dec: the same (method, test_plant, split) in several files: {list(n[n > 1].index)}")
+    return out, srcs
 
 
 def rel(p) -> str:
@@ -225,6 +261,13 @@ def matched_lower(d_fit: pd.DataFrame, d_eval: pd.DataFrame, u_star: float = U_S
     z, cap, _, _ = z_scores(d_fit, taus, stratum)
     z = np.where(np.isfinite(z), z, -np.inf)
     k = matched_margin(z[~cap], u_star)
+    if k == -math.inf:
+        # The unsafe budget does not bind (no incapable fit decisions, or u_star admits all of them). An unbounded
+        # margin would turn every lower bound into +inf, which the scorer refuses (codex audit, common.py:231).
+        # Use the smallest k that still certifies every finite fit decision; with no finite fit decision (no fit
+        # data) refuse everything.
+        fin = z[np.isfinite(z)]
+        k = float(fin.min()) if len(fin) else math.inf
     p, s = _point_scale(d_eval)
     with np.errstate(invalid="ignore"):
         lo = p - k * s
@@ -266,6 +309,7 @@ def boot_ratio(num: np.ndarray, den: np.ndarray, B: int = B_BOOT, seed: int = 0,
 
 
 def _ratio(a, b):
+    """a / b, undefined (NaN) when the denominator is 0 (never report 0/0 as 0)."""
     return float(a / b) if b else float("nan")
 
 
@@ -274,7 +318,8 @@ def _ratio(a, b):
 
 def trivial_methods(d: pd.DataFrame) -> pd.DataFrame:
     """For each (test_plant, split) block of the *first* method's rows (truth is shared across methods):
-      always_go     lower = +inf  (constant 'yes')
+      always_go     lower = ALWAYS_GO_LOWER, a huge FINITE bound (constant 'yes'); +inf would be refused by the
+                    scorer (codex audit, common.py:290)
       never_go      lower = -inf  (constant 'no'; cert_frac 0 by construction)
       metadata      point/scale = mean/sd of truth per (kind, cand_size, has_fault, leg), 2-fold cross-fit over
                     episodes (each fold predicted from the other), then the same simultaneous-free shift rule.
@@ -282,19 +327,24 @@ def trivial_methods(d: pd.DataFrame) -> pd.DataFrame:
     (grouped without has_fault), the honest 'shape only' baseline."""
     if d.empty:
         return d
+    have = set(d["method"].unique())   # a role's own export of a trivial method wins over ours
     first = d["method"].iloc[0]
     base = d[d["method"] == first].copy()
     out = []
     for name in ("always_go", "never_go"):
+        if name in have:
+            continue
         b = base.copy()
         b["method"], b["route"], b["posterior"] = name, "none", "none"
         b["point"] = np.nan
         b["scale"] = np.nan
-        b["lower"] = np.inf if name == "always_go" else -np.inf
+        b["lower"] = ALWAYS_GO_LOWER if name == "always_go" else -np.inf
         b["seconds"] = 0.0
         out.append(b)
     for name, keys in (("metadata", ["kind", "cand_size", "has_fault", "leg"]),
                        ("metadata_nf", ["kind", "cand_size", "leg"])):
+        if name in have:
+            continue
         parts = []
         for _, blk in base.groupby(["test_plant", "split"]):
             blk = blk.copy()
@@ -314,10 +364,12 @@ def trivial_methods(d: pd.DataFrame) -> pd.DataFrame:
             blk["point"], blk["scale"] = pt, sc
             blk["lower"] = np.nan   # no guarantee of its own; only the matched-u* column is reported
             parts.append(blk)
+        if not parts:
+            continue
         b = pd.concat(parts)
         b["method"], b["route"], b["posterior"], b["seconds"] = name, "none", "none", 0.0
         out.append(b)
-    return pd.concat(out, ignore_index=True)
+    return pd.concat(out, ignore_index=True) if out else d.iloc[:0]
 
 
 # ---------------------------------------------------------------------------------------------------------------

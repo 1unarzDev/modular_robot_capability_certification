@@ -38,6 +38,7 @@ def _table(R, methods, splits, stratum, srcs, st, path):
 def run(res, paper):
     N = C.Numbers("t2_heldout.py")
     dec, srcs = C.load("dec", res)
+    dec, _ = C.split_merge_rows(dec)   # E2 merge-only rows are scored in merge_table.py
     out, out_a = paper / "tables/t2_heldout.tex", paper / "tables/t2_heldout_all.tex"
     N.pct("t2.alpha", 1 - C.ALPHA, "scripts/analysis/common.py ALPHA", d=0)
     dec = dec[(dec["test_plant"] == "T1") & (dec["split"] != "cal")] if not dec.empty else dec

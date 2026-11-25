@@ -71,6 +71,47 @@ def write(out: pathlib.Path, seed: int = 0):
         p = out / role / "paper"
         p.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(rows).to_csv(p / f"dec_{role}.csv", index=False)
+    # E3 trivial / partial-identification baselines (results/baselines/paper/dec_trivial.csv)
+    rows = []
+    for m in (("detector_gated", "raw", "none", "T1", 0.08, np.nan), ("ghat_physics", "raw", "none", "T1", 0.06, np.nan),
+              ("copy_parent", "raw", "none", "T1", 0.12, np.nan),
+              ("dominance_pi", "simultaneous", "none", "T1", 0.04, 0.04)):
+        for plant, split in (("T1", "cal"), ("T1", "test"), ("T2", "test")):
+            r = np.random.default_rng(hash((m[0], plant, split)) % 2**32)
+            rows += dec_rows(r, *m, plant, split, eid0={"cal": 0, "test": 1000}[split])
+    pd.DataFrame(rows).to_csv(out / "baselines" / "paper" / "dec_trivial.csv", index=False)
+    # E2 merge decision rows (results/stress/paper/dec_merge.csv) and the composition defect table
+    rows = []
+    for m in (("compositional_enum", "compositional", "enum", "T1", 0.02, 0.02), ("oracle", "none", "oracle", "T1", 0.0, 1e-6)):
+        for plant, split in (("T1", "cal"), ("T1", "test"), ("T2", "test")):
+            r = np.random.default_rng(hash((m[0], plant, split, "merge")) % 2**32)
+            rr = dec_rows(r, *m, plant, split, n_ep=12, eid0={"cal": 5000, "test": 6000}[split])
+            for x in rr:
+                x["kind"] = "merge"
+            rows += rr
+    (out / "stress" / "paper").mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(out / "stress" / "paper" / "dec_merge.csv", index=False)
+    rows = []
+    for plant, f in (("T1", 0.004), ("T2", 0.009)):
+        for arm in ("P0", "P5"):
+            for grp in ("all", "faulted", "n_mod<=3", "n_mod4-6"):
+                rows.append(dict(arm=arm, plant=plant, group=grp, merges=3000, pairs=500, decisions=90000,
+                                 flip=f, flip_lo=f / 2, flip_hi=f * 1.6, absd_q50=0.0, absd_q95=0.01, absd_q99=0.03,
+                                 share_d05=0.002, success=True, kill=False, miscov_pair=0.06))
+    pd.DataFrame(rows).to_csv(out / "stress" / "A4_merge.csv", index=False)
+    # E1 gate certificate under a degrading motor law (results/theory/gate_cert.csv)
+    rows = []
+    for law, sevs in (("two_constant", (0,)), ("knee", (1, 2, 3))):
+        for sev in sevs:
+            for probe in ("v2", "v2+clamp"):
+                for cert, cf, u in (("par", 0.97, 0.003 + 0.02 * sev), ("pi", 0.70, 0.002), ("gate", 0.95 - 0.03 * sev, 0.004),
+                                    ("raw", 0.99, 0.01 + 0.03 * sev), ("nominal", 0.5, 0.2)):
+                    for stratum in ("all", "decision", "undominated"):
+                        rows.append(dict(law=law, severity=sev, probe=probe, certifier=cert, stratum=stratum,
+                                         cert_frac_capable=cf, unsafe_rate=u, ep_any_unsafe=min(1, 5 * u), n=20000,
+                                         cert_share_undominated=0.52 if cert == "par" else np.nan))
+    (out / "theory").mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(out / "theory" / "gate_cert.csv", index=False)
     # probe policies
     rows = []
     for pol, red, t in (("fixed_v2", 0.0, 12), ("random", 0.1, 20), ("eig", 0.3, 20), ("epig", 0.4, 20),

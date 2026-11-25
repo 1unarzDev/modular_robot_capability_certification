@@ -30,7 +30,7 @@ KEY = ("t4.resolved.evoi", "t4.resolved.epig", "t4.unsafe.evoi", "t4.cert.evoi",
 def _ratio_ci(d, num, den):
     if num not in d or d[num].isna().all():
         return np.nan, (np.nan, np.nan)
-    return d[num].sum() / max(d[den].sum(), 1), C.boot_ratio(d[num].to_numpy(float), d[den].to_numpy(float))
+    return C._ratio(d[num].sum(), d[den].sum()), C.boot_ratio(d[num].to_numpy(float), d[den].to_numpy(float))
 
 
 def run(res, paper):
@@ -57,8 +57,8 @@ def run(res, paper):
         uns_r, uns_r_ci = _ratio_ci(d, "n_unsafe_rel", "n_incapable_rel")
         rows.append(dict(plant=plant, policy=pol, n_ep=len(d), status=C.status_of(d),
                          cert=cert_r, unsafe=uns_r, unsafe_ci=uns_r_ci,
-                         cert_all=d.n_certified.sum() / max(d.n_capable.sum(), 1),
-                         unsafe_all=d.n_unsafe.sum() / max(d.n_incapable.sum(), 1),
+                         cert_all=C._ratio(d.n_certified.sum(), d.n_capable.sum()),
+                         unsafe_all=C._ratio(d.n_unsafe.sum(), d.n_incapable.sum()),
                          resolved=res_, n_amb=amb_b, t=d.probe_time_s.mean(),
                          per_min=(res_ / extra_min) if extra_min and extra_min > 0 and np.isfinite(res_) else np.nan,
                          utility=d.utility.mean(), abstain=(d.action == "abstain").mean()))

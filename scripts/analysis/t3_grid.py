@@ -19,9 +19,41 @@ ROUTE = "simultaneous"
 POST = (("smc", "GPU-SMC (T1 likelihood)"), ("amortized", "Amortized (wide DR)"))
 
 
+def _dominates(x, y):
+    """x is at least as safe AND at least as useful as y on T2 (NaN never dominates)."""
+    return bool(x["unsafe_commit"] <= y["unsafe_commit"] and x["cert_frac"] >= y["cert_frac"])
+
+
+def verdict(a2, s2) -> str:
+    """Robustness = Pareto dominance on (T2 unsafe-commit, T2 certified share); latency = median s/decision.
+    Failing to dominate is NOT reverse dominance (codex audit, t3_grid.py:85): when neither posterior dominates the
+    other, the robustness result is a tradeoff, and 'SMC wins on both' needs SMC to dominate AND be faster."""
+    a_rob, s_rob = _dominates(a2, s2), _dominates(s2, a2)
+    if a_rob and s_rob:
+        rob = "tie on T2 robustness"
+    elif a_rob:
+        rob = "amortized more robust on T2"
+    elif s_rob:
+        rob = "SMC more robust on T2"
+    else:
+        more_useful = "amortized" if a2["cert_frac"] > s2["cert_frac"] else "SMC"
+        safer = "amortized" if a2["unsafe_commit"] < s2["unsafe_commit"] else "SMC"
+        rob = f"T2 tradeoff ({more_useful} certifies more, {safer} is safer)"
+    fin = np.isfinite(a2["sec"]) and np.isfinite(s2["sec"])
+    a_fast = bool(fin and a2["sec"] < s2["sec"])
+    s_fast = bool(fin and s2["sec"] < a2["sec"])
+    if a_rob and not s_rob and a_fast:
+        return "amortized wins on T2 robustness and latency"
+    if s_rob and not a_rob and s_fast:
+        return "SMC wins on both: drop 'amortized'"
+    lat = "amortized faster" if a_fast else "SMC faster" if s_fast else "latency tie or unknown"
+    return f"{rob}; {lat}"
+
+
 def run(res, paper):
     N = C.Numbers("t3_grid.py")
     dec, srcs = C.load("dec", res)
+    dec, _ = C.split_merge_rows(dec)   # E2 merge-only rows are scored in merge_table.py
     out = paper / "tables/t3_grid.tex"
     if not dec.empty:
         dec = dec[(dec.split == "test") & dec.posterior.isin([p for p, _ in POST]) & (dec.route == ROUTE)]
@@ -78,12 +110,7 @@ def run(res, paper):
     # verdict per PLAN §2.4, mechanical, on the decision-relevant stratum
     a2, s2 = cell.get(("amortized", "T2", "rel")), cell.get(("smc", "T2", "rel"))
     if a2 and s2:
-        rob = a2["unsafe_commit"] <= s2["unsafe_commit"] and a2["cert_frac"] >= s2["cert_frac"]
-        fast = bool(np.isfinite(a2["sec"]) and np.isfinite(s2["sec"]) and a2["sec"] < s2["sec"])
-        v = ("amortized wins on T2 robustness and latency" if rob and fast else
-             "amortized wins on latency only" if fast else
-             "amortized wins on T2 robustness only" if rob else "SMC wins on both: drop 'amortized'")
-        N.set("t3.verdict", v, srcs, st)
+        N.set("t3.verdict", verdict(a2, s2), srcs, st)
     else:
         N.ph("t3.verdict")
     return N
