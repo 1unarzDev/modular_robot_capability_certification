@@ -250,3 +250,13 @@ def test_merge_baselines_empty_refuse():
     for f in compose.METHODS.values():
         p = f([], [])
         assert p.point.shape == (0, base.L) and "refuse" in p.info
+
+
+def test_smc_task_explicit_ids():
+    import argparse
+    from cfcap.baselines import smc
+    p = argparse.ArgumentParser()
+    smc._args(p)
+    a = p.parse_args(["--ids", "5,9,40,41,77", "--per-unit", "2"])
+    got = [j for k in range(2) for u in smc._units(a, k, 2) for j in smc._episode_ids(a, u)]
+    assert got == [5, 9, 40, 41, 77]

@@ -434,9 +434,48 @@ def cmd_from_runs(a):
     print(tm.round(3).to_string(index=False))
 
 
+def cmd_smc_sweep(a):
+    """Accuracy vs particles of nuisance-SMC on the sweep episodes (methods nuisance_smc_p<N>): per setting the
+    s/episode, truth retention (true mode vector among the propagated draws), posterior share on the true mode vector,
+    raw 5 % quantile coverage of the truth (all entries, and faulted-or-near-0.8 entries), and the mean |point -
+    point_full| against the largest setting. Picks the cheapest setting within 1 pt of the largest on retention and
+    coverage. -> results/baselines/smc_particle_sweep.csv"""
+    import pandas as pd
+    df = load_runs(a.runs)
+    df = df[df.method.str.startswith("nuisance_smc_p")]
+    if df.empty:
+        raise SystemExit("no nuisance_smc_p<N> rows")
+    df = df.assign(particles=df.method.str[len("nuisance_smc_p"):].astype(int))
+    full = df.particles.max()
+    ref = df[df.particles == full].set_index(["split", "eid", "cand", "leg"])["point"]
+    rows = []
+    for n_p, d in df.groupby("particles"):
+        ep = d.groupby(["split", "eid"]).first()
+        rel = (d.has_fault > 0.5) | ((d.truth - 0.8).abs() < 0.1)
+        fin = np.isfinite(d.lower) & np.isfinite(d.truth)
+        cov = (d.lower <= d.truth)[fin]
+        j = d.set_index(["split", "eid", "cand", "leg"])["point"]
+        common = j.index.intersection(ref.index)
+        rows.append(dict(particles=int(n_p), n_ep=len(ep), s_per_episode_median=float(ep.seconds.median()),
+                         s_per_episode_mean=float(ep.seconds.mean()), sims_median=float(ep.sims.median()),
+                         truth_retained=float(ep.truth_retained.mean()), mass_true=float(ep.mass_true.mean()),
+                         truth_in_support=float(ep.truth_in_support.mean()),
+                         q05_coverage=float(cov.mean()), q05_coverage_relevant=float((d.lower <= d.truth)[fin & rel].mean()),
+                         mean_abs_point_vs_full=float((j[common] - ref[common]).abs().mean()) if len(common) else np.nan,
+                         peak_vram_gb=float(d.peak_vram_gb.max())))
+    t = pd.DataFrame(rows).sort_values("particles")
+    f = t[t.particles == full].iloc[0]
+    ok = t[(t.truth_retained >= f.truth_retained - 0.01) & (t.q05_coverage >= f.q05_coverage - 0.01)
+           & (t.q05_coverage_relevant >= f.q05_coverage_relevant - 0.01)]
+    t["chosen"] = t.particles == ok.sort_values("s_per_episode_mean").particles.iloc[0]
+    RES.mkdir(parents=True, exist_ok=True)
+    t.to_csv(RES / "smc_particle_sweep.csv", index=False)
+    print(t.round(4).to_string(index=False))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export", "from-runs"])
+    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export", "from-runs", "smc-sweep"])
     ap.add_argument("--split", default="pilot")
     ap.add_argument("--runs", default="~/.cache/vast-out")
     ap.add_argument("--suffix", default="")
@@ -451,7 +490,7 @@ def main():
     a = ap.parse_args()
     if a.cmd == "run" and a.per_shape == 100:
         a.per_shape = 0
-    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export, **{"from-runs": cmd_from_runs})[a.cmd](a)
+    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export, **{"from-runs": cmd_from_runs, "smc-sweep": cmd_smc_sweep})[a.cmd](a)
 
 
 if __name__ == "__main__":

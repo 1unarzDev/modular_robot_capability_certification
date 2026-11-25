@@ -38,6 +38,7 @@ def _args(p):
     p.add_argument("--split", default="test")
     p.add_argument("--episodes", type=int, default=500, help="episodes in the split (all shards)")
     p.add_argument("--index0", type=int, default=0, help="first episode index of the split")
+    p.add_argument("--ids", default="", help="explicit comma list of episode indices (overrides --episodes/--index0)")
     p.add_argument("--per-unit", type=int, default=2)
     p.add_argument("--status", default="exploratory", choices=["exploratory", "confirmatory"])
     p.add_argument("--particles", type=int, default=256, help="SMC particles (cfcap.nuisance_post.smc)")
@@ -48,15 +49,29 @@ def _args(p):
     p.add_argument("--n-prop", type=int, default=32, help="particles pushed to the candidates")
     p.add_argument("--with-enum", action="store_true", help="also the known-nuisance exact enumeration")
     p.add_argument("--methods", default="nuisance_smc",
-                   help="comma list of nuisance_smc, enum_known, capxfer, rls_interval, nominal, oracle, detector_gated, "
+                   help="comma list of nuisance_smc (nuisance_smc_p<N>: N particles), enum_known, capxfer, rls_interval, nominal, oracle, detector_gated, "
                         "physics_gains, copy_parent, weakest_member")
     p.add_argument("--capxfer-dir", default=None,
                    help="dir with capxfer rung_v2 models/ and sim_probs_<plate>.csv (default: the local cache)")
 
 
+def _id_list(a):
+    return [int(x) for x in a.ids.split(",")] if a.ids else None
+
+
 def _units(a, shard, n_shards):
+    ids = _id_list(a)
+    if ids is not None:                                # explicit episode ids: units are chunks of list positions
+        r = shard_range(len(ids), shard, n_shards)
+        return chunk_units(f"{a.split}-pos", r, a.per_unit)
     r = shard_range(a.episodes, shard, n_shards)
     return chunk_units(a.split, range(a.index0 + r.start, a.index0 + r.stop), a.per_unit)
+
+
+def _episode_ids(a, unit):
+    r = parse_chunk(unit)
+    ids = _id_list(a)
+    return [ids[j] for j in r] if ids is not None else list(r)
 
 
 def episode(a, j):
@@ -121,10 +136,10 @@ def _baseline(name, a):
             from cfcap.baselines import trivial as Tv
             _B[name] = dict(detector_gated=Tv.DetectorGated, physics_gains=Tv.PhysicsGains,
                             copy_parent=Tv.CopyParent, weakest_member=Tv.WeakestMember)[name]()
-        elif name == "nuisance_smc":
+        elif name == "nuisance_smc" or name.startswith("nuisance_smc_p"):
             from cfcap.baselines.bayes import NuisanceSMC as K
-            _B[name] = K(particles=a.particles, max_stages=a.max_stages, n_prop=a.n_prop,
-                         wall_budget_s=a.wall_budget_s)
+            n_p = int(name[len("nuisance_smc_p"):]) if name.startswith("nuisance_smc_p") else a.particles
+            _B[name] = K(particles=n_p, max_stages=a.max_stages, n_prop=a.n_prop, wall_budget_s=a.wall_budget_s)
         else:
             raise ValueError(name)
     return _B[name]
@@ -137,7 +152,7 @@ def _one(ep, a):
     parts = []
     for name in methods:
         b = _baseline(name, a)
-        if name == "nuisance_smc":
+        if name.startswith("nuisance_smc"):
             b.seed = unit_seed("smc", a.split, ep.eid) % (1 << 31)
         cuda = torch.cuda.is_available()
         if cuda:
@@ -147,7 +162,8 @@ def _one(ep, a):
         if cuda:
             torch.cuda.synchronize()
         sec = time.perf_counter() - t0
-        rows = dec_rows(ep, name, POSTERIOR[name], p, sec, a.split, a.status,
+        rows = dec_rows(ep, name, POSTERIOR.get(name, "smc" if name.startswith("nuisance_smc") else "none"), p, sec,
+                        a.split, a.status,
                         dict(sims=p.info.get("n_sims", 0), beta=p.info.get("beta", np.nan),
                              stages=p.info.get("n_stages", 0), mass_true=p.info.get("mass_true", np.nan),
                              truth_in_support=p.info.get("truth_in_support", np.nan),
@@ -164,15 +180,15 @@ def _one(ep, a):
 
 def _run(unit, ctx):
     a = ctx.args
-    r = parse_chunk(unit)
+    js = _episode_ids(a, unit)
     st = ctx.load_state() or {"done": {}}
-    for j in r:
+    for n_done, j in enumerate(js):
         if j in st["done"]:
             continue
         if ctx.should_stop():
             ctx.save_state(st)
             raise Stop()
-        ctx.progress((j - r.start) / max(len(r), 1), phase=f"smc episode {j}")
+        ctx.progress(n_done / max(len(js), 1), phase=f"smc episode {j}")
         st["done"][j] = _one(episode(a, j), a)
         ctx.save_state(st)
     parts = [st["done"][j] for j in sorted(st["done"])]
@@ -192,7 +208,8 @@ def _summary(recs, a):
     n = sum(x.get("episodes", 0) for x in m)
     w = lambda k: sum(x.get(k, 0) * x.get("episodes", 0) for x in m) / max(n, 1)
     out = {"smc.episodes": n, "smc.peak_vram_gb": max([x.get("peak_vram_gb", 0) for x in m] or [0])}
-    for meth in POSTERIOR:
+    names = sorted({k[:-len("_s_mean")] for x in m for k in x if k.endswith("_s_mean")})
+    for meth in names:
         if any(f"{meth}_s_mean" in x for x in m):
             out[f"smc.{meth}.s_per_episode_mean"] = w(f"{meth}_s_mean")
             out[f"smc.{meth}.sims_per_episode_mean"] = w(f"{meth}_sims_mean")
