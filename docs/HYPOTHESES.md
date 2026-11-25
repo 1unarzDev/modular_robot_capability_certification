@@ -152,3 +152,19 @@ Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and 
 - The 43 weak-wheel coupling trials have no faulted lone counterpart.
 - **Decision:** real faulted square→single pairs come from the 11-24 field collection (capxfer B1/B2, cfcap's derived
   view) once it lands. The corpus allows at most a healthy cross-layout no-false-alarm check, which is low priority.
+
+**Update 11-25 ~20:30Z (stress, docs/board/stress.md):**
+- **E2 merges, SUPPORTED at the decision level.** Flips: T1 0.08–0.11 %, T2 0.12–0.13 % (500 pairs/arm), under the
+  bars. 4–6-module merges flip ~0.01 %.
+  - BUT per-pair coverage does not transfer: T2 miscov_pair 0.43–0.47 vs α=0.1. The T1 margin (~0.011) is thinner
+    than the T2 gap (p95 0.017).
+  - Honest framing: the guarantee is relative to the calibration plant. Next: a size-aware misspecification margin
+    (Thm 5′ δ_M) estimated from T1 perturbations.
+- **Motor-law misspecification (T2 `all+motor`):** flips are singles 4.65 %, pairs 2.57 %, ≥3 modules ≤0.32 %, and
+  only faulted candidates flip.
+  - Square yaw shifts > 0.05 in 21 % of decisions (L3 13.5 %): theory's predicted extrapolation risk is real, but it
+    rarely flips.
+  - Clamp misfit AUC: 0.82 pooled vs v2 0.55. On ≥3-module yaw it is 0.27–0.33, below chance: neither probe visits
+    the child's yaw rate.
+  - Prediction under test now: a child-rate yaw probe ≥ 0.75 AUC on those, which would confirm "the theory names the
+    probe".
