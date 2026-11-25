@@ -3,6 +3,10 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 22:00Z: **free workers enabled.**
+  - θ JSONs committed to `data/theta/`, and `make_jobs.py --any-worker` added (2c3b88c, tests 29 pass). It drops "rented" and the θ push, and takes θ from `$S/cfcap/data/theta`, else the capxfer stage.
+  - The queued models-b1 (12) and models-het (4) jobs are cancelled and resubmitted as **cfcap-models-b1w** and **cfcap-models-hetw**: same refs and lineages, priority 30 and 67.
+  - b2r2, conf2, T2, N4 and smc-small need staged inputs (capxfer_v2, crane_ml, a4_e2), so they stay rented. models_eval2 is emitted with --any-worker only if its weights input can be avoided.
 - **21:55Z: #19 cfcap-nuis2 t0-a2 (free lane) tripped: a code bug.** `cfcap/t0/qs.py:147 solve` does `np.concatenate` on an empty list when no hypothesis is alive (`stagea.run_episode` line 147). It is deterministic for shards s005 and s009, and 8 of 10 shards are done. The nuisance role is asked to fix it. Ops resubmits the two shards afterwards with `--resubmit-as`. GPU nuis-main.s000 is unaffected.
 - **21:50Z: #18 b2r tripped on CUDA OOM.** This is a spec bug: the cheap-cal jobs peak at 18.8 GB but declared 10 GB, so they were packed beside other jobs on 24/16 GB cards. Fix: queued b2r (36) and baselines-conf (85) are cancelled and resubmitted unchanged except for `vram_gb` 22, as **cfcap-baselines-b2r2** and **cfcap-baselines-conf2** (same commits and lineages). smc-small (vram 16) is untouched; ops watches it.
 - 21:40Z: **cfcap-stress-n4 submitted at top priority (5)**: 19 jobs + canary, 4.8 box-h, b08ac71, inputs include stage/a4_e2. Ops tells stress as soon as its outputs land.

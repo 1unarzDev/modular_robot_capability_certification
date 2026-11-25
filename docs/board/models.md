@@ -1,5 +1,8 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 22:00Z) the queued models-b1 shards and all of models-het are now cfcap-models-b1w / cfcap-models-hetw (any worker: paxton/harmony can run them). On free workers, outputs come back as run artifacts (`$CRANE_RUN_DIR/artifacts/out`), not ~/.cache/vast-out, so models_export must read both.
+
+
 **Status:** the pilot is done (own T1 data, ρ_rel label, local 4070).
 - Stage B training, `scripts/campaigns/models_b1.json`: 48 jobs plus a canary, 43.2 box-h, $7.78. Emitted and
   validated; not submitted yet.
