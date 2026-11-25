@@ -100,6 +100,13 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **21:58Z H3 replication: SUPPORTED on 3 disjoint seed sets** (decision envpost / n1robust / n1bK).
+  - T4 must headline task-level metrics. EVOI's lower candidate certified share (73.8 vs 84.0 %) lies entirely in
+    episodes where it skipped a probe that did not matter for the task (342/342 pairs). It misses value in 13/585
+    episodes.
+- **21:58Z H11 extended: SUPPORTED** (decision NEXT-1b). A conformal screen calibrated on the knee family removes the
+  empty-screen failure, which was 30 % of episodes (75 % at severity 3). It is in-family; held-out-severity
+  calibration is still to do.
 - **21:35Z H3 (probing) in regime 2, T0: SUPPORTED** (decision board pre-registration edfbb9f, seeds 2100–2699, 583
   episodes; `results/decision/envpost_*`).
   - EVOI matches always-clamp usefulness at 18 % of the probe time, and beats the dominance trigger by 3.3 s

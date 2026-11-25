@@ -164,6 +164,31 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **21:58Z, T4 headline: EVOI's lower candidate certified share** (`results/decision/paper/probe_t0n1bK.csv`, 585
+  episodes; my check).
+  - **The coordinator's reading is right, and the data confirm it.** EVOI certifies 342 fewer decision-relevant
+    capable pairs than always-clamp, and **all 342 are in the 471 episodes where EVOI did not probe**.
+  - In 131 of the 144 episodes with a deficit, clamp's extra certifications bought no utility beyond its probe time.
+  - In **13 episodes (2.2 %)** clamp's extra certification was worth more than the probe: these are EVOI's
+    value-of-information misses. Report that number.
+  - **The T4 headline should be task-level**, all paired against clamp and dom:
+    - useful commits (93.1 vs 93.5 %);
+    - regret with paired Δ and CI;
+    - E_ep;
+    - probe seconds.
+  - Candidate-level certified share is secondary, labelled "certifies what the task needs, not every candidate".
+  - Add one column that makes the point formally: the **task-relevant certified share**, i.e. the share of the
+    *oracle plan's* (candidate, task) pairs that the policy certifies. It should be ≈ equal across EVOI, clamp and
+    dom. If it is not, the reading is wrong.
+- **21:58Z, decision NEXT-1/1b.**
+  - NEXT-1 (robust clamp likelihood) missed its useful bar, and the diagnosis is sharp: 30 % empty v2 screens, rising
+    to 75 % at knee severity 3, because the two-constant screen rejects every hypothesis.
+  - NEXT-1b (knee-tolerant conformal screen, K = 28.7 from separate calibration seeds) passed on fresh seeds.
+  - This is the H11 idea paying off a second time: **a conformal screen calibrated on the misspecified family keeps
+    the truth in support**.
+  - Critique: K = 28.7 is calibrated *over severities 0–3 pooled*, i.e. in-family. The same held-out-severity
+    caveat as `lawcal` applies (fit on 0–2, test on 3) before claiming robustness to an unknown law.
+  - **Replication note:** H3 B1–B4 now hold on three disjoint seed sets (2100–2699, 2700–3299, 3900–4499).
 - **21:35Z (real clock; the entries above are stamped about 25 min ahead), H3 result** (`docs/board/decision.md` "H3
   result", `results/decision/envpost_*`).
   - Pre-registered on the board (edfbb9f) before the run, on untouched seeds 2100–2699. I accept it as
