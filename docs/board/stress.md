@@ -400,3 +400,35 @@ The bar was written before the run.
   - flips on dominated surge/sway ≤ 0.5 %.
   - If both hold, regime 2 exists in T2 and the gate experiment moves to T2.
   - If undominated flips stay ≤ 1 %, H12 is FALSIFIED: a robustness result.
+
+## N3 results: fixed-reference relabelling (exploratory; `scripts/stress_N3.py`; `results/stress/N3_flips.csv`, `N3_pooled.csv`, `N3_merge.csv`, `N3_verdict.json`)
+Flips T1 → T2 by dominance class, with an episode-bootstrap 95 % CI:
+
+| set | condition | label | undominated | dominated (surge/sway) | other (yaw of single/pair) |
+|---|---|---|---|---|---|
+| A5m | all+motor | own | 1.09 % [0.80, 1.42] | 1.74 % [1.26, 2.26] | 3.44 % |
+| A5m | all+motor | **fixed** | **2.76 % [2.21, 3.35]** | 1.82 % [1.30, 2.38] | 4.19 % |
+| A5m | motor | fixed | 2.29 % [1.78, 2.78] | 0.86 % [0.56, 1.19] | 3.56 % |
+| A5m | all | fixed | 0.71 % | 1.60 % | 3.31 % |
+| A5y (≥ 3 modules) | all+motor | own | 0.36 % | 0.00 % | |
+| A5y (≥ 3 modules) | all+motor | **fixed** | **2.40 % [1.75, 3.15]** | **0.00 %** | |
+
+- **H12 against the pre-written pooled bar.** With the fixed reference under all+motor, undominated flips are
+  2.76 % (CI > 1 %): met. Dominated flips are 1.82 % (> 0.5 %): **not met**. So H12 is neither supported nor
+  falsified as written.
+  - The dominated flips are singles and pairs only (single axis 6.1 %, pair axis 3.1 %). They are already there
+    without the motor law (`all` dominated 1.60 %) and come from the per-wheel friction scatter and the kernel change.
+  - With ≥ 3-module children the dominated flips are **0 %** in every set.
+- **Within ≥ 3-module children the H12 pattern holds exactly** (A5m + A5y, all+motor, fixed reference):
+  - axis flips 0 %;
+  - yaw flips 3.0–6.75 % (L3 3.0–4.0 %, square 5.6–6.75 %, 2x3 3.75 %), diagonals 0.75–1.75 %;
+  - 48–94 % of their undominated decisions shift by more than 0.05, against ≤ 0.9 % on axis legs.
+- **The confound was real.** The own-plant reference absorbed most of the motor-law effect: square-yaw flips go from
+  0.38 % (own) to 6.5 % (fixed).
+- Regime 2 (silent extrapolation through the motor law) **exists in T2 for ≥ 3-module yaw and diagonals**, so the gate
+  experiment can move to T2 on that stratum. For singles and pairs the shift is not about extrapolation: their
+  dominated legs flip too.
+- **E2 merges with the fixed reference:** flips 0.16 % (P0) / 0.17 % (P5), share > 0.05 0.69 % / 0.58 %, mean offset
+  −0.021. Still plug-in.
+- **For A5y:** the misfit AUCs above were computed against own-reference positives. Re-scoring them on
+  fixed-reference positives is part of N5.

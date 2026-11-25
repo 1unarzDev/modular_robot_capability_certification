@@ -1,0 +1,58 @@
+{
+ "A5m/own": {
+  "undominated": 0.010865384615384615,
+  "undominated_ci": [
+   0.007979852603369066,
+   0.014189379723947985
+  ],
+  "dominated": 0.017375,
+  "dominated_ci": [
+   0.012625,
+   0.022625
+  ],
+  "H12_supported": false,
+  "H12_falsified": false
+ },
+ "A5m/fixed": {
+  "undominated": 0.027596153846153847,
+  "undominated_ci": [
+   0.0221056109037374,
+   0.03354875923923043
+  ],
+  "dominated": 0.01825,
+  "dominated_ci": [
+   0.013,
+   0.023753124999999996
+  ],
+  "H12_supported": false,
+  "H12_falsified": false
+ },
+ "A5m+A5y/own": {
+  "undominated": 0.007897727272727273,
+  "undominated_ci": [
+   0.005936194397977023,
+   0.010099978488997952
+  ],
+  "dominated": 0.010859375,
+  "dominated_ci": [
+   0.007888671875,
+   0.013828125
+  ],
+  "H12_supported": false,
+  "H12_falsified": false
+ },
+ "A5m+A5y/fixed": {
+  "undominated": 0.026136363636363635,
+  "undominated_ci": [
+   0.021933627682770927,
+   0.03026706672154617
+  ],
+  "dominated": 0.01140625,
+  "dominated_ci": [
+   0.00828125,
+   0.01453125
+  ],
+  "H12_supported": false,
+  "H12_falsified": false
+ }
+}
