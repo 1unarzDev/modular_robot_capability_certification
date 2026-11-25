@@ -22,6 +22,7 @@ import itertools
 
 import numpy as np
 
+from cfcap.t1 import params as _P  # noqa: F401  (registers the yaml stub before capxfer.assembly loads)
 from cfcap.t0 import qs
 from cfcap.t1 import capability as cap
 from cfcap.t1 import plant

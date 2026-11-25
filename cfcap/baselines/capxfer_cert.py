@@ -5,7 +5,7 @@ What is capxfer's, unchanged (imported read-only):
   * the v2 TCN self-model ensemble (rung_v2, 3 seeds, plated) run on the parent's v2 trial: per-wheel class
     probabilities p (ok/weak/coast/brake) and weak-gain estimate g_hat (trial = mean log-prob over motion windows, as
     capxfer `trial_probs`; the batched feature path is the one of scripts/stageA1_hidden.py);
-  * Mondrian per-class conformal thresholds on 1 - p_c (`corpus.scoring.mondrian_thresholds`) and the g interval
+  * Mondrian per-class conformal thresholds on 1 - p_c (`corpus.scoring.mondrian_thresholds`, local copy `SC`) and the g interval
     g_lo = g_hat - dg (`evaluate.g_delta`), both fitted on capxfer's own simulated calibration split
     (rung_v2/sim_probs_plated.csv, part = calib);
   * the empty-set convention: an empty projected set gives lower = -inf (refuse).
@@ -37,12 +37,34 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 
-from capxfer.corpus import scoring as SC
 from cfcap.t1 import capability as cap
 from cfcap.t1 import params as P
 from cfcap.t1 import plant
 
 from .base import L, Baseline, Prediction
+
+class SC:
+    """capxfer corpus.scoring's three conformal helpers, copied verbatim in logic (that module imports scipy at load
+    time, which the rented torch image lacks): split-conformal quantile, Mondrian per-class thresholds, wheel sets."""
+
+    @staticmethod
+    def conformal_quantile(scores, alpha):
+        s = np.sort(np.asarray(scores, float))
+        n = len(s)
+        k = math.ceil((n + 1) * (1 - alpha))
+        if n == 0 or k > n:
+            return np.inf
+        return float(s[k - 1])
+
+    @staticmethod
+    def mondrian_thresholds(probs, labels, alpha, n_classes=4):
+        probs, labels = np.asarray(probs, float), np.asarray(labels)
+        return np.array([SC.conformal_quantile(1 - probs[labels == c, c], alpha) for c in range(n_classes)])
+
+    @staticmethod
+    def wheel_sets(probs, q):
+        return (1 - np.asarray(probs, float)) <= np.asarray(q, float)[None, :]
+
 
 BASE = pathlib.Path.home() / ".cache/modular-runs/2026-11/capxfer/rung_v2"
 P_COLS = ["p_ok", "p_weak", "p_coast", "p_brake"]

@@ -5,6 +5,8 @@
   python scripts/baselines_pilot.py ingest --runs DIR                 # rented `smc` runner outputs -> pred_*.pt
   python scripts/baselines_pilot.py eval                              # -> results/baselines/*.csv
   python scripts/baselines_pilot.py export                            # -> results/baselines/paper/ (paper contract)
+  python scripts/baselines_pilot.py from-runs --runs ~/.cache/vast-out --hardware "RTX 3090"   # rented smc outputs
+                                                                      #  -> pilot table + paper contract files
 
 Episodes: parents pair / square / 2x3 (plated, heterogeneity HET_FULL, 0-2 faults), candidates = every connected
 proper child, labels = rho_dec (T1 closed-loop rho over the nominal healthy reference) on 10 decision legs (cfcap.baselines.episode).
@@ -242,9 +244,99 @@ def cmd_eval(a):
     print(pd.DataFrame(timing).round(4).to_string(index=False))
 
 
+DEC_COLS = ("method", "route", "posterior", "train", "test_plant", "split", "status", "eid", "shape", "cand", "kind",
+            "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower", "alpha", "seconds")
+
+
+def load_runs(runs):
+    """Every dec-schema unit file (runner task `smc`) under `runs` -> one DataFrame (duplicates dropped)."""
+    import glob
+    import pandas as pd
+    fs = sorted(glob.glob(os.path.join(os.path.expanduser(runs), "**", "units", "*.npz"), recursive=True))
+    parts = []
+    for f in fs:
+        z = np.load(f)
+        if "method" in z:
+            parts.append(pd.DataFrame({k: z[k] for k in z.files}))
+    if not parts:
+        raise SystemExit(f"no smc unit files under {runs}")
+    df = pd.concat(parts, ignore_index=True)
+    return df.drop_duplicates(["method", "split", "eid", "cand", "leg"], keep="last")
+
+
+def cmd_from_runs(a):
+    """Pilot table, latency and the paper contract files straight from rented `smc` outputs:
+    results/baselines/pilot_metrics.csv, pilot_timing.csv, paper/dec_baselines.csv.gz, paper/latency_baselines.csv.
+    Simultaneous route: 2-fold cross-fit SimultaneousLower (alpha 0.1) within the split, folds alternating by eid
+    within each parent shape (the pilot bank has no separate cal split; exploratory)."""
+    import pandas as pd
+    df = load_runs(a.runs)
+    df = df[df.split == a.split]
+    RES.mkdir(parents=True, exist_ok=True)
+    (RES / "paper").mkdir(parents=True, exist_ok=True)
+    rows, timing, dec = [], [], []
+    for meth, d in df.groupby("method"):
+        eids = np.sort(d.eid.unique())
+        g = {e: x.sort_values(["cand", "leg"]) for e, x in d.groupby("eid")}
+        W = max(len(x) for x in g.values())
+        P_ = lambda col: base.pad([g[e][col].to_numpy(float) for e in eids], W)
+        truth, point, scale, raw = P_("truth"), P_("point"), P_("scale"), P_("lower")
+        hf = P_("has_fault")
+        shapes = np.array([g[e]["shape"].iloc[0] for e in eids])
+        folds = np.zeros(len(eids), int)
+        for s_ in np.unique(shapes):
+            idx = np.flatnonzero(shapes == s_)
+            folds[idx] = np.arange(len(idx)) % 2
+        variants = {}
+        if meth == "capxfer":
+            variants["capxfer"] = base.cross_fit_lower(raw, np.ones_like(raw), truth, folds, ALPHA)
+            variants["capxfer_raw"] = (raw, {})
+        else:
+            variants[meth] = base.cross_fit_lower(point, scale, truth, folds, ALPHA)
+            if meth in ("enum_known", "nuisance_smc"):
+                variants[meth + "_q05raw"] = (raw, {})
+        for vname, (lower, q) in variants.items():
+            for shp in ("all",) + tuple(np.unique(shapes)):
+                m = np.ones(len(eids), bool) if shp == "all" else shapes == shp
+                for r in base.metrics(lower, truth, hf, ep_mask=m):
+                    rows.append(dict(baseline=vname, shape=shp, alpha=ALPHA, q_fold0=q.get(0, np.nan),
+                                     q_fold1=q.get(1, np.nan), **r))
+            if vname.endswith("_q05raw"):
+                continue
+            route = "raw" if vname == "capxfer_raw" else "simultaneous"
+            for i, e in enumerate(eids):
+                x = g[e].copy()
+                x["method"], x["route"], x["lower"] = vname, route, lower[i, :len(x)]
+                if meth == "capxfer":
+                    x["point"], x["scale"] = np.nan, np.nan
+                dec.append(x[list(DEC_COLS)])
+        sec = np.array([g[e]["seconds"].iloc[0] for e in eids])
+        for s_ in np.unique(shapes):
+            m = shapes == s_
+            nc = int(g[eids[np.flatnonzero(m)[0]]]["cand"].nunique())
+            timing.append(dict(method=meth, shape=s_, n=int(m.sum()), n_cand=nc,
+                               sec_per_decision=float(np.median(sec[m])), sec_mean=float(sec[m].mean()),
+                               sec_per_candidate=float(np.median(sec[m]) / nc),
+                               peak_vram_gb=float(d[d["shape"] == s_]["peak_vram_gb"].max()),
+                               sims_per_episode=float(d[d["shape"] == s_].groupby("eid")["sims"].first().median())))
+    met = pd.DataFrame(rows)
+    met.to_csv(RES / "pilot_metrics.csv", index=False)
+    tm = pd.DataFrame(timing)
+    tm.to_csv(RES / "pilot_timing.csv", index=False)
+    pd.concat(dec, ignore_index=True).to_csv(RES / "paper" / "dec_baselines.csv.gz", index=False)
+    nw = {"pair": 8, "square": 16, "2x3": 24}
+    lat = tm.assign(n_wheels=tm["shape"].map(nw), hardware=a.hardware, status="exploratory")
+    lat[["method", "shape", "n_wheels", "sec_per_decision", "hardware", "status", "n"]].to_csv(
+        RES / "paper" / "latency_baselines.csv", index=False)
+    cols = ["baseline", "tau", "n_ep", "cert_frac", "cert_frac_faulted", "unsafe_commit_rate", "ep_any_unsafe",
+            "ep_miscover"]
+    print(met[met["shape"] == "all"][cols].round(4).to_string(index=False))
+    print(tm.round(3).to_string(index=False))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export"])
+    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export", "from-runs"])
     ap.add_argument("--split", default="pilot")
     ap.add_argument("--runs", default="~/.cache/vast-out")
     ap.add_argument("--suffix", default="")
@@ -257,7 +349,7 @@ def main():
     a = ap.parse_args()
     if a.cmd == "run" and a.per_shape == 100:
         a.per_shape = 0
-    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export)[a.cmd](a)
+    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export, **{"from-runs": cmd_from_runs})[a.cmd](a)
 
 
 if __name__ == "__main__":
