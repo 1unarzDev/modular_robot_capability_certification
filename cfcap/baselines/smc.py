@@ -99,6 +99,7 @@ def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):
                 point=pred.point.ravel().astype(np.float64), scale=pred.scale.ravel().astype(np.float64),
                 lower=pred.lower.ravel().astype(np.float64), alpha=np.full(n, ALPHA), seconds=np.full(n, seconds),
                 ep_n_faults=np.full(n, int((pm != 0).sum()), np.int16),
+                parent_n=np.full(n, len(ep.parent_asm.modules), np.int16),
                 cand_fault_class=np.repeat(np.asarray(cls, np.int8), L))
     for k, v in (extra or {}).items():
         rows[k] = np.full(n, float(v))
@@ -189,7 +190,9 @@ def _run(unit, ctx):
             ctx.save_state(st)
             raise Stop()
         ctx.progress(n_done / max(len(js), 1), phase=f"smc episode {j}")
-        st["done"][j] = _one(episode(a, j), a)
+        rows = _one(episode(a, j), a)
+        rows["shard"] = np.full(len(rows["eid"]), int(getattr(a, "shard", -1)), np.int32)
+        st["done"][j] = rows
         ctx.save_state(st)
     parts = [st["done"][j] for j in sorted(st["done"])]
     out = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}

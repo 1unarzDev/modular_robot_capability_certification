@@ -473,15 +473,163 @@ def cmd_smc_sweep(a):
     print(t.round(4).to_string(index=False))
 
 
+CONF_NAME = dict(detector_gated="detector_gated", physics_gains="ghat_physics", copy_parent="copy_parent",
+                 weakest_member="min_over_members", model_free="metadata_nf", capxfer="capxfer", oracle="oracle",
+                 nuisance_smc="nuisance_smc", enum_known="credible_lower")
+CONF_CLAIM = {"conf_test": "C-MAIN", "conf_H4": "C-SCALE", "conf_H4b": "C-SCALE", "conf_het_test": "C-HET",
+              "conf_H1": "C-HET", "conf_H2": "C-HET"}
+CONF_METHODS = {"C-MAIN": ("always_go", "never_go", "metadata_nf", "detector_gated", "ghat_physics", "copy_parent",
+                           "min_over_members", "capxfer", "credible_lower", "cfBH", "oracle", "nuisance_smc"),
+                "C-SCALE": ("capxfer", "metadata_nf"), "C-HET": ("metadata_nf",)}
+SCORING_OPENS = "2026-11-26T01:45:00+00:00"
+BIG = 1e6
+
+
+def cmd_conf_export(a):
+    """Confirmatory decision rows (docs/board/paper.md 5a; docs/CONFIRMATORY.md) ->
+    results/baselines/confirmatory/dec_conf_baselines.csv.gz.
+
+    Inputs: runner `smc` unit files under --runs: test rows of the conf_* splits (claim by split: conf_test C-MAIN,
+    indices 40-3,039 only; conf_H4 / conf_H4b C-SCALE; conf_het_test / conf_H1 / conf_H2 C-HET) and the exploratory
+    `cal` split rows (generator cal 0-1999, b2-cheap-cal), which are the only calibration data (section 0.2).
+    Per method: test `lower` = the method's own certified bound = SimultaneousLower at alpha 0.1 fitted on the
+    method's cal rows (capxfer: on its raw Theorem-5 bound with scale 1; credible_lower = enum_known's Bayes q05,
+    uncalibrated, as pre-registered; metadata_nf from cal (candidate size, leg) quantiles; always_go lower = +BIG,
+    never_go -inf; cfBH = conformal selection at FDR 0.1 on enum_known's (point, scale) with the cal split's nulls:
+    lower = +BIG if selected, else -inf). Cal rows (split cal, status exploratory, same claim, T1) carry point, scale
+    and the 2-fold cross-fit lower, for the matched operating point. Truth = rho_dec with the fixed T1 reference
+    (generator labels). Optional --t2-truth (csv with split, eid, cand, leg, truth) adds test_plant T2 rows with the
+    same T1-calibrated bounds. Refuses to read confirmatory labels before 01:45Z unless --mock."""
+    import datetime as dt
+    import pandas as pd
+    if not a.mock and dt.datetime.now(dt.timezone.utc) < dt.datetime.fromisoformat(SCORING_OPENS):
+        raise SystemExit(f"confirmatory labels stay closed until {SCORING_OPENS} (docs/CONFIRMATORY.md 0.1)")
+    df = load_runs(a.runs)
+    conf = df[df.split.isin(list(CONF_CLAIM))].copy()
+    conf = conf[~((conf.split == "conf_test") & ((conf.eid < 40) | (conf.eid > 3039)))]
+    cal = df[df.split == "cal"].copy()
+    out = []
+    t2 = pd.read_csv(a.t2_truth) if a.t2_truth else None
+
+    def arrays(d):
+        d = d.sort_values(["split", "eid", "cand", "leg"])
+        g = [x for _, x in d.groupby(["split", "eid"], sort=True)]
+        W = max(len(x) for x in g)
+        P_ = lambda col: base.pad([x[col].to_numpy(float) for x in g], W)
+        return g, W, P_
+
+    def emit(g, lower, point, scale, method, claim, split_status):
+        for i, x in enumerate(g):
+            y = x.copy()
+            k = len(y)
+            y["method"], y["claim"], y["lower"] = method, claim, lower[i, :k]
+            y["point"], y["scale"] = point[i, :k], scale[i, :k]
+            y["route"] = "raw" if method in ("credible_lower",) else (
+                "none" if method in ("always_go", "never_go", "oracle") else "simultaneous")
+            if split_status == "cal":
+                y["status"] = "exploratory"
+            y["contains_fault"] = y["has_fault"]
+            out.append(y)
+
+    for claim in ("C-MAIN", "C-SCALE", "C-HET"):
+        splits = [sp for sp, c in CONF_CLAIM.items() if c == claim]
+        te_all = conf[conf.split.isin(splits)]
+        if te_all.empty:
+            continue
+        base_m = "nominal" if (te_all.method == "nominal").any() else te_all.method.iloc[0]
+        for method in CONF_METHODS[claim]:
+            src = {v: k for k, v in CONF_NAME.items()}.get(method)
+            if method in ("always_go", "never_go", "metadata_nf"):
+                src = base_m
+            if method == "cfBH":
+                src = "enum_known"
+            te, ca = te_all[te_all.method == src], cal[cal.method == src]
+            if te.empty or (ca.empty and method not in ("always_go", "never_go", "oracle")):
+                print(f"{claim} {method}: skipped (test rows {len(te)}, cal rows {len(ca)})")
+                continue
+            gt, Wt, Pt = arrays(te)
+            gc, Wc, Pc = arrays(ca) if not ca.empty else ([], 0, None)
+            W = max(Wt, Wc)
+            padto = lambda A, w: np.pad(A, ((0, 0), (0, W - A.shape[1])), constant_values=np.nan)
+            tr_t, tr_c = padto(Pt("truth"), Wt), (padto(Pc("truth"), Wc) if gc else None)
+            if method == "metadata_nf":
+                st = ca.groupby(["cand_size", "leg"]).truth.agg(med="median", q05=lambda v: v.quantile(0.05))
+                def mf(g_):
+                    pts, scs = [], []
+                    for x in g_:
+                        j = st.reindex(list(zip(x.cand_size, x.leg)))
+                        pts.append(j["med"].to_numpy(float))
+                        scs.append((j["med"] - j["q05"]).clip(lower=0).to_numpy(float) + 0.01)
+                    return padto(base.pad(pts, W), W), padto(base.pad(scs, W), W)
+                pt_t, sc_t = mf(gt)
+                pt_c, sc_c = mf(gc)
+            elif method == "capxfer":
+                pt_t, pt_c = padto(Pt("lower"), Wt), padto(Pc("lower"), Wc)
+                sc_t, sc_c = np.ones_like(pt_t), np.ones_like(pt_c)
+            elif method in ("always_go", "never_go"):
+                v = BIG if method == "always_go" else -np.inf
+                pt_t = np.where(np.isnan(tr_t), np.nan, v)
+                emit(gt, pt_t, np.full_like(pt_t, np.nan), np.full_like(pt_t, np.nan), method, claim, "test")
+                if gc:
+                    pc = np.where(np.isnan(tr_c), np.nan, v)
+                    emit(gc, pc, np.full_like(pc, np.nan), np.full_like(pc, np.nan), method, claim, "cal")
+                continue
+            else:
+                pt_t, pt_c = padto(Pt("point"), Wt), padto(Pc("point"), Wc)
+                sc_t, sc_c = padto(Pt("scale"), Wt), padto(Pc("scale"), Wc)
+            # calibration on cal (fold 0), applied to test (fold 1); cal rows get a 2-fold cross-fit lower
+            Pall = np.concatenate([pt_c, pt_t]); Sall = np.concatenate([sc_c, sc_t])
+            Tall = np.concatenate([tr_c, tr_t])
+            folds = np.r_[np.zeros(len(gc), int), np.ones(len(gt), int)]
+            if method == "cfBH":
+                # selection is per tau; one lower per row encodes it as the largest tau at which the entry was selected
+                # (go at tau' <= that), -inf if never selected (scorer contract: finite = selected)
+                lows = []
+                for tau in base.TAUS:
+                    gsel = base.conformal_selection(Pall, Sall, Tall, folds, tau, 0.1)[len(gc):]
+                    lows.append(np.where(gsel, tau, -np.inf))
+                lo_t = np.max(lows, 0)
+                emit(gt, lo_t, np.full_like(lo_t, np.nan), np.full_like(lo_t, np.nan), method, claim, "test")
+                continue
+            if method == "oracle":
+                lo_t, lo_c = tr_t, tr_c
+            elif method == "credible_lower":
+                lo_t, lo_c = padto(Pt("lower"), Wt), padto(Pc("lower"), Wc)
+            else:
+                lo_t = base.cross_fit_lower(Pall, Sall, Tall, folds, 0.1)[0][len(gc):]
+                cf = np.zeros(len(gc), int)
+                cf[1::2] = 1
+                lo_c = base.cross_fit_lower(pt_c, sc_c, tr_c, cf, 0.1)[0] if gc else None
+            emit(gt, lo_t, pt_t, sc_t, method, claim, "test")
+            if gc:
+                emit(gc, lo_c, pt_c, sc_c, method, claim, "cal")
+    res = pd.concat(out, ignore_index=True)
+    res["test_plant"] = np.where(res.split == "cal", "T1", res.test_plant)
+    if t2 is not None:
+        key = ["split", "eid", "cand", "leg"]
+        t2r = res[res.split != "cal"].drop(columns=["truth"]).merge(t2[key + ["truth"]], on=key, how="inner")
+        t2r["test_plant"] = "T2"
+        res = pd.concat([res, t2r], ignore_index=True)
+    cols = list(DEC_COLS) + ["claim", "shard", "contains_fault", "parent_n", "ep_n_faults", "cand_fault_class"]
+    res = res[[c for c in cols if c in res.columns]]
+    od = RES / "confirmatory"
+    od.mkdir(parents=True, exist_ok=True)
+    f = od / ("dec_conf_baselines_MOCK.csv.gz" if a.mock else "dec_conf_baselines.csv.gz")
+    res.to_csv(f, index=False, float_format="%.6g")
+    print(f, len(res), res.groupby(["claim", "method", "split"]).size().to_string())
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export", "from-runs", "smc-sweep"])
+    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export", "from-runs", "smc-sweep", "conf-export"])
     ap.add_argument("--split", default="pilot")
     ap.add_argument("--runs", default="~/.cache/vast-out")
     ap.add_argument("--suffix", default="")
     ap.add_argument("--hardware", default="RTX 4070 Ti SUPER (shared)")
     ap.add_argument("--cal-split", default="", help="from-runs: fit every conformal layer on this split")
     ap.add_argument("--tag", default="pilot_", help="from-runs: results/baselines/<tag>metrics.csv")
+    ap.add_argument("--mock", action="store_true", help="conf-export on mock data (writes *_MOCK; no time gate)")
+    ap.add_argument("--t2-truth", default="", help="conf-export: csv (split, eid, cand, leg, truth) of T2 labels")
     ap.add_argument("--per-shape", type=int, default=100)
     ap.add_argument("--baseline")
     ap.add_argument("--max-min", type=float, default=14.0)
@@ -490,7 +638,7 @@ def main():
     a = ap.parse_args()
     if a.cmd == "run" and a.per_shape == 100:
         a.per_shape = 0
-    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export, **{"from-runs": cmd_from_runs, "smc-sweep": cmd_smc_sweep})[a.cmd](a)
+    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export, **{"from-runs": cmd_from_runs, "smc-sweep": cmd_smc_sweep, "conf-export": cmd_conf_export})[a.cmd](a)
 
 
 if __name__ == "__main__":

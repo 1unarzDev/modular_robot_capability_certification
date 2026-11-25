@@ -260,3 +260,55 @@ def test_smc_task_explicit_ids():
     a = p.parse_args(["--ids", "5,9,40,41,77", "--per-unit", "2"])
     got = [j for k in range(2) for u in smc._units(a, k, 2) for j in smc._episode_ids(a, u)]
     assert got == [5, 9, 40, 41, 77]
+
+
+def test_conf_export_mock(tmp_path, monkeypatch):
+    import argparse
+    import importlib.util
+    import pathlib
+    import pandas as pd
+    spec = importlib.util.spec_from_file_location("bp", pathlib.Path(__file__).parents[1] / "scripts/baselines_pilot.py")
+    bp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bp)
+    monkeypatch.setattr(bp, "RES", tmp_path / "res")
+    rng = np.random.default_rng(2)
+    cols = {k: [] for k in bp.DEC_COLS + ("ep_n_faults", "cand_fault_class", "parent_n", "shard", "sims",
+                                         "peak_vram_gb")}
+    for split, eids in (("cal", range(0, 80)), ("conf_test", range(30, 110))):
+        for e in eids:
+            C = 3
+            tr = np.clip(1 - rng.exponential(0.15, (C, base.L)), 0, 1.2)
+            for meth in ("nominal", "enum_known", "capxfer", "detector_gated", "oracle"):
+                pt = {"nominal": np.ones_like(tr), "enum_known": tr + rng.normal(0, .02, tr.shape),
+                      "capxfer": np.full_like(tr, np.nan), "detector_gated": np.ones_like(tr), "oracle": tr}[meth]
+                lo = tr - 0.1 if meth == "capxfer" else pt - 0.05
+                n = tr.size
+                vals = dict(method=[meth] * n, route=["raw"] * n, posterior=["none"] * n, train=["T1"] * n,
+                            test_plant=["T1"] * n, split=[split] * n, status=["confirmatory"] * n, eid=[e] * n,
+                            shape=["2m:chain"] * n, cand=np.repeat(np.arange(C), base.L), kind=["child"] * n,
+                            cand_size=np.repeat([1, 2, 1], base.L), has_fault=np.repeat([1, 0, 1], base.L),
+                            leg=np.tile(np.arange(base.L), C), truth=tr.ravel(), point=pt.ravel(),
+                            scale=np.full(n, 0.03), lower=lo.ravel(), alpha=[0.1] * n, seconds=[1.0] * n,
+                            ep_n_faults=[1] * n, cand_fault_class=np.repeat([1, 0, 2], base.L), parent_n=[2] * n,
+                            shard=[1] * n, sims=[0] * n, peak_vram_gb=[0.0] * n)
+                for k in cols:
+                    cols[k] += list(vals[k])
+    u = tmp_path / "runs" / "units"
+    u.mkdir(parents=True)
+    np.savez(u / "u.npz", **{k: np.asarray(v) for k, v in cols.items()})
+    a = argparse.Namespace(runs=str(tmp_path / "runs"), mock=True, t2_truth="")
+    bp.cmd_conf_export(a)
+    d = pd.read_csv(tmp_path / "res" / "confirmatory" / "dec_conf_baselines_MOCK.csv.gz")
+    te = d[d.split == "conf_test"]
+    assert te.eid.min() >= 40 and (d.claim == "C-MAIN").all()
+    assert {"always_go", "never_go", "metadata_nf", "capxfer", "credible_lower", "cfBH", "oracle",
+            "detector_gated"} <= set(te.method)
+    assert (d[d.split == "cal"].status == "exploratory").all()
+    o = te[te.method == "oracle"]
+    assert np.allclose(o.lower, o.truth)
+    assert np.isinf(te[te.method == "never_go"].lower).all()
+    a2 = argparse.Namespace(runs=str(tmp_path / "runs"), mock=False, t2_truth="")
+    import datetime as _dt
+    if _dt.datetime.now(_dt.timezone.utc) < _dt.datetime.fromisoformat(bp.SCORING_OPENS):
+        with pytest.raises(SystemExit):
+            bp.cmd_conf_export(a2)

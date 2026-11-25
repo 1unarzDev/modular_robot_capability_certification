@@ -74,6 +74,11 @@ def merge_latents(rows_per_asm, c, device):
         out[k] = torch.cat([rows_per_asm[r][k][:, 4 * m:4 * m + 4] for r, m in c.modules], 1)
     for k in _MOD_KEYS:
         out[k] = torch.cat([rows_per_asm[r][k][:, m:m + 1] for r, m in c.modules], 1)
+    if any("wtype" in rows_per_asm[r] for r, _ in c.modules):        # module wheel types: 0 = mecanum default
+        z = lambda r: torch.zeros(B, rows_per_asm[r]["mode"].shape[1], dtype=torch.long, device=device)
+        out["wtype"] = torch.cat([rows_per_asm[r].get("wtype", z(r))[:, 4 * m:4 * m + 4].long() for r, m in c.modules], 1)
+    else:
+        out.pop("wtype", None)
     n = out["mode"].shape[1]
     lz = np.zeros(n) if c.load_z is None else np.asarray(c.load_z)
     out["load_z"] = torch.as_tensor(lz, dtype=torch.float32, device=device).expand(B, n).contiguous()

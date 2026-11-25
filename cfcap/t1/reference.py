@@ -1,94 +1,51 @@
 """Nominal healthy reference rho_ref(shape, leg) for the primary decision label rho_dec = rho_abs / rho_ref
-(docs/board/README.md, coordinator decision 2026-11-25).
+(docs/board/README.md, coordinator decision 2026-11-25; docs/CONFIRMATORY.md 0.3: the FIXED T1 table for every plant).
 
-rho_ref is the closed-loop T1 rho (cfcap.t1.capability, the 10 decision legs) of the assembly with every wheel
-healthy, the identified theta of its plate state as a point domain (params.point_domain: no DR), no heterogeneity, no
-mounting-yaw error, least-norm normal loads and no payload. It is deterministic, so "mean over draws" is one rollout.
-The table is keyed by the assembly's canonical shape (module cells translated to the origin, in module order, with
-module yaws) and plate state, and cached in memory and on disk ($CFCAP_OUT/rho_ref_<plate>.json, safe to delete).
-
-Additive module (new file); nothing else in cfcap.t1 changes.
+Single source: this module delegates to the generator's table `cfcap.gen.rho_ref` (the one its labels use), so every
+baselines prediction and label divides by exactly the same numbers. The reference is the mecanum nominal reference of
+the shape (types=None: the absolute requirement scale; a per-type reference would be ~0 on legs a type cannot do).
+Missing keys are simulated with the generator's own label path (simrun._run_by_plate, window_mean, rho_rows) and put
+into its cache.
 """
 from __future__ import annotations
 
-import json
-import os
-import pathlib
-import threading
-
 import numpy as np
-
-_MEM: dict = {}
-_LOCK = threading.Lock()
 
 
 def shape_key(asm):
-    cells = [(int(i), int(j), int(y)) for _, i, j, y in asm.modules]
-    x0, y0 = min(c[0] for c in cells), min(c[1] for c in cells)
-    return ";".join(f"{i - x0},{j - y0},{y}" for i, j, y in cells)
-
-
-def _disk(plate):
-    d = os.environ.get("CFCAP_OUT")
-    return pathlib.Path(d) / f"rho_ref_{plate}.json" if d else None
-
-
-def _load(plate):
-    if plate in _MEM:
-        return _MEM[plate]
-    tab = {}
-    f = _disk(plate)
-    if f is not None and f.exists():
-        try:
-            tab = {k: np.asarray(v, float) for k, v in json.loads(f.read_text()).items()}
-        except (OSError, ValueError):
-            tab = {}
-    _MEM[plate] = tab
-    return tab
-
-
-def _save(plate):
-    f = _disk(plate)
-    if f is None:
-        return
-    try:
-        f.parent.mkdir(parents=True, exist_ok=True)
-        tmp = f.with_suffix(f".tmp{os.getpid()}")
-        tmp.write_text(json.dumps({k: list(map(float, v)) for k, v in _MEM[plate].items()}))
-        tmp.replace(f)
-    except OSError:
-        pass
+    from cfcap.gen import rho_ref as RR
+    return RR.key(asm, None)
 
 
 def rho_ref_many(asms, plate="plated", device="cuda"):
-    """(len(asms), L) nominal healthy reference rho for each assembly (computes the missing ones in one batch)."""
+    """(len(asms), L) fixed T1 nominal healthy reference rho of each assembly (mecanum reference of the shape)."""
     import torch
+    from cfcap.gen import episode as GE
+    from cfcap.gen import rho_ref as RR
+    from cfcap.gen import simrun as S
     from cfcap.t1 import capability as cap
-    from cfcap.t1 import params as P
-    from cfcap.t1 import plant
-    with _LOCK:
-        tab = _load(plate)
-        keys = [shape_key(a) for a in asms]
-        need, seen = [], set()
-        for k, a in zip(keys, asms):
-            if k not in tab and k not in seen:
-                need.append((k, a))
-                seen.add(k)
-        if need:
-            par = P.base_params(plate)
-            th = P.load_theta(plate)
-            rng = np.random.default_rng(0)
-            targets = []
-            for _, a in need:
-                lat = plant.sample_latents(a, 1, rng, plant.HET_OFF, domain=P.point_domain(th, 1, device=device),
-                                           device=device)
-                lat["yaw_err"] = torch.zeros_like(lat["yaw_err"])
-                targets.append((a, lat))
-            outs = cap.capability(targets, par, device=device)
-            for (k, _), o in zip(need, outs):
-                tab[k] = o["rho"][0].cpu().numpy().astype(float)
-            _save(plate)
-        return np.stack([tab[k] for k in keys]) if keys else np.zeros((0, len(cap.LEGS)))
+    jobs, keys, tws, lcs = RR.jobs_for(plate, list(asms), GE.params(plate))
+    if jobs:
+        res = S._run_by_plate(jobs, cap.T_LEG, ("twist",), "graph" if device == "cuda" else "eager", 1 << 17, None,
+                              reduce=S.window_mean) if device == "cuda" else None
+        if res is None:                                   # CPU: plain capability path on the same nominal latents
+            outs = cap.capability([(j["asm"], {k: v for k, v in j["lat"].items()})
+                                   for j in [dict(asm=jj["asm"], lat=RR.nominal_latents(jj["asm"], plate, 1))
+                                             for jj in jobs]], GE.params(plate), device="cpu")
+            for k, o in zip(keys, outs):
+                RR.put(plate, k, o["rho"][0].numpy())
+        else:
+            L = len(cap.LEGS)
+            tw = torch.as_tensor(np.concatenate(tws), dtype=torch.float32)
+            lc = torch.as_tensor(np.concatenate([np.full(len(t), l) for t, l in zip(tws, lcs)]), dtype=torch.float32)
+            rho, _ = S.rho_rows(torch.cat([r["xr"] for r in res]), tw, lc)
+            rho = rho.numpy()
+            for i, k in enumerate(keys):
+                RR.put(plate, k, rho[i * L:(i + 1) * L])
+    if not len(asms):
+        from cfcap.t1 import capability as cap
+        return np.zeros((0, len(cap.LEGS)))
+    return np.stack([RR.get(plate, RR.key(a, None)) for a in asms]).astype(float)
 
 
 def rho_ref(asm, plate="plated", device="cuda"):

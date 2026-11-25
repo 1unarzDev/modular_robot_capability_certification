@@ -171,6 +171,12 @@ def cand_latents(rows, c):
         o = lat_to(c.other, dev)
         for k in _WHEEL_KEYS + _MOD_KEYS:
             out[k] = torch.cat([out[k], o[k].expand(B, -1).to(out[k].dtype)], 1)
+        if "wtype" in out or "wtype" in o:              # module wheel types (cfcap.t1.plant): 0 = mecanum default
+            n_p = len(c.pmods) * 4
+            a = out["wtype"] if "wtype" in out else torch.zeros(B, n_p, dtype=torch.long, device=dev)
+            b = o["wtype"].expand(B, -1) if "wtype" in o else torch.zeros(B, out["mode"].shape[1] - n_p,
+                                                                          dtype=torch.long, device=dev)
+            out["wtype"] = torch.cat([a, b.to(torch.long)], 1)
     n = out["mode"].shape[1]
     if c.load_z is not None:
         out["load_z"] = torch.as_tensor(np.asarray(c.load_z), dtype=torch.float32, device=dev).expand(B, n).contiguous()
@@ -277,11 +283,11 @@ def from_gen(plate, split, index, engine="compile"):
         other = None
         if om:
             ol = GE.plant_latents(gep, om, np.zeros(4 * len(om), np.float32), None)
-            other = {k: ol[k] for k in _WHEEL_KEYS + _MOD_KEYS}
+            other = {k: ol[k] for k in _WHEEL_KEYS + _MOD_KEYS + ("wtype",) if k in ol}
         cands.append(Cand(f"{split}{index}/c{ci}", kinds[c.kind], c.asm, pm, src, other, c.load_z, c.payload))
     lab = S.label_episodes([gep], engine=engine)[0]
     T = S.probe_T("v2")
-    rho_dec = lab["rho"] / ref_table(cands, plate)
+    rho_dec = lab["rho_dec"] if "rho_dec" in lab else lab["rho"] / ref_table(cands, plate)
     return Episode(rho_dec=rho_dec, eid=int(index), shape=f"{pa.m}m:{pa.topo}", plate=plate, cmd=cmd, T=T, obs=obs,
                    cand_modules=[c.pmods for c in cands], lat=lat, rho_rel=lab["rho_rel"], rho=lab["rho"],
                    meta=dict(family=[c.family for c in gep.cands]), parent_asm=pa.asm, cands=cands, split=split)
