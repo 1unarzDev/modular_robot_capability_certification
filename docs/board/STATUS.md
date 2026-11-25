@@ -61,23 +61,31 @@ All results so far are exploratory and come from simulation.
 - 19:52Z: cfcap-t2-extra submitted ($0.81), REQUESTS row logged. t2_adv is held for the coordinator.
 - theory-cpu: the cpu-profile image has no torch or pandas, so 2 cpu boxes are quarantined. The canary passed on torch spare cores.
 
-## Rented campaigns (owner override: ≤16 interruptible boxes, ≤$35 total until 2026-11-26 03:00Z)
-| Campaign | What | Box-h (est.) | $ (est.) | Jobs done/total (leased) |
+## Rented campaigns (owner: ≤24 interruptible boxes until 2026-11-26 03:00Z, ≤$35, floor $2; ops target ≤ ~$27)
+| Campaign | What | Box-h (est.) | Priority | Done/total (leased, queued) |
 |---|---|---|---|---|
-| cfcap-gen-ref2 | Reference splits: cal/test 20k + H3/H4/H6/H7 5k per plate state, ρ_dec | 4.3 | 0.8 | 15/19 (4) |
-| cfcap-nuis2 (nuis-main queued cancelled; nuis3 pending) | Nuisance-marginalized ambiguity × 5 probe sets + spread sweep; T0 A2 seeds on the free lane | 22.5 + 8.3 free | 4.4 | 6/29 (8) |
-| cfcap-baselines-pilot2 (queued part cancelled) | Nominal, oracle, RLS, capxfer-Thm5, known-nuisance enumeration, nuisance-SMC; 294 episodes | 7.2 | 1.3 | 0/18 (3) |
-| cfcap-theory-ride (was theory-cpu) | T0 phase diagram (N 4–8, 5 probe sets, δ) + misspecified-envelope check | 17 CPU-h | 1.7 | 1/26 (0) |
-| cfcap-t2-eps | 4000 plated T2 test episodes (independent crane-kernel plant), CPU on torch spare cores | 4.0 | 0.7 | 3/9 (6) |
-| cfcap-decide (queued cancelled 20:45Z) | Probe policies × certifiers on T1 posterior draws | 30.5 | 5.5 | 1/18 (2) |
-| cfcap-models-b1 | Set transformer / direct / DeepSets × 5 diversity levels × 3 seeds | 43.2 | 7.8 | 1/49 (14) |
-| cfcap-t2-extra | 1000 plateless T2 episodes + 7-condition ablation (1000), CPU on torch spare cores | 4.5 | 0.8 | 1/11 (5) |
-| cfcap-baselines-b2r | Cheap baselines + E3 on generator cal/test/H* ids (SMC groups held; replaces b2) | 16.6 | 3.0 | 1/39 (2) |
-| cfcap-t2-motor | T2 motor-law arm, 4000 episodes × {all+motor, motor} (misfit group held) | 7.3 | 1.3 | 1/9 (8) |
-| cfcap-t2-adv | Adversarial CEM on T2: cancelled by the coordinator | | 0 | not submitted |
+| cfcap-models-b1 | Training grid: arch × diversity × seeds | 43.2 | 30 | 8/49 (26, 15) |
+| cfcap-gen-ref2 | Reference splits cal/test/H*, ρ_dec | 4.3 | 30 | 17/19 (2, 0) |
+| cfcap-baselines-b2r | Cheap baselines + E3 on generator ids (no SMC) | 16.6 | 40–53 | 2/39 (1, 36) |
+| cfcap-t2-motor | T2 motor-law arm, 4000 episodes | 7.3 | 55 | 3/9 (6, 0) |
+| cfcap-t2-motor2 | T2 knee severities 1–3, 4000 episodes | 11.0 | 55 | 0/13 (13, 0) |
+| cfcap-t2-motor3 | T2 motor misfit (v2+clamp+yawc) | 17.8 | 60 | 0/21 (21, 0) |
+| cfcap-t2-eps | 4000 plated T2 test episodes | 4.0 | — | 7/9 (2, 0) |
+| cfcap-t2-extra | Plateless T2 + 7-condition ablation | 4.5 | 60 | 1/11 (5, 5) |
+| cfcap-baselines-smc-small | SMC particle sweep (stage 1) | 14.1 | 60–62 | 1/31 (0, 30) |
+| cfcap-gen-scaling16r | H4b 11–16 modules | 0.7 | 65 | 0/7 (0, 7) |
+| cfcap-gen-hetero2 | Module types het/H1/H2 | 0.8 | 66–69 | 0/5 (0, 5) |
+| cfcap-models-het | Training on mixed module types | 3.7 | 67 | 1/5 (0, 4) |
+| cfcap-env | HM3D-calibrated env missions | 3.5 | 70–84 | 8/28 (14, 6) |
+| cfcap-gen-confirm2 | Confirmatory conf_* splits (unopened until 01:45Z) | 1.4 | 75–80 | 0/12 (0, 12) |
+| cfcap-baselines-conf | Baselines on conf ids (unopened until 01:45Z) | 33.3 | 75–81 | 0/86 (0, 86) |
+| cfcap-stress-conf-merge | C-MERGE confirmatory (unopened until 01:45Z) | 7.8 | 75 | 0/19 (0, 19) |
+| cfcap-nuis3 | Trimmed nuisance (pair/square × v2/v2+clamp + sweep) | 10.8 | 85 | 1/8 (0, 7) |
+| cfcap-nuis2 | Running remainder (nuis-main.s000, canary, t0-a2) | — | — | 10/29 (4, 0) |
+| cfcap-theory-ride | T0 phase diagram + envelope (spare cores) | 17 CPU-h | 88 | 1/26 (25, 0) |
+| cfcap-decide2 | Decide T1 grid (first to cut) | 30.5 | 90–100 | 0/18 (0, 18) |
 
-Spend so far (ledger, UTC day): $3.58 at 20:43Z.
-Committed estimate ≈ $23 of ≈ $32 usable (excluding t2-adv). Idle boxes cost more than these estimates: at the current burn, ~$21 is projected to 03:00Z.
+Spend so far (ledger, UTC day): $5.56 at 21:22Z. Superseded/cancelled: gen-pilot*, canary*, baselines-pilot2, b2, theory-cpu, decide, gen-scaling16/hetero/confirm (ebba94b), t2-adv.
 
 ## Findings to date
 - A2/A3 (T0 oracle, motor law known): 0.02 % of decisions are ambiguous after v2, and the oracle certifies 99.98 %
