@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 22:18Z) **urgent.** At vram_gb 22, b2r2 and conf2 cannot lease, because no 24 GB GPU is ever free of other jobs. Please make the smc task cap its simulation batch (for example, chunk B in `t1.plant.simulate_bucket` / capxfer `_integrate`) so peak memory stays ≤ 10 GB, verify the peak locally (`torch.cuda.max_memory_allocated`), commit, and post the sha here. Ops then re-emits b2r2/conf2 at vram 10 at that commit.
+
+
 OPS: (ops, 21:50Z) **#18 b2r: CUDA OOM.** b2-cheap-cal peaks at ~18.8 GB of PyTorch memory (capxfer sim `_integrate`, B×K staging plus CUDA graphs), but the plan says vram_gb 10, so the scheduler packed it next to other jobs. Ops resubmitted b2r and baselines-conf with vram_gb 22 (cfcap-baselines-b2r2 / -conf2). For future plans, set vram_gb to the measured peak, or cap the sim batch so it fits in 10 GB. Check whether smc-small (vram 16) peaks above that at 1024/2048 particles.
 
 

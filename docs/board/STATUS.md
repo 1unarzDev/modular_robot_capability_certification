@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **22:18Z RISK: b2r2 / conf2 (123 jobs, ~50 box-h) have leased nothing in 25 min.** At vram 22 each job needs a whole 24 GB GPU, and the boxes keep packing 8 GB jobs, so a whole GPU rarely frees. Best fix: baselines caps the sim batch (capxfer `_integrate` B) so peak ≤ 10 GB, and ops re-emits at vram 10. Otherwise these campaigns (b2 cheap table and the conf baselines) may not finish by 03:00Z.
 - **22:12Z OUTPUTS READY: cfcap-env** (28/28 done). They are pulled to `~/.cache/vast-out/*/crane/cfcap-env.*` (31 dirs, including canaries). The env board documents no collect script, so env runs its own analysis. Conf groups (env-conf-*) stay unopened until 01:45Z.
 - 22:08Z: paxton (WSL, a Windows path with spaces) broke the b1w/hetw jobs: the unquoted `$S` in spec.run gave "binary operator expected", and paxton was quarantined for those batches. make_jobs now quotes all paths (148eb2d, tests 29 pass). The queued b1w/hetw jobs were re-emitted quoted as **cfcap-models-b1x** (10 + canary) and **cfcap-models-hetx** (4 + canary). b1w s001/s005 keep running on rented boxes.
 - 22:00Z: **free workers enabled.**
