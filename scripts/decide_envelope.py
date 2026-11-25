@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--post", action="store_true", help="fault modes from a posterior (cfcap.decide.envelope_post)")
     ap.add_argument("--tag", default=None)
     ap.add_argument("--status", default="exploratory")
+    ap.add_argument("--keep-nonconv", action="store_true",
+                    help="keep episodes whose knee fixed point did not converge (truth = least-residual point)")
     a = ap.parse_args()
     tag = a.tag or ("envpost" if a.post else "envelope")
     s0, s1 = map(int, a.seeds.split(":"))
@@ -64,7 +66,7 @@ def main():
             df = pd.concat(p.map(_work_post if a.post else _work, range(s0, s1), chunksize=2))
         mine.parent.mkdir(parents=True, exist_ok=True)
         df.to_pickle(mine)
-    if "conv" in df:
+    if "conv" in df and not a.keep_nonconv:
         df = df.groupby("seed").filter(lambda g: bool(g.conv.all()))     # drop non-converged knee episodes
     from cfcap.decide import envelope as En
     from cfcap.t0 import qs
@@ -86,6 +88,8 @@ def main():
     pr = pd.DataFrame(pr)
     pr.to_csv(res / f"{tag}_paired.csv", index=False)
     print(pr.round(3).to_string(index=False))
+    if a.keep_nonconv:
+        return
     En.write_paper(rows, res / "paper" / f"probe_t0{tag}.csv", status=a.status,
                    test_plant="T0-knee-post" if a.post else "T0-knee")
     pd.set_option("display.width", 250)

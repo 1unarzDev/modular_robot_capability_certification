@@ -247,6 +247,38 @@ Paired episode bootstrap, mean Δregret [95 %]:
 3. **Physics.** The raw physics fit `par` is 1.4 % unsafe. Calibrated (`par_cal`) it is 56 % useful, and probing does
    not help it: EVOI almost never probes.
 
+**The 17 dropped episodes** (`envpost_all_*`; `scripts/decide_envelope.py --post --keep-nonconv`).
+
+*The rule.* An episode is dropped iff the knee fixed point (`solve_knee`) fails to converge, either for the parent's
+probe observations or for any child's truth labels.
+- It is applied before any policy is scored and is identical across policies, so it is **blind to the decision
+  outcomes**.
+- It is **not blind to the simulator truth**, because it reads the labels' solver status. It is a simulation-validity
+  filter, not a robot-visible rule.
+
+*Dropped vs kept, pre-probe features.*
+
+| | dropped (17) | kept (583) |
+|---|---|---|
+| knee severity | 16 at sev 3, 1 at sev 2 | mean 1.46 |
+| candidates per parent | 8.4 (larger parents) | 5.0 |
+| empty v2 screen | 15/17 (median n_screen 0) | median 18 |
+
+So severe knees on larger bodies are under-represented in the headline. In 15 of the 17 the screen was already empty,
+so every policy abstains on them anyway.
+
+*Headline with all 600 episodes kept.*
+- **As-is** (non-converged truth = the solver's least-residual point):
+  - paired evoi − clamp −6.4 [−7.0, −5.7];
+  - evoi − dom −3.4 [−4.2, −2.6];
+  - the dropped episodes abstain in 88 % of cases under every policy, with 0 unsafe commits.
+- **Worst case** (dropped episodes scored as abstain for every policy, regret = the oracle's utility):
+  - evoi − clamp −6.2 [−6.8, −5.4]; evoi − dom −3.2 [−4.0, −2.4];
+  - useful: evoi 61.7 %, clamp 61.9 %, v2 51.3 %;
+  - probe s: evoi 1.56, clamp 8.55.
+
+Every H3 bar still holds under both scorings.
+
 **True-mode envelope (seeds 0–479, exploratory), the same analysis with the rival added:**
 - env_cal: evoi 14.3 s (2.05 s probing), dom 15.8 s (4.73 s), clamp 19.4 s, v2 31.4 s.
 - Paired evoi − clamp −5.1 [−6.2, −3.9]; evoi − dom −1.5 [−2.4, −0.6].
@@ -380,6 +412,18 @@ The decision layer consumes one **mission** as one `problem.Task`. This is imple
   data is unaffected by the fixes; evaluation is offline (`scripts/decide_t1_eval.py`, now 3 folds and simM/simF).
 - **stress:** `results/stress/paper/dec_merge.csv` is missing `status`, which breaks `make_all`.
 - **env:** the mission fields above.
+
+## NEXT queue (not started)
+- **N-post-1 (cheap; the main lever for the 64 % → 95 % useful gap is the posterior, not the policy):** put the clamp
+  legs back into the fault likelihood with a robustified screen. Options:
+  - a Student-t / Huber residual on clamp legs;
+  - a per-leg "knee-may-bind" sd inflation above the v2 speeds;
+  - screen on v2 only, weight with v2 + robust clamp.
+  - Expected effect: fewer kept hypotheses, so a tighter credible-set envelope. Cost: one CPU rerun, ~10 min.
+  - Pre-register the bar before running: useful ≥ 75 % at ep unsafe ≤ 0.10, H3 bars unchanged.
+- **N-post-2:** replace the min over kept hypotheses with a weighted credible envelope: the mass-0.9 subset, plus
+  end-to-end calibration.
+- **N-post-3:** a continuous weak-g posterior (the truth's g is continuous; the grid snaps it to 0.1).
 
 ## Next step
 - Add the model-free envelope predictor to T0 and to the T1 evaluation (the theory finding: clamp resolves 7 % → 0.06 %
