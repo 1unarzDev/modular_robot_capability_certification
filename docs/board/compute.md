@@ -30,6 +30,16 @@ kill and resume. No job has been submitted or rented. The canary jobs are ready 
     - `inputs_rsync` holds only `stage/theta` (→ `/workspace/in/theta`) plus any stage-2 `extra_inputs`.
   - `stage` builds `stage/capxfer`, a small git repo of capxfer `capxfer/`, `params/`, `configs/` and `theta/`, about
     3 MB with no corpus or results. The real capxfer worktree is ~100k files. `stage` also builds `stage/theta`.
+  - **Per-batch canaries (default).** The coordinator gates each batch (project/campaign/kind@refs) so that 2 jobs
+    lease until one is valid. emit therefore prepends one canary per kind at priority 0, built from the batch's
+    shortest group:
+    - its task args are shrunk by `CANARY_OVERRIDES` or the group's `canary_task_args`;
+    - the runner's `--canary-units 1` limits it to one unit;
+    - every job in the file has one refs set.
+  - `--resubmit-as CAMPAIGN` re-emits a plan under a new campaign name. `--cfcap-ref SHA` pins a commit other than
+    HEAD.
+  - lane `cpu` emits `py_command` with tags `[cloud-ok, cpu]`. With `ride: torch` the tags are `[cloud-ok, torch]`
+    with no GPU, so the job runs on the spare cores of torch boxes.
   - `emit --first-shard-only` emits shard 0 of each group as a canary. Its job ids and bodies are identical to the full
     emit, so the later full submit returns `exists` for it.
   - `emit PLAN.json` writes rc-job/1 jobs:
