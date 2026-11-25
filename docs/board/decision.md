@@ -186,6 +186,32 @@ Source: `scripts/decide_envelope.py`, `cfcap/decide/envelope.py` → `results/de
    - Split time uses a line layout for the children's leftovers.
    - T0 only.
 
+### H3 pre-registration: EVOI under motor-law AND fault uncertainty (written 2026-11-25 before the run)
+**Design.**
+- Episodes: `cfcap/decide/envelope_post.py`. E1 truth (knee severity seed % 4) on parents of 2–4 modules.
+- Noisy probe signals; fault modes come from a v2-only posterior (≤ 2 faults, top mass 0.99 capped at 6 hypotheses).
+- Bounds per hypothesis follow the E1 construction:
+  - env = min over the kept hypotheses of rho_pi;
+  - par = the posterior mean of rho_par;
+  - the dominance trigger's upper end = max rho_par.
+- Seeds **2100–2699** (600 parents; untouched; 2000–2009 were used for a smoke test and are excluded).
+- Tasks from 959000 + seed; 3-fold leak-free cross-fit; S = 32 predictive draws.
+- Policies: v2, always-clamp, evoi, and `dom`, the closed-form rival: clamp iff some required, v2-undominated leg's
+  interval [lower_v2, max rho_par] straddles r.
+
+**Bars** (primary predictor `env_cal`, all episodes pooled):
+- **B1:** mean EVOI probe time ≤ 0.5 × always-clamp (≤ 4.4 s).
+- **B2:** paired episode bootstrap (4,000) of mean(regret_EVOI − regret_clamp): the upper 95 % end is ≤ 0.
+- **B3:** useful(EVOI) ≥ useful(clamp) − 1 pt.
+- **B4** (vs the closed-form rival): paired upper 95 % end of mean(regret_EVOI − regret_dom) ≤ 0.
+  - If B4 fails, the claim becomes "decision-EVOI matches a dominance-triggered clamp", with no superiority.
+- **Validity:** env_cal ep_any_unsafe ≤ 0.10.
+
+**Reported without a bar:** the ≥ 3-module-child yaw unsafe rate per policy (expected unresolved by probing, Prop. 2b),
+and the knee vs two-constant split.
+
+**Verdict.** H3 holds at confirmatory grade iff B1–B3 and validity hold. B4 decides "beats" vs "matches" the rival.
+
 **Conformalized screen.** On 600 calibration episodes (seeds 929000+), the truth's screen statistic has a heavy tail:
 median 2.0, 99 % quantile 23.9, max 29.5. Single faults reach 22.2 and double faults 23.7 at their 99 % quantiles.
 - The calibrated threshold K(α_s = 0.01) = 23.9 keeps 55–7,000 hypotheses per episode, at up to 212 s per 4-module
