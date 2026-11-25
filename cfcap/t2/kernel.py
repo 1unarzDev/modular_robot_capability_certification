@@ -145,8 +145,9 @@ def _wheel_forces(pe, x, om, xp):
     return xp.where(live, Fx, 0.0), xp.where(live, Fy, 0.0), vf
 
 
-def _firmware(S, st, u_tw, xp):
-    """Robot firmware at a 50 Hz loop tick: new duty (and integrator) from the command twist and encoder counts."""
+def _firmware(S, st, u_tw, xp, wpw=None):
+    """Robot firmware at a 50 Hz loop tick: new duty (and integrator) from the command twist and encoder counts.
+    wpw (E, W): per-wheel speed references (rad/s) that replace the IK reference where finite (NaN = keep IK)."""
     x = st["x"]
     E = x.shape[0]
     W = S["px0"].shape[1]
@@ -154,6 +155,8 @@ def _firmware(S, st, u_tw, xp):
     vcy = u_tw[:, 1:2] + u_tw[:, 2:3] * S["px0"]
     te = S["ftx"] * S["fex"] + S["fty"] * S["fey"]
     wref = (S["ftx"] * vcx + S["fty"] * vcy) / (S["r_nom"][:, None] * xp.where(xp.abs(te) > 1e-6, te, 1.0))
+    if wpw is not None:
+        wref = xp.where(xp.isnan(wpw), wref, wpw)
     ang = x[:, K.S0:].reshape(E, W, K.PER)[..., 0]
     k = (S["cpr"] / (2 * math.pi))[:, None]
     meas = (xp.floor(ang * k) - xp.floor(st["thc"] * k)) / k / (NSUB * DT)
@@ -227,7 +230,12 @@ def tick(S, st, tables, which, j, xp=np):
         u_tw = _command(S, tables, which, k, xp)
         if S["fw_robot"]:
             if s == 0:
-                u, integ, thc = _firmware(S, st, u_tw, xp)
+                wpw = None
+                if S.get("_pw") is not None:          # per-wheel speed tables (M, K+1, W), same tick as the twist
+                    nt = S["_pw"].shape[1]
+                    k0 = np.clip(np.floor(k * (1.0 / NSUB) - S["lat_ticks"] + 1e-4), 0, nt - 1).astype(np.int64)
+                    wpw = S["_pw"][which, k0]
+                u, integ, thc = _firmware(S, st, u_tw, xp, wpw)
                 st = dict(st, u=u, integ=integ, thc=thc)
             cmd = _motor_cmd(S, st, xp) if S["mm_on"] else st["u"] * S["gw"] * S["vb"] * S["wnl"]
         else:
@@ -264,8 +272,9 @@ def _record(S, st, xp):
     return dict(twist=x[:, 3:6], pose=x[:, 0:3], duty=duty, speed=wx[..., 1], angle=wx[..., 0], gz=gz, ax=ax, ay=ay)
 
 
-def run_numpy(S, tables, which, n_ticks):
+def run_numpy(S, tables, which, n_ticks, pw=None):
     """Reference backend (float64, python loop over ticks). Records at the end of every tick."""
+    S = dict(S, _pw=None if pw is None else np.asarray(pw, np.float64))
     st = init_state(S)
     rec = {c: [] for c in CH}
     for j in range(n_ticks):
@@ -366,7 +375,7 @@ def _nb_step_cmd(x, p, dt, cmd, om, scratch, Wr, A, r):
 @numba.njit(cache=True, parallel=True)
 def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp, ki, cpr, vb, gw, wnl, driven, lat_ticks, delay,
             fw_robot, lt_on, N0, GN, h, cp_on, Mrot, play, an_on, mufp, mufn, mm_on, ts, ilim, omk, tauk, cw, ct,
-            cth, eth0, ksag, Amod, tables, which, n_ticks,
+            cth, eth0, ksag, Amod, pw_on, pw, tables, which, n_ticks,
             o_twist, o_pose, o_duty, o_speed, o_angle, o_gz, o_ax, o_ay):
     E = p.shape[0]
     W = (p.shape[1] - K.G) // K.Q
@@ -409,6 +418,10 @@ def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp,
                             vcy = u1 + u2 * px0[e, jw]
                             te = ftx[e, jw] * fex[e, jw] + fty[e, jw] * fey[e, jw]
                             wref = (ftx[e, jw] * vcx + fty[e, jw] * vcy) / (r_nom[e] * (te if abs(te) > 1e-6 else 1.0))
+                            if pw_on:
+                                vpw = pw[m, min(k0, pw.shape[1] - 1), jw]
+                                if not math.isnan(vpw):
+                                    wref = vpw
                             ang = x[K.S0 + K.PER * jw]
                             meas = (math.floor(ang * kc) - math.floor(thc[jw] * kc)) / kc / (NSUB * DT)
                             er = wref - meas
@@ -517,7 +530,7 @@ def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp,
             o_ay[e, jt] = dvy + wz * vx + dwz * rx - wz * wz * ry
 
 
-def run_numba(S, tables, which, n_ticks):
+def run_numba(S, tables, which, n_ticks, pw=None):
     E, W = S["px0"].shape
     out = dict(twist=np.zeros((E, n_ticks, 3)), pose=np.zeros((E, n_ticks, 3)), duty=np.zeros((E, n_ticks, W)),
                speed=np.zeros((E, n_ticks, W)), angle=np.zeros((E, n_ticks, W)), gz=np.zeros((E, n_ticks)),
@@ -529,17 +542,21 @@ def run_numba(S, tables, which, n_ticks):
             np.ascontiguousarray(S["delay"], np.int64), bool(S["fw_robot"]), bool(S["lt_on"]), f("N0"), f("GN"),
             f("h"), bool(S["cp_on"]), f("Mrot"), f("play"), bool(S["an_on"]), f("mufp"), f("mufn"),
             bool(S.get("mm_on", False)), f("ts"), f("ilim"), f("omk"), f("tauk"), f("cw"), f("ct"), f("cth"), f("eth0"),
-            f("ksag"), f("Amod"),
+            f("ksag"), f("Amod"), pw is not None,
+            np.ascontiguousarray(pw if pw is not None else np.full((1, 1, W), np.nan), np.float64),
             np.ascontiguousarray(tables, np.float64), np.ascontiguousarray(which, np.int64), int(n_ticks),
             out["twist"], out["pose"], out["duty"], out["speed"], out["angle"], out["gz"], out["ax"], out["ay"])
     return out
 
 
-def run(S, tables, which, n_ticks, backend="numba", dtype="float32"):
+def run(S, tables, which, n_ticks, backend="numba", dtype="float32", pw=None):
+    """pw: optional per-wheel speed-reference tables (M, K+1, W), rad/s, NaN = the IK reference (numba, numpy)."""
     if backend == "numba":
-        return run_numba(S, tables, which, n_ticks)
+        return run_numba(S, tables, which, n_ticks, pw)
     if backend == "numpy":
-        return run_numpy(S, tables, which, n_ticks)
+        return run_numpy(S, tables, which, n_ticks, pw)
+    if pw is not None:
+        raise ValueError("per-wheel tables: numba or numpy backend")
     if backend == "jax":
         return run_jax(S, tables, which, n_ticks, dtype)
     raise ValueError(f"backend {backend!r}: numba, numpy or jax")

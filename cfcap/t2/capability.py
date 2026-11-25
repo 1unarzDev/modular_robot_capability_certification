@@ -85,7 +85,7 @@ def capability(targets, params, effects=build.NONE, legs=LEGS, T=T_LEG, relative
     return outs
 
 
-def simulate(asm, lat, params, cmd, T, effects=build.NONE, backend="numba", seed=0, dtype="float32"):
+def simulate(asm, lat, params, cmd, T, effects=build.NONE, backend="numba", seed=0, dtype="float32", pw_ref=None):
     """Command tables cmd (B, K+1, 3) or (K+1, 3) at 50 Hz for duration T -> channels (B, K, .) at the end of every
     tick: twist, pose, duty (pre-fault firmware duty), speed (true wheel speed), angle, gz, ax, ay, plus t."""
     S = build.episode_specs(asm, lat, params, effects, seed)
@@ -96,7 +96,13 @@ def simulate(asm, lat, params, cmd, T, effects=build.NONE, backend="numba", seed
     else:
         tables, which = cmd, np.arange(B)
     K = _n_ticks(T, params)
-    out = kernel.run(S, tables, which, K, backend, dtype)
+    pw = None
+    if pw_ref is not None:
+        pw = np.asarray(pw_ref, np.float64)
+        pw = pw[None] if pw.ndim == 2 else pw
+        if pw.shape[0] == 1 and B > 1 and cmd.ndim == 3:
+            pw = np.broadcast_to(pw, (B,) + pw.shape[1:]).copy()
+    out = kernel.run(S, tables, which, K, backend, dtype, pw=pw)
     out["t"] = np.arange(K) * DT_OBS
     return out
 

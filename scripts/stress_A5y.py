@@ -21,7 +21,7 @@ import stress_A5 as A5    # noqa: E402
 SHAPES = ("L3", "square", "2x3")
 SEED0 = 908000
 COND = "all+motor"
-KINDS = ("v2", "clamp", "yawc")
+KINDS = ("v2", "clamp", "yawc", "wheelrate")
 
 
 def run(n):
@@ -42,8 +42,9 @@ def run(n):
         ref1 = cap1.capability([(asm, lr)], par, device="cpu")[0]["rho"].cpu().numpy()[0]
         out[f"{s}/T1"] = cap1.capability([(asm, lat)], par, device="cpu")[0]["rho"].cpu().numpy() / ref1[None]
         seed = SEED0 + 1000003 * si
-        out[f"{s}/T2"] = cap2.capability([(asm, lat)], par, eff, seed=seed)[0]["rho"] / cap2.rho_ref(asm, par, "plated",
-                                                                                                    eff)[None]
+        ref2 = cap2.rho_ref(asm, par, "plated", eff)
+        out[f"{s}/T2"] = cap2.capability([(asm, lat)], par, eff, seed=seed)[0]["rho"] / ref2[None]
+        out[f"{s}/T2_fixed"] = out[f"{s}/T2"] * ref2[None] / ref1[None]       # N3: rho_abs^T2 / rho_ref^T1
         mf = MF.probe_misfit(asm, lat, par, eff, seed, kinds=KINDS, rng=np.random.default_rng([SEED0, si, 5]))
         for k in KINDS:
             out[f"{s}/D_imu_{k}"], out[f"{s}/D_duty_{k}"] = mf[k]
@@ -66,9 +67,24 @@ def analyze():
     from cfcap.t1.capability import LEGS
     z = np.load(A5.OUT / "A5y.npz")
     yaw = np.array([l.startswith("yaw") for l in LEGS])
+    res = []
+    for label in ("fixed", "own"):
+        res += _analyze_label(z, yaw, label)
+    A5.RES.mkdir(parents=True, exist_ok=True)
+    with open(A5.RES / "A5y_auc.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(res[0]))
+        w.writeheader()
+        w.writerows(res)
+    for r in res:
+        print(r)
+
+
+def _analyze_label(z, yaw, label):
+    from cfcap.t1.capability import LEGS  # noqa: F401
     rows = []
     for s in SHAPES:
-        r1, r2 = z[f"{s}/T1"], z[f"{s}/T2"]
+        r1 = z[f"{s}/T1"]
+        r2 = z[f"{s}/T2_fixed"] if label == "fixed" else z[f"{s}/T2"]
         fl = np.zeros_like(r1, bool)
         for t in A5.TAUS:
             fl |= (r1 >= t) != (r2 >= t)
@@ -81,30 +97,30 @@ def analyze():
                 r[f"D_imu_{k}"] = float(z[f"{s}/D_imu_{k}"][b])
                 r[f"D_duty_{k}"] = float(z[f"{s}/D_duty_{k}"][b])
             r["D_imu_clamp+yawc"] = r["D_imu_clamp"] + r["D_imu_yawc"]
+            r["D_wheelrate"] = r["D_imu_wheelrate"] + r["D_duty_wheelrate"]
             r["yawc_track"] = float(z[f"{s}/yawc_track"][b]) if f"{s}/yawc_track" in z.files else np.nan
             rows.append(r)
-    stats = ("D_imu_v2", "D_imu_clamp", "D_imu_yawc", "D_imu_clamp+yawc", "D_duty_yawc", "yawc_track")
+    stats = ("D_imu_v2", "D_imu_clamp", "D_imu_yawc", "D_imu_clamp+yawc", "D_duty_yawc", "yawc_track", "D_wheelrate",
+             "D_imu_wheelrate", "D_duty_wheelrate")
     res = []
-    for target, label, faulted_neg in (("a", "yaw_flip|yaw_shift05", False), ("a_flips", "yaw_flip", True),
+    for target, label_, faulted_neg in (("a", "yaw_flip|yaw_shift05", False), ("a_flips", "yaw_flip", True),
                                        ("b", "any_flip|any_shift05", False), ("b_flips", "any_flip", True)):
-        pos = np.array([any(r[k] for k in label.split("|")) for r in rows], bool)
+        pos = np.array([any(r[k] for k in label_.split("|")) for r in rows], bool)
         neg = ~pos
         if faulted_neg:
             neg &= np.array([r["n_fault"] > 0 for r in rows])
-        row = dict(target=target, label=label, negatives="faulted" if faulted_neg else "all", positives=int(pos.sum()),
+        row = dict(ref_label=label, target=target, label=label_, negatives="faulted" if faulted_neg else "all", positives=int(pos.sum()),
                    n_neg=int(neg.sum()))
         for k in stats:
             d = np.array([r[k] for r in rows])
             row[f"auc_{k}"] = _auc(d[pos], d[neg])
         res.append(row)
-    A5.RES.mkdir(parents=True, exist_ok=True)
-    for name, rr in (("A5y_rows.csv", rows), ("A5y_auc.csv", res)):
-        with open(A5.RES / name, "w", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(rr[0]))
+    if label == "fixed":
+        with open(A5.RES / "A5y_rows.csv", "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(rows[0]))
             w.writeheader()
-            w.writerows(rr)
-    for r in res:
-        print(r)
+            w.writerows(rows)
+    return res
 
 
 if __name__ == "__main__":

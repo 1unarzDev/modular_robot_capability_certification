@@ -451,3 +451,17 @@ Flips T1 → T2 by dominance class, with an episode-bootstrap 95 % CI:
   - wheelrate AUC ≥ 0.75 → the claim "the theory names the probe" stands with a feasible probe;
   - yawc ≥ 0.75 but wheelrate < 0.75 → "split-to-see" only;
   - both < 0.75 → drop the yaw-probe claim.
+
+## N7 targets: size-aware two-simulator margin for single and pair children (written 2026-11-25 before the run; exploratory)
+- **Data.** The A5m single and pair episodes (seed 906000, 200 each): the latents are regenerated
+  deterministically, and T1 is checked against the stored labels. Truth is T2 `all+motor` with the **fixed**
+  reference (N3).
+- **Certifiers** (decision (episode, leg, τ), τ ∈ {0.7, 0.8}, go iff lower ≥ τ):
+  - `t1_only`: lower = ρ_dec^T1, the oracle with T1 latents known (exact in T1).
+  - `size_aware`: lower = ρ_dec^T1 − q(cand_size). q(n) is the 99th percentile over all decisions of that size of
+    the shortfall (ρ_dec^T1 − ρ_dec^T1,pert)₊. ρ_dec^T1,pert is T1 run on the same latents perturbed with the E2
+    recipe: motor spread ×2, battery and friction module deviations ×2, load split ×2, mounting yaw +N(0, 0.02).
+    T2 truth is never used.
+- **Metrics.** unsafe = P(go and T2 truth < τ) over all decisions; CF = P(go | T2 truth ≥ τ); U* = 1 %.
+- **Bar:** `size_aware` single-child unsafe ≤ 2·U* = 2 % with a CF loss ≤ 5 pts against `t1_only`. Pairs are
+  reported against the same bar.

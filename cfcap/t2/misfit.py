@@ -46,11 +46,54 @@ def yaw_rate_table(asm, par, rng):
     return tab
 
 
+WHEELRATE_T = 0.5 + 4 * (0.4 + 1.0 + 0.3) + 0.5
+
+
+def wheelrate_table(asm, par, rng):
+    """Feasible parent probe `wheelrate` (N5): body-twist command 0; every module runs its twist-free wheel mode (the
+    null vector n of its IK map, J_m^T n = 0: the wheels oppose each other in antagonistic pairs, so no net force or
+    moment; for the standard X layout n = (+1, -1, -1, +1) on fl, fr, rl, rr), scaled so each module's fastest wheel
+    reaches the largest |omega| its wheels need on the child's yaw leg (IK of t1.capability.leg_twists yaw: the
+    Prop. 2b closed form). Lead U(0, 0.2) s, 0.5 s settle, legs +, -, +, - of 0.4 s ramp + 1.0 s hold + 0.3 s ramp
+    down, 0.5 s tail. Returns (cmd (K+1, 3) zeros, pw_ref (K+1, n) rad/s, 0 outside the legs), at 50 Hz."""
+    from cfcap.t1 import capability as cap1, plant
+    hz = float(par["firmware"]["cmd_rate_hz"])
+    K = plant.n_ticks(WHEELRATE_T, par)
+    tw = cap1.leg_twists(asm)[cap1.LEGS.index("yaw+")]
+    pos, w_hat, r_hat = np.asarray(asm.wheel_pos), np.asarray(asm.w_hat), np.asarray(asm.r_hat)
+    r = float(par["wheel"]["radius_m"])
+    den = r * (w_hat * r_hat).sum(-1)
+    vc = np.stack([tw[0] - tw[2] * pos[:, 1], tw[1] + tw[2] * pos[:, 0]], -1)
+    om = np.abs((r_hat * vc).sum(-1) / den)                                       # |omega_j| on the yaw leg
+    wm = np.asarray(asm.wheel_module)
+    mode = np.zeros(asm.n)
+    for m in np.unique(wm):
+        j = np.nonzero(wm == m)[0]
+        J = np.stack([r_hat[j, 0], r_hat[j, 1], pos[j, 0] * r_hat[j, 1] - pos[j, 1] * r_hat[j, 0]], 1) / den[j, None]
+        nv = np.linalg.svd(J.T)[2][-1]                                            # J^T n = 0
+        nv = nv / np.abs(nv).max()
+        mode[j] = nv * om[j].max()
+    lead = float(rng.uniform(0.0, 0.2))
+    t = np.arange(K + 1) / hz - lead
+    ref = np.zeros((K + 1, asm.n))
+    t0 = 0.5
+    for sg in (+1.0, -1.0, +1.0, -1.0):
+        prof = np.interp(t, [t0, t0 + 0.4, t0 + 1.4, t0 + 1.7], [0.0, 1.0, 1.0, 0.0], left=0.0, right=0.0)
+        ref += (sg * prof)[:, None] * mode[None]
+        t0 += 1.7
+    ref[K:] = 0.0
+    return np.zeros((K + 1, 3), np.float32), ref.astype(np.float32)
+
+
 def _tables(kind, asm, par, rng):
+    """(twist table, T, per-wheel table or None)."""
     from cfcap.gen import simrun as SR
     if kind == "yawc":
-        return yaw_rate_table(asm, par, rng), YAWC_T
-    return SR.probe_tables(kind, asm, par, rng)[0], SR.probe_T(kind)
+        return yaw_rate_table(asm, par, rng), YAWC_T, None
+    if kind == "wheelrate":
+        c, ref = wheelrate_table(asm, par, rng)
+        return c, WHEELRATE_T, ref
+    return SR.probe_tables(kind, asm, par, rng)[0], SR.probe_T(kind), None
 
 
 def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp", "yawc"), rng=None, backend="numba"):
@@ -65,8 +108,9 @@ def probe_misfit(asm, lat, par, effects, seed, kinds=("v2", "clamp", "yawc"), rn
     for kind in kinds:
         tt = [_tables(kind, asm, par, rng) for _ in range(B)]
         tabs, T = np.stack([x[0] for x in tt]), tt[0][1]
-        R1 = plant.simulate_bucket([dict(asm=asm, lat=lt, cmd=tabs)], par, T, device="cpu")[0]
-        R2 = cap2.simulate(asm, lat, par, tabs, T, effects, backend=backend, seed=seed)
+        pw = np.stack([x[2] for x in tt]) if tt[0][2] is not None else None
+        R1 = plant.simulate_bucket([dict(asm=asm, lat=lt, cmd=tabs, pw_ref=pw)], par, T, device="cpu")[0]
+        R2 = cap2.simulate(asm, lat, par, tabs, T, effects, backend=backend, seed=seed, pw_ref=pw)
         out[kind] = misfit(R1["twist"].numpy().astype(float), R2["twist"], R1["duty"].numpy().astype(float),
                            R2["duty"])
         if kind == "yawc":

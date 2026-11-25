@@ -166,3 +166,21 @@ def test_knee_law_backends_agree(setup, sev):
     b = cap2.capability([(asm, lat)], par, e, backend="numba")[0]["rho"]
     c = cap2.capability([(asm, lat)], par, build.NONE, backend="numba")[0]["rho"]
     assert np.allclose(a, b, atol=1e-10) and np.abs(b - c).max() > 1e-4
+
+
+def test_per_wheel_tables(setup):
+    """Per-wheel speed tables: all-NaN reproduces the twist-only run; numpy == numba with the wheelrate probe."""
+    par, th, dr = setup
+    from cfcap.t2 import misfit as MF
+    asm = P.named_assembly("pair", par)
+    lat = plant.sample_latents(asm, 2, np.random.default_rng(9), plant.HET_OFF, domain=P.point_domain(th, 2, "cpu"),
+                               device="cpu")
+    cmd, ref = MF.wheelrate_table(asm, par, np.random.default_rng(0))
+    a = cap2.simulate(asm, lat, par, cmd, MF.WHEELRATE_T, build.ALL)
+    b = cap2.simulate(asm, lat, par, cmd, MF.WHEELRATE_T, build.ALL, pw_ref=np.full_like(ref, np.nan))
+    assert np.array_equal(a["twist"], b["twist"])
+    c = cap2.simulate(asm, lat, par, cmd, MF.WHEELRATE_T, build.ALL, pw_ref=ref, backend="numpy")
+    d = cap2.simulate(asm, lat, par, cmd, MF.WHEELRATE_T, build.ALL, pw_ref=ref, backend="numba")
+    assert np.allclose(c["speed"], d["speed"], atol=1e-9) and np.abs(d["speed"]).max() > 1.0
+    e = cap2.simulate(asm, lat, par, cmd, MF.WHEELRATE_T, build.NONE, pw_ref=ref)
+    assert np.abs(e["twist"]).max() < 0.01     # twist-free wheel mode: a nominal healthy body barely moves
