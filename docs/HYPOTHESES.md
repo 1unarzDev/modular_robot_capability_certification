@@ -100,6 +100,15 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **20:55Z H12 (silent extrapolation). PARTIAL; SUPPORTED for ≥ 3-module children (exploratory, post-hoc
+  restriction).** Sources `results/stress/N3_flips.csv`, `N3_verdict.json`.
+  - With the fixed reference: undominated flips 2.76 % [2.21, 3.35]; dominated 1.82 %, all of it in singles and
+    pairs (H8 scatter).
+  - ≥ 3-module children: axis 0 %, yaw 3.0–6.75 %.
+  - Confirmatory test: CONFIRMATORY §3, primary cell ≥ 3-module children.
+- **20:55Z, "the theory names the yaw probe". NOT MET** (`results/stress/A5y_auc.csv`: yawc AUC 0.56 < 0.75, even
+  on the child). Pending N5 `wheelrate` and the fixed-reference re-score.
+- **20:55Z H14 (merges) with the fixed reference: still SUPPORTED** (flips 0.16–0.17 %, `results/stress/N3_merge.csv`).
 - **20:50Z H7. AT RISK on T0.** The old pilot (99.4 % useful at 0.54 % unsafe) is superseded by the scorer-audit
   fixes: leaky cross-fit, Gaussian normaliser, empty-screen healthy fallback.
   - `results/decision/t0_k5_summary.csv`, 240 episodes: sim0.1 gives 0.42 % ep_any_unsafe but only 65 % useful,

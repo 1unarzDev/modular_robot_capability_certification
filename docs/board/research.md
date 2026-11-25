@@ -1,6 +1,6 @@
 # research lead (science state, frontier ideas, next experiments)
 
-## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 20:50Z
+## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 20:58Z
 Hypothesis numbers follow the ledger. My proposals H11–H14 of 20:15Z are renumbered **H12–H15**, because the
 ledger's H11 is the conformalised screen.
 
@@ -26,6 +26,16 @@ ledger's H11 is the conformalised screen.
   - If (b) fails its bins but (a) holds marginally, report the marginal claim only. H11 then becomes "end-to-end
     calibration absorbs approximate inference", and the screen threshold is a compute knob, not a safety knob.
 
+**N0. The confirmatory pre-registration is written** (`docs/CONFIRMATORY.md`, 8ffc33a + amendment 8ff2954). The
+generator emits `conf_*` only after this file. The paper role writes `scripts/analysis/confirmatory.py` and tests it
+on mock data before 01:45Z.
+
+**N2b. Gate statistic choice (owner: theory + stress; decide by 22:15Z, CPU ≤ 30 min, decides H13).** Trace misfit D
+vs the capability-tracking residual r_track = |measured probe ratio − T1-predicted ratio|.
+- Use exploratory t2-knee / A5m episodes, fixed-reference positives, ≥ 3-module children.
+- AUC with an episode bootstrap CI.
+- Commit the one with the higher lower-CI bound. CONFIRMATORY §3 allows exactly one.
+
 **N2. Rerun E1 at full size and refuse verdicts on smoke data (decides H12/H13; owner: theory; ops submits).**
 - **Evidence.** `results/theory/gate_cert.csv` has **4 episodes per law** (n_episodes = 4), with q_gate = −1 and an
   infinite margin. Every calibrated certifier (`par`, `pi_cal`, `gate`, `nominal`) certifies 0 %, so
@@ -41,7 +51,7 @@ ledger's H11 is the conformalised screen.
   from T2 `all+motor` (N3), not from T0.
 - **Bar.** As pre-registered (theory board §E1).
 
-**N3. Fixed-reference relabelling of the misspecification tests (decides H12, silent extrapolation; owner: stress;
+**N3 (DONE 20:50Z; see critique log). Fixed-reference relabelling of the misspecification tests (decides H12, silent extrapolation; owner: stress;
 CPU, offline if ρ_abs is stored, else ≈ 1.5 CPU-h).**
 - **Confound.** A5m reports 0 % flips on healthy candidates under every condition. But each plant's ρ_dec is divided
   by *that plant's own* nominal healthy reference.
@@ -117,7 +127,51 @@ fixed reference. **Bar:** T2 single-child unsafe ≤ 2·U* at CF loss ≤ 5 pts 
 - EVOI as a headline. In `t0_k5`, EVOI and EPIG run 0 probes and EIG 0.09/episode; `all` costs 16 s for no
   safety gain.
 
+### Broadening directions (plan §2a–2c): what makes each a generalisable claim, not a demo
+These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behind them:
+- **Env missions (HM3D-calibrated buildings).** These are a demo unless all of the following hold:
+  - (i) the calibration is tested: KS per statistic, committed before drawing;
+  - (ii) held-out *environment families* fixed by building seed, scored with a **building-clustered** bootstrap.
+    Missions in one building are not independent;
+  - (iii) the mission layer is the *same certifier* composed over segments, with no new tuning. The claim is then
+    "per-decision certificates compose to mission-level risk": the episode-level simultaneous event already covers
+    every segment of a candidate;
+  - (iv) footprint baselines that are not straw men: `greedy_feasible` and `biggest_body`;
+  - (v) a pre-stated check that reconfiguration is actually *needed* (≥ 20 % of oracle plans differ from the parent
+    as-is). Otherwise the environment is scenery.
+
+  Risk: the segment → leg mapping (turn → yaw at the turn rate) is our own design. Report a sensitivity row with the
+  turn rate ±30 %.
+- **N ≤ 16.** It generalises only if the *margin is not refit per size*, so that the test is honest extrapolation,
+  and the comparison is composition vs direct on the same episodes.
+  - The theory curve "extrapolated share vs N" makes this a mechanism.
+  - Prop. 2b already has yaw of ≥ 3-module children undominated in 96–100 %, so the share should saturate early.
+    Say so, rather than claiming growth.
+- **Module types H1/H2.**
+  - The honest claim is conditional: *composition transfers to a new module type whose wheel-channel model is known*.
+    The type is observable metadata.
+  - A learned encoder that never saw omni wheels is not expected to infer them. Run `amortized_comp_blind` to
+    measure exactly that.
+  - Without the blind arm, a reviewer reads H1 as "we told it the answer".
+  - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
+
 ### Critique log (newest first)
+- **20:55Z, N3 fixed reference** (`results/stress/N3_flips.csv`, `N3_verdict.json`).
+  - **H12 as written (pooled): neither supported nor falsified.** Undominated flips are 2.76 % [2.21, 3.35] > 1 %,
+    but dominated flips are 1.82 % > 0.5 %, all of them in singles and pairs (H8 scatter, present without the motor
+    law).
+  - For ≥ 3-module children the pattern is exact: axis 0 %, yaw 3.0–6.75 %, diagonals 0.75–1.75 %.
+  - That restriction is **post-hoc**, but it is the Prop. 2b mechanism, so it is now the pre-registered primary cell
+    of C-GATE (CONFIRMATORY amendment, before data).
+  - **The confound I flagged was real.** Square-yaw flips go from 0.38 % (own reference) to 6.5 % (fixed).
+  - Consequence: every own-reference T2 number on the boards understates misspecification. The fixed reference is
+    now the T2 default label (CONFIRMATORY §0.3).
+- **20:55Z, A5y.**
+  - The child-rate yaw probe missed its bar (AUC 0.56 on own-reference positives): the total-trace misfit is swamped
+    by T1-vs-T2 differences present in every episode.
+  - The post-hoc tracking residual reaches AUC 0.83, but on **10** flips: the CI is roughly ±0.15. Do not cite it.
+  - Lesson for the gate: the gate statistic should be *decision-relevant* (a predicted-vs-measured capability
+    residual at the probe), not a whole-trace likelihood misfit. That is a genuine method refinement (N2b).
 - **20:50Z, decision t0_k5 after the scorer fixes.**
   - The old T0 pilot headline (99.4 % useful at 0.54 % unsafe) is **superseded**: it came from the leaky cross-fit,
     a missing Gaussian normaliser and the healthy fallback on an empty screen.
