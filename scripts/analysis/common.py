@@ -114,6 +114,40 @@ def split_merge_rows(dec: pd.DataFrame):
     return dec[~m], dec[m]
 
 
+WHEELS_OF_SHAPE = {"single": 4, "pair": 8, "L3": 12, "square": 16, "2x3": 24}
+# exact (simulator-likelihood) posteriors, for the latency comparison against the amortized posterior
+EXACT_POSTERIOR = ("nuisance_smc", "enum_known", "envpost_ktol", "envpost_k5")
+
+
+def latency_table(res):
+    """Every wall-time-per-decision source: contract 'lat' (results/*/paper/latency*.csv, e.g. decision's
+    latency_decision.csv: envpost_ktol / envpost_k5 by size), plus the models pilot (results/models/latency.csv,
+    ms_per_episode) when no amortized row is in the contract, plus Stage A6's exact enumeration. Rows with shape 'all'
+    (pooled) are kept with n_wheels NaN. -> (frame, sources)."""
+    L, srcs = load("lat", res)
+    if not set(SCHEMAS["lat"]["req"]) <= set(L.columns):      # (a caller that stubs `load` returns other frames)
+        L, srcs = pd.DataFrame(columns=list(SCHEMAS["lat"]["req"]) + ["_src"]), []
+    if not (L["method"].astype(str).str.startswith("amortized").any() if len(L) else False):
+        f = res / "models/latency.csv"
+        if f.exists():
+            m = pd.read_csv(f)
+            L = pd.concat([L, pd.DataFrame(dict(method=m.method, shape=m["shape"],
+                                                n_wheels=m["shape"].map(WHEELS_OF_SHAPE),
+                                                sec_per_decision=m.ms_per_episode / 1000,
+                                                hardware="RTX 4070 Ti SUPER", status="exploratory",
+                                                _src=rel(f)))], ignore_index=True)
+            srcs = srcs + [rel(f)]
+    f = res / "stageA/A6_summary.csv"
+    if f.exists():
+        a6 = pd.read_csv(f)
+        L = pd.concat([L, pd.DataFrame(dict(method=["enum_known"], shape=["2x3"], n_wheels=[24],
+                                            sec_per_decision=[a6.sec_per_episode_median.iloc[0]],
+                                            hardware=["RTX 4070 Ti SUPER"], status=["exploratory"],
+                                            _src=[rel(f)]))], ignore_index=True)
+        srcs = srcs + [rel(f)]
+    return L, srcs
+
+
 class SchemaError(ValueError):
     pass
 

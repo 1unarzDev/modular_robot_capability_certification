@@ -8,7 +8,10 @@ ambiguity resolved per extra probe-minute vs fixed_v2; abstain rate. The table s
 the first plant found (e.g. the decision role's T0 pilot), and says which.
 Stage A3 found too few ambiguous decisions to test probing (results/stageA/A3_verdict.json), so this table may land
 in the appendix (docs/board/paper.md, claim C4).
-Outputs: paper/tables/t4_probing.tex, t4_probing.csv, macros cfTFour* (unsuffixed = rel).
+The headline table is test_plant == HEADLINE_PLANT ("T0-knee-post-ktol", decision's probe_t0n1bK.csv) when present;
+every other plant (the *-appendix ablations "T0-knee-post-K5-appendix", "T0-knee-truemodes-appendix", and older
+plants) goes to t4_probing_appendix.tex.
+Outputs: paper/tables/t4_probing.tex, t4_probing_appendix.tex, t4_probing.csv, macros cfTFour* (unsuffixed = rel).
 """
 from __future__ import annotations
 
@@ -18,7 +21,9 @@ import pandas as pd
 import common as C
 from t1_certificate import sfx
 
-NAMES = {"fixed_v2": "Fixed v2", "fixed_all": "Fixed full library", "random": "Random probe",
+HEADLINE_PLANT = "T0-knee-post-ktol"     # decision role's headline (probe_t0n1bK.csv); *-appendix plants -> appendix
+NAMES = {"fixed_v2": "Fixed v2", "fixed_v2_clamp": "Fixed v2 + clamp", "dominance_clamp": "Dominance + clamp",
+         "fixed_v2_clamp_moddiff": "Fixed v2 + clamp + module-differential", "fixed_all": "Fixed full library", "random": "Random probe",
          "eig": "EIG (parameters)", "epig": "EPIG (predictions)", "evoi": "Decision-EVOI (ours)",
          "always_split": "Always split first", "dad": "Amortized policy (DAD/TNDP)",
          "oracle_probe": "Oracle probe choice"}
@@ -31,6 +36,25 @@ def _ratio_ci(d, num, den):
     if num not in d or d[num].isna().all():
         return np.nan, (np.nan, np.nan)
     return C._ratio(d[num].sum(), d[den].sum()), C.boot_ratio(d[num].to_numpy(float), d[den].to_numpy(float))
+
+
+def _appendix(Ra, P, srcs, path):
+    """Every non-headline plant (the *-appendix ablations, and older plants such as T0), labelled by plant."""
+    if Ra.empty:
+        C.placeholder_table(path, "tFourAppendix", 7, "no appendix plants")
+        return
+    lines = [r"\begin{tabular}{llrrrrr}", r"\toprule",
+             r"Plant & policy & probe time (s) & ambiguity resolved (\%) & cert.\ (\%) & unsafe (\%) & "
+             r"cert.\ all (\%)\\", r"\midrule"]
+    for pl, d in Ra.groupby("plant", sort=True):
+        for _, r in d.iterrows():
+            nm = NAMES.get(r.policy, r.policy.replace("_", r"\_"))
+            lines.append(f"{pl} & {nm} & {r.t:.1f} & {C.fmt_pct(r.resolved)} & {C.fmt_pct(r.cert)} & "
+                         f"{C.fmt_pct(r.unsafe, 2)} & {C.fmt_pct(r.cert_all)}\\\\")
+        lines.append(r"\midrule")
+    lines[-1] = r"\bottomrule"
+    lines.append(r"\end{tabular}")
+    C.write_table(path, "\n".join(lines), srcs, "appendix plants (ablations); decision-relevant stratum + all")
 
 
 def run(res, paper):
@@ -65,10 +89,15 @@ def run(res, paper):
     R = pd.DataFrame(rows)
     R["o"] = R.policy.map(lambda p: ORDER.index(p) if p in ORDER else 99)
     R = R.sort_values(["plant", "o", "policy"])
+    (paper / "tables").mkdir(parents=True, exist_ok=True)
     R.drop(columns="o").to_csv(paper / "tables/t4_probing.csv", index=False)
-    plant = plants[0]
+    plant = HEADLINE_PLANT if HEADLINE_PLANT in plants else plants[0]
     Rp = R[R.plant == plant]
     st = C.status_of(P[P.test_plant == plant])
+    if "_src" in P:
+        srcs = sorted(P[P.test_plant == plant]["_src"].unique())           # headline numbers cite only their file
+    _appendix(R[R.plant != plant], P, sorted(P[P.test_plant != plant]["_src"].unique()) if "_src" in P else srcs,
+              paper / "tables/t4_probing_appendix.tex")
     lines = [r"\begin{tabular}{lrrrrrrr}", r"\toprule",
              r" & & & & \multicolumn{2}{c}{decision-relevant} & all & \\",
              r"Policy & probe time (s) & ambiguity resolved (\%) & per extra min & cert.\ (\%) & unsafe (\%) & "

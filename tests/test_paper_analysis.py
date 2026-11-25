@@ -271,3 +271,57 @@ def test_t1_cfbh_nominal_only(tmp_path):
     # scorer: commit-at-tau <=> lower >= tau; truth >= 0.71 entries selected up to 0.7 are never unsafe at 0.6/0.7
     c = C.decision_counts(x, stratum="all")
     assert c["n_unsafe"] == 0 and c["n_certified"] > 0
+
+
+
+def _probe_rows(plant, pols, n=6, cert=0.9):
+    rows = []
+    for pol in pols:
+        for e in range(n):
+            rows.append(dict(policy=pol, split="test", status="exploratory", eid=e, shape="pair", n_probes=1,
+                             probe_time_s=12.0 if pol == "fixed_v2" else 20.0, action="commit", n_dec=10,
+                             n_capable=8, n_incapable=2, n_certified=int(8 * cert), n_unsafe=0, n_amb_before=2,
+                             n_amb_after=1, test_plant=plant, n_capable_rel=4, n_incapable_rel=2,
+                             n_certified_rel=int(4 * cert), n_unsafe_rel=0))
+    return pd.DataFrame(rows)
+
+
+def test_t4_headline_plant_and_appendix(tmp_path):
+    import t4_probing
+    p = tmp_path / "decision/paper"
+    p.mkdir(parents=True)
+    _probe_rows("T0", ["fixed_v2", "evoi", "eig"], cert=0.5).to_csv(p / "probe_t0_n1.csv", index=False)
+    _probe_rows("T0-knee-post-ktol", ["fixed_v2", "evoi", "dominance_clamp"], cert=1.0).to_csv(p / "probe_t0n1bK.csv",
+                                                                                    index=False)
+    _probe_rows("T0-knee-post-K5-appendix", ["fixed_v2", "evoi"], cert=0.25).to_csv(p / "probe_t0envpost.csv",
+                                                                                   index=False)
+    n = t4_probing.run(tmp_path, tmp_path / "paper")
+    assert n.items[C.macro_name("t4.plant")][0] == "T0-knee-post-ktol"
+    assert n.items[C.macro_name("t4.cert.evoi")][0] == "100.0\\,\\%"          # 4/4 relevant: headline plant only
+    assert "probe_t0n1bK.csv" in n.items[C.macro_name("t4.cert.evoi")][1]
+    head = (tmp_path / "paper/tables/t4_probing.tex").read_text()
+    app = (tmp_path / "paper/tables/t4_probing_appendix.tex").read_text()
+    assert "Dominance + clamp" in head and "EIG" not in head
+    assert "T0-knee-post-K5-appendix" in app and "T0 &" in app and "T0-knee-post-ktol &" not in app
+
+
+def test_latency_table_merges_decision_and_models(tmp_path):
+    (tmp_path / "decision/paper").mkdir(parents=True)
+    pd.DataFrame(dict(method=["envpost_ktol"] * 3 + ["envpost_ktol"], shape=["2mod", "3mod", "4mod", "all"],
+                      n_wheels=[8.0, 12.0, 16.0, np.nan], sec_per_decision=[1.49, 4.54, 12.32, 4.33],
+                      hardware="cpu", status="exploratory", n=[12, 22, 14, 48])
+                 ).to_csv(tmp_path / "decision/paper/latency_decision.csv", index=False)
+    (tmp_path / "models").mkdir()
+    pd.DataFrame(dict(method=["amortized_n2_s1"] * 2, shape=["pair", "square"], ms_per_episode=[3.4, 3.5])
+                 ).to_csv(tmp_path / "models/latency.csv", index=False)
+    L, srcs = C.latency_table(tmp_path)
+    assert set(L.method) == {"envpost_ktol", "amortized_n2_s1"} and len(srcs) == 2
+    import f3_throughput, t3_grid
+    n = f3_throughput.run(tmp_path, tmp_path / "paper")
+    v = {k: x[0] for k, x in n.items.items()}
+    assert v["cfFThreeSecExactpostMin"] == "1.5" and v["cfFThreeSecExactpostMax"] == "12.3"
+    assert v["cfFThreeMsAmortized"] == "3.5" or v["cfFThreeMsAmortized"] == "3.4"
+    n3 = t3_grid.run(tmp_path, tmp_path / "paper")
+    t = (tmp_path / "paper/tables/t3_latency.tex").read_text()
+    assert "Exact posterior (knee-tolerant)" in t and "3.4 ms" in t and "12.32 s" in t
+    assert n3.items[C.macro_name("t3.lat.envpost_ktol.max")][0] == "12.3"

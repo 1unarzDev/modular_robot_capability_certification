@@ -50,8 +50,36 @@ def verdict(a2, s2) -> str:
     return f"{rob}; {lat}"
 
 
+LAT_NAMES = {"envpost_ktol": "Exact posterior (knee-tolerant)", "envpost_k5": "Exact posterior (K = 5)",
+             "nuisance_smc": "GPU-SMC (T1 likelihood)", "enum_known": "Exact enumeration (nuisance known)"}
+
+
+def latency(res, paper, N):
+    """Latency half of the ML claim: wall time per decision by method and parent size (common.latency_table)."""
+    L, srcs = C.latency_table(res)
+    out = paper / "tables/t3_latency.tex"
+    if L.empty:
+        C.placeholder_table(out, "tThreeLatency", 4, "awaiting latency*.csv")
+        return
+    L = L.copy()
+    L["size"] = L["shape"].astype(str)
+    lines = [r"\begin{tabular}{llrl}", r"\toprule", r"Method & parent & s / decision & hardware\\", r"\midrule"]
+    for _, r in L.sort_values(["method", "n_wheels"]).iterrows():
+        nm = LAT_NAMES.get(r.method, str(r.method).replace("_", r"\_"))
+        v = r.sec_per_decision
+        cell = f"{1000 * v:.1f} ms" if v < 0.1 else f"{v:.2f} s"
+        lines.append(f"{nm} & {r['size'].replace('_', ' ')} & {cell} & {str(r.hardware).replace('_', ' ')}\\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    C.write_table(out, "\n".join(lines), srcs, "wall time per decision (pilot timings; hardware differs by row)")
+    st = C.status_of(L)
+    for m, d in L[L.n_wheels.notna()].groupby("method"):
+        N.num(f"t3.lat.{m}.min", d.sec_per_decision.min(), srcs, st, fmt="{:.3g}")
+        N.num(f"t3.lat.{m}.max", d.sec_per_decision.max(), srcs, st, fmt="{:.3g}")
+
+
 def run(res, paper):
     N = C.Numbers("t3_grid.py")
+    latency(res, paper, N)
     dec, srcs = C.load("dec", res)
     dec, _ = C.split_merge_rows(dec)   # E2 merge-only rows are scored in merge_table.py
     out = paper / "tables/t3_grid.tex"

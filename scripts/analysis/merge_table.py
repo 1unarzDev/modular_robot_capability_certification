@@ -69,7 +69,8 @@ def _cert(D, srcs, st, path, N):
                 row[f"unsafe_{s}"] = nom["unsafe_commit"]
                 row[f"epcov_{s}"] = C.coverage(ev, stratum=s)["ep_cov"]
             rows.append(row)
-    R = pd.DataFrame(rows)
+    R = pd.DataFrame(rows, columns=["method", "plant", "dagger"] + [f"{k}_{s}" for s in C.STRATA
+                                                                    for k in ("cf", "unsafe", "epcov")])
     lines = [r"\begin{tabular}{llrrrr}", r"\toprule",
              r"Method & plant & cert.\ @U$^*$ (\%) & unsafe, nominal (\%) & sim.\ cov.\ (\%) & cert.\ @U$^*$ all (\%)\\",
              r"\midrule"]
