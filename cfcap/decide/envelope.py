@@ -100,7 +100,9 @@ def run(eps, preds=("env", "env_cal", "par", "par_cal"), S=32, seed=0):
             pool = {}
             for i in ca:
                 e = eps[i]
-                d = (e[f"{src}_v2clamp"] - q["v2clamp"]) - (e[f"{src}_v2"] - q["v2"])
+                with np.errstate(invalid="ignore"):
+                    d = (e[f"{src}_v2clamp"] - q["v2clamp"]) - (e[f"{src}_v2"] - q["v2"])
+                d = np.nan_to_num(d, nan=0.0, posinf=0.0, neginf=0.0)
                 cl = _cell(e)
                 for k in np.unique(cl):
                     pool.setdefault(k, []).append(d[cl == k])

@@ -139,6 +139,51 @@ Useful commits are 95.4–95.5 % for every policy. Under the physics-trusting T0
 Unbudgeted EVOI never probes, so it equals v2. The per-minute metric is dropped. The probing question moves to the
 envelope class (next section).
 
+## Envelope class: probing where ambiguity is real (exploratory; review item 2)
+Source: `scripts/decide_envelope.py`, `cfcap/decide/envelope.py` → `results/decision/envelope_{rows,summary,by_law}.csv`.
+
+**Setup.**
+- Episodes: theory E1 `gate_episode`, seeds 0–479 from theory's pickles. 463 episodes after dropping knee
+  non-convergence.
+- Truth: knee motor law with severity = seed % 4. Severity 0 is the two-constant law, 120 episodes; knee episodes number
+  343.
+- Children only. 1–3 random tasks per episode, 3-fold leak-free cross-fit.
+- Lower bounds:
+  - `env`: the identified-set low end `rho_pi`, model-free;
+  - `par`: the two-constant fit `rho_par`;
+  - `_cal`: minus the end-to-end simultaneous margin.
+- Probe: clamp (8.8 s) or not.
+- evoi = probe iff E[V · Δ certified tasks] > 8.8 s. The predictive of the bound's gain is cross-fitted from the
+  calibration folds by (leg kind × child ≥ 3 modules × v2-undominated) cell.
+
+| predictor | policy | ep unsafe | useful | abstain | regret ± se (s) | probe s | ≥3-mod yaw cert |
+|---|---|---|---|---|---|---|---|
+| env_cal | v2 | 0.0 % | 83.4 % | 10.6 % | 31.4 ± 2.4 | 0 | 67 % |
+| env_cal | clamp | 0.22 % | 95.3 % | 4.8 % | 19.4 ± 2.1 | 8.8 | 90 % |
+| env_cal | **evoi** | 0.22 % | 94.9 % | 4.8 % | **14.3 ± 2.2** | 2.05 (23 % probed) | 74 % |
+| env (raw, uncalibrated) | v2 / clamp / evoi | 0.4 / 1.3 / 1.5 % | 83.4 / 96.5 / 95.8 % | | 34.0 / 23.6 / 20.6 | | |
+| par (raw physics fit) | v2 | **5.2 %** (knee episodes 7.0 %) | 97.9 % | | 41.0 ± 8.4 | 0 | |
+| par_cal | v2 / clamp | 0.4 % | 71.6 / 71.5 % | 17.7 % | 53.9 / 63.0 | | |
+
+**Readings.**
+1. **Under the model-free class, probing earns its place.** Clamp lifts useful commits from 83 % to 95 % and nearly
+   halves regret. Decision-EVOI gets the same useful commits with a quarter of the probe time (it probes 23 % of the
+   episodes). Its regret, 14.3 s, is the best of all, against 19.4 for fixed clamp and 31.4 for v2 (differences about
+   2–3 se).
+2. **Trusting the physics is unsafe under a wrong motor law.** Raw `par` is 7.0 % unsafe on knee episodes and 0 % on
+   two-constant ones. Calibrating it pooled over laws makes it safe, but only 72 % useful, worse than the model-free
+   class.
+3. **Yaw legs of children with ≥ 3 modules.** Clamp raises their certified share from 67 % to 90 % (env_cal), but raw
+   `env` with clamp has 14 % unsafe among their incapable pairs. Calibration is needed exactly there, which fits Prop. 2b
+   (translation probes do not dominate yaw operating points).
+4. **Matched time.** Here the library is one probe, so evoi is "clamp when worth it". At equal mean probe time, evoi
+   (2.05 s) beats any fixed policy. Fixed clamp at 8.8 s is 5.1 s worse in regret.
+5. **Caveats.**
+   - E1's faults are known to the envelope construction: rho_pi uses the true fault modes. So this isolates motor-law
+     uncertainty from fault-mode uncertainty.
+   - Split time uses a line layout for the children's leftovers.
+   - T0 only.
+
 **Conformalized screen.** On 600 calibration episodes (seeds 929000+), the truth's screen statistic has a heavy tail:
 median 2.0, 99 % quantile 23.9, max 29.5. Single faults reach 22.2 and double faults 23.7 at their 99 % quantiles.
 - The calibrated threshold K(α_s = 0.01) = 23.9 keeps 55–7,000 hypotheses per episode, at up to 212 s per 4-module
