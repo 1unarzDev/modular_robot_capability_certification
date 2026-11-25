@@ -45,6 +45,10 @@ U_STAR = 0.01                   # matched unsafe-commit rate for "certified frac
 B_BOOT = 1000
 REL_BAND = 0.10                 # near-threshold half-width of the decision-relevant stratum (coordinator, 2026-11-25)
 STRATA = ("rel", "all")         # rel first: it is the headline
+# Selection-rule methods (baselines' conformal selection, cfBH at FDR 0.1) are encoded with ONE lower per row: the
+# largest tau at which the entry was selected, or -inf if never selected, so commit-at-tau <=> lower >= tau (the same
+# go rule as every certificate). They have no point/scale, so no matched operating point: own rule only.
+SELECTION_METHODS = {"cfBH"}
 ALWAYS_GO_LOWER = 1e12          # finite 'certify everything' bound for the constant-yes baseline
 LEGS = ("surge+", "surge-", "sway+", "sway-", "yaw+", "yaw-", "diag++", "diag+-", "diag-+", "diag--")
 

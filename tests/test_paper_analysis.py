@@ -254,3 +254,20 @@ def test_text_macro_underscores_are_escaped():
     n.set("c", r"$\rho_l$", "x")
     v = {k: x[0] for k, x in n.items.items()}
     assert v["cfA"] == r"pending (dec\_merge.csv)" and v["cfB"] == r"dominance\_pi" and v["cfC"] == r"$\rho_l$"
+
+
+def test_t1_cfbh_nominal_only(tmp_path):
+    res = mock.write(tmp_path / "res")
+    d = pd.read_csv(res / "baselines/paper/dec_baselines.csv")
+    x = d[d.method == "nominal"].copy()
+    x["method"], x["point"], x["scale"] = "cfBH", np.nan, np.nan
+    x["lower"] = np.where(x.truth >= 0.81, 0.8, np.where(x.truth >= 0.71, 0.7, -np.inf))
+    x.to_csv(res / "baselines/paper/dec_cfbh.csv", index=False)
+    make_all.main(["--results", str(res), "--paper", str(tmp_path / "paper")])
+    t1 = pd.read_csv(tmp_path / "paper/tables/t1_certificate.csv")
+    assert "cfBH" not in set(t1.method)                       # no matched operating point for a selection rule
+    nom = (tmp_path / "paper/tables/t1_nominal.tex").read_text()
+    assert "Conformal selection (cfBH" in nom
+    # scorer: commit-at-tau <=> lower >= tau; truth >= 0.71 entries selected up to 0.7 are never unsafe at 0.6/0.7
+    c = C.decision_counts(x, stratum="all")
+    assert c["n_unsafe"] == 0 and c["n_certified"] > 0

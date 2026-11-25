@@ -52,10 +52,10 @@ def test_exclusions_shard0_and_pretouched():
 
 def test_holm_step_down():
     S = K.Scorer()
-    S.p = dict(P1=0.001, P2=0.009, P3=0.0105, P4=0.2, P5=np.nan, P6=0.004, P7=0.03)
+    S.p = {"P1": 0.001, "P2": 0.009, "P3": 0.0105, "P4": 0.2, "P5": np.nan, "P6'": 0.004, "P7": 0.03}
     H = K.holm(S).set_index("P")
     # sorted: P1 .001 <= .05/7; P6 .004 <= .05/6; P2 .009 <= .05/5=.01; P3 .0105 > .05/4=.0125? no: .0105 <= .0125
-    assert H.loc["P1"].holm_reject and H.loc["P6"].holm_reject and H.loc["P2"].holm_reject and H.loc["P3"].holm_reject
+    assert H.loc["P1"].holm_reject and H.loc["P6'"].holm_reject and H.loc["P2"].holm_reject and H.loc["P3"].holm_reject
     # P7 .03 vs .05/3 = .0167 -> stop; P4 after it fails too; missing P5 never rejects
     assert not H.loc["P7"].holm_reject and not H.loc["P4"].holm_reject and not H.loc["P5"].holm_reject
 
@@ -103,7 +103,7 @@ def test_good_mock_end_to_end(tmp_path):
     assert _v(V, "C-MAIN", "P2").verdict.iloc[0] == "PASS"
     assert (_v(V, "C-MAIN", "P3").verdict == "PASS").all()
     assert (_v(V, "C-GATE", "P5").verdict == "PASS").all()
-    assert _v(V, "C-GATE", "P6").verdict.iloc[0] == "PASS"
+    assert _v(V, "C-GATE", "P6' overall").verdict.iloc[0] == "PASS"
     assert _v(V, "C-MERGE", "1 delta_comp", plant="T1").verdict.iloc[0] == "PASS"
     assert _v(V, "C-ENV", "P7").verdict.iloc[0] == "PASS"
     assert _v(V, "C-SCALE", "2 comp vs direct").verdict.iloc[0] == "PASS"
@@ -197,3 +197,78 @@ def test_amendment3_powered_keeps_original_bar(tmp_path, monkeypatch):
     V, _, _, _ = _run(tmp_path)
     dom = V[(V.claim == "C-GATE") & (V.bar == "1 dominated")]
     assert dom.metric.str.contains("<= 1 %").all() and (dom.threshold == "<= 0.01; upper95 <= 1.0").all()
+
+
+# ---- cfBH encoding (baselines): lower = largest selected tau, -inf if never; commit-at-tau <=> lower >= tau
+
+def _cfbh_frame():
+    # one episode, three entries: selected up to 0.8 (truth 0.75: unsafe at 0.8 only), up to 0.6 (truth 0.9),
+    # never selected (truth 0.5)
+    return pd.DataFrame(dict(eid=[1, 1, 1], truth=[0.75, 0.9, 0.5], lower=[0.8, 0.6, -np.inf], has_fault=[1, 1, 1],
+                             kind="child", cand_size=1, point=np.nan, scale=np.nan, method="cfBH"))
+
+
+def test_cfbh_commit_rule_in_confirmatory():
+    t = K.cluster_stats(_cfbh_frame(), _cfbh_frame()["lower"])
+    # commits: entry0 at 0.6, 0.7, 0.8 (0.8 unsafe); entry1 at 0.6; entry2 never
+    assert t.cert.sum() == 3 and t.uns.sum() == 1 and t.ep_unsafe.iloc[0] == 1
+    assert t.cap.sum() == 2 + 3 + 0 and t.inc.sum() == 1 + 0 + 3
+
+
+def test_cfbh_commit_rule_in_t1_scorer():
+    import common as C
+    c = C.decision_counts(_cfbh_frame(), taus=(0.6, 0.7, 0.8))
+    assert (c["n_certified"], c["n_unsafe"]) == (3, 1)
+
+
+def test_cfbh_has_no_matched_point_and_is_scored_on_its_rule(tmp_path):
+    V, _, _, out = _run(tmp_path)
+    cells = pd.read_csv(out / "cells.csv")
+    cf = cells[(cells.claim == "C-MAIN") & (cells.method == "cfBH")]
+    assert len(cf) and cf.CF_matched.isna().all() and cf.CF_own.notna().all()
+    fdr = cf[(cf.block == "all") & (cf.plant == "T1")].FDR.iloc[0]
+    assert 0 <= fdr <= 1
+
+
+
+# ---- A-GATE / A-HET (727f995)
+
+def test_agate_bars(tmp_path):
+    V, H, _, _ = _run(tmp_path)
+    g = V[V.claim == "C-GATE"]
+    assert not g.bar.str.startswith("H13").any() and not (g.bar == "P6").any()      # withdrawn
+    assert "P6'" in set(H.P) and "P6" not in set(H.P) and len(H) == 7
+    p6 = g[g.bar == "P6'"]
+    assert p6.metric.str.contains("par - robust").all() and p6.verdict.iloc[0] == "PASS"
+    assert len(g[g.bar == "P6' robust undominated"]) >= 1
+    assert sum(g.bar.str.startswith("robust validity s=")) >= 4                         # every severity
+    assert len(g[g.bar == "price of robustness"]) == 1 and len(g[g.bar == "lawcal held-out s=3"]) == 1
+
+
+def test_agate_p6_fails_when_robust_unsafe(tmp_path):
+    res = K.write_mock(tmp_path / "in", n_main=60, n_gate=60, n_pairs=40)
+    f = res / "stress/confirmatory/dec_conf_stress.csv.gz"
+    d = pd.read_csv(f, low_memory=False)
+    m = d.method == "robust"
+    d.loc[m, "lower"] = d.loc[m, "truth"] + 0.2                                       # robust commits everything
+    d.to_csv(f, index=False)
+    V, _, _ = K.run(res, tmp_path / "out", mock=True)
+    assert _v(V, "C-GATE", "P6' overall").verdict.iloc[0] == "FAIL"
+
+
+def test_ahet_h1_judged_on_faulted_block(tmp_path):
+    res = K.write_mock(tmp_path / "in", n_main=60, n_gate=40, n_pairs=40)
+    f = res / "models/confirmatory/dec_conf_models.csv.gz"
+    d = pd.read_csv(f, low_memory=False)
+    m = (d.split == "conf_H1") & (d.method == K.OURS) & (d.has_fault == 0)
+    d.loc[m, "lower"] = d.loc[m, "truth"] + 0.3                                       # healthy H1 candidates unsafe
+    d.to_csv(f, index=False)
+    V, _, _ = K.run(res, tmp_path / "out", mock=True)
+    h1 = V[(V.claim == "C-HET") & (V.bar == "1 validity") & (V.method == K.OURS) & (V.cell == "conf_H1")]
+    judged = h1[h1.metric == "E_ep (faulted)"]
+    desc = h1[h1.metric == "E_ep (all)"]
+    assert judged.verdict.iloc[0] == "PASS" and "faulted-candidate block" in judged.note.iloc[0]
+    assert desc.verdict.iloc[0] == "DESCRIPTIVE" and desc.estimate.iloc[0] > 0.5
+    h2 = V[(V.claim == "C-HET") & (V.bar == "1 validity") & (V.method == K.OURS) & (V.cell == "conf_H2")]
+    assert (h2.metric == "E_ep (all)").all() and h2.verdict.iloc[0] == "PASS"
+    assert _v(V, "C-HET", "2 degradation", "-> conf_H1 (faulted)").shape[0] == 2

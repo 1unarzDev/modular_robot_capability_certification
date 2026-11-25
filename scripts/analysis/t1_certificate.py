@@ -34,7 +34,8 @@ NAMES = {  # display names; unknown methods print their raw name
     # E3 (baselines role): strong trivial and partial-identification baselines
     "detector_gated": "Detector-gated nominal", "ghat_physics": "Detected gain + physics",
     "copy_parent": "Copy parent capability", "min_over_members": "Min over member modules",
-    "credible_lower": "Posterior credible lower (raw)", "dominance_pi": "Dominance identified set",
+    "credible_lower": "Posterior credible lower (Bayes q05)", "raw": "Raw posterior (q = 0)",
+    "cfBH": "Conformal selection (cfBH, FDR 0.1)", "dominance_pi": "Dominance identified set",
     "compositional_enum": "Compositional (per-assembly enumeration)",
     "oracle": "Full-state oracle",
 }
@@ -137,6 +138,8 @@ def run(res, paper):
             if ev.empty:
                 continue
             for stratum in C.STRATA:
+                if m in C.SELECTION_METHODS:
+                    break                 # selection rule: no matched point; reported in the nominal table only
                 lo, k = C.matched_lower(fit, ev, stratum=stratum)
                 for g, sel in GROUPS + SIZE_GROUPS:
                     s = np.asarray(sel(ev), bool)

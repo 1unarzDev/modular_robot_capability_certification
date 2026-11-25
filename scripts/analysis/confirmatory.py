@@ -37,6 +37,10 @@ Amendments of docs/CONFIRMATORY.md §9 (e176756): (1) the E_ep validity bars of 
 the `all` block (block-restricted E_ep is descriptive); (2) ">=" thresholds (C-SCALE coverage, P4 CF, C-HET drop
 ID - split <= 0.05) are judged on the point estimate with the one-sided bound printed; (3) P5's >=3-module dominated
 cell, when underpowered, is contrast-judged: one-sided upper <= 2 %; when powered, <= 1 % with upper <= 1.3 %.
+Amendments A-GATE / A-HET (727f995): C-GATE H13 and P6 are withdrawn; P6' (Holm, m stays 7) = paired
+E_ep(par) - E_ep(robust) > 0 at s = 3 on >=3-module children AND robust's undominated E_dec <= 1 % (power rule, else
+E_ep <= 0.10); robust validity at every severity (not Holm); price of robustness and lawcal at the held-out s = 3
+(descriptive, pre-stated); robust = v2+clamp rows, the others v2. C-HET's H1 bars use the faulted-candidate block.
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -71,7 +75,7 @@ PRE_TOUCHED = {"conf_test": set(range(0, 40))}           # §0.1 amendment ac543
 CMAIN_IDX, CGATE_IDX = (40, 3040), (3040, 5040)
 SMC_FIRST = 200                                          # §1: SMC on the first 200 indices, descriptive
 POWER_N, POWER_UP, POWER_Z = 20000, 0.013, 1.96
-HOLM = ("P1", "P2", "P3", "P4", "P5", "P6", "P7")
+HOLM = ("P1", "P2", "P3", "P4", "P5", "P6'", "P7")     # P6' replaces P6 (A-GATE, 727f995); m stays 7
 
 OURS = "amortized_comp"                                  # models export exactly one variant under this name
 TRIVIAL_P2 = ("metadata_nf", "detector_gated", "ghat_physics", "copy_parent", "min_over_members", "dominance_pi")
@@ -344,7 +348,8 @@ def score_main(S, dec, cal):
                 continue
             if m.startswith("smc") or m == "nuisance_smc":
                 ev = ev[ev.eid < SMC_FIRST].reset_index(drop=True)
-            mlo = matched(cal[cal.method == m], ev)
+            # cfBH: lower = largest selected tau (or -inf), commit-at-tau <=> lower >= tau; no matched point
+            mlo = None if m in C.SELECTION_METHODS else matched(cal[cal.method == m], ev)
             for blk in BLOCKS:
                 own = cluster_stats(ev, ev["lower"], _sel(blk))
                 stats[m, plant, blk, "own"] = own
@@ -517,12 +522,32 @@ def score_merge(S, dec, cal):
 
 # ------------------------------------------------------------------------------------------------- C-GATE
 
+PROBE_OF = {"robust": ("v2+clamp",), "lawcal": ("v2",), "par": ("v2",), "raw": ("v2",), "pi": ("v2",)}
+
+
+def _robust_validity(S, bt, t, bar, cell, dc):
+    """E_dec(robust) <= 1 % (upper <= 1.3 %) when powered; else E_ep(robust) <= 0.10 (one-sided upper)."""
+    if t is None:
+        S.bar("C-GATE", bar, "E_dec(robust)", np.nan, method="robust", status="MISSING")
+        return "MISSING"
+    pw = S.power_check("C-GATE", cell, "robust", "T2", t)
+    e, r = bt.ratio(t, "uns", "inc")
+    if pw["power_ok"]:
+        return S.bar("C-GATE", bar, f"E_dec(robust, {dc}) <= 1 %", e, r, le=0.01, up_le=POWER_UP, method="robust",
+                     cell=cell, plant="T2", n_clusters=len(t), power_row=pw)
+    S.bar("C-GATE", bar, f"E_dec(robust, {dc}) <= 1 %", e, r, le=0.01, up_le=POWER_UP, method="robust", cell=cell,
+          plant="T2", power_row=pw, note="E_ep decides (next row)")
+    e, r = bt.ratio(t, "ep_unsafe", "one")
+    return S.bar("C-GATE", bar, "E_ep(robust) <= 0.10 (E_dec underpowered)", e, r, up_le=0.10, method="robust",
+                 cell=cell, plant="T2", n_clusters=len(t))
+
+
 def score_gate(S, dec):
     d = dec[(dec.claim == "C-GATE") & dec.eid.between(CGATE_IDX[0], CGATE_IDX[1] - 1)].copy()
     if d.empty:
-        for b in ("P5", "H13", "P6"):
+        for b in ("P5", "P6'"):
             S.bar("C-GATE", b, "", np.nan, status="MISSING")
-        S.p["P5"] = S.p["P6"] = np.nan
+        S.p["P5"] = S.p["P6'"] = np.nan
         return
     S.log.append(f"C-GATE: {d.eid.nunique()} episodes after exclusions (conf_test {CGATE_IDX[0]}-{CGATE_IDX[1] - 1}), "
                  f"severities {sorted(d.severity.unique())}")
@@ -571,36 +596,47 @@ def score_gate(S, dec):
     S.p["P5"] = max(ps) if ps and all(np.isfinite(ps)) else np.nan          # intersection-union: both must hold
     if killed:
         S.bar("C-GATE", "kill", "par and raw <= 1 % undominated at s=3", 0.0, status="KILLED",
-              note="the gate is not a method contribution; report 'extrapolation is safe under these misspecifications'")
-    # ---- H13
-    g0, p0 = T.get(("gate", 0, "v2", "ge3", "stratum")), T.get(("par", 0, "v2", "ge3", "stratum"))
-    if g0 is not None and p0 is not None:
-        ea, ra = bt.ratio(g0, "cert", "cap")
-        eb, rb = bt.ratio(p0, "cert", "cap")
-        S.bar("C-GATE", "H13 s=0", "CF(gate) - CF(par) >= -2 pts", ea - eb, ra - rb, ge=-0.02, method="gate",
-              cell="s=0 v2 >=3-module", plant="T2", n_clusters=len(g0))
+              note="report 'extrapolation is safe under these misspecifications'")
+    # ---- A-GATE (727f995): H13 and P6 withdrawn. robust = dominance + clamp (v2+clamp), lawcal = law-family
+    # calibrated physics posterior (v2, margin fitted on s in {0,1,2}: s = 3 held out). gate: cells.csv only.
+    def tab(m, s, dc, size="ge3"):
+        for pr in PROBE_OF.get(m, ("v2",)) + ("v2", "v2+clamp"):
+            if (m, s, pr, size, dc) in T:
+                return T[m, s, pr, size, dc], pr
+        return None, None
+
+    # P6' (Holm): paired E_ep(par) - E_ep(robust) > 0 at s = 3, >=3-module children; AND robust undominated E_dec
+    a, _ = tab("par", 3, "stratum")
+    b_, prb = tab("robust", 3, "stratum")
+    _paired_diff(S, bt, "C-GATE", "P6'", "E_ep (s=3, >=3-module)", a, b_, "ep_unsafe", "one", -np.inf, "par",
+                 "robust", "T2", note="paired episode bootstrap; condition 2 in 'P6' robust undominated'")
+    tu, _ = tab("robust", 3, "undominated")
+    _robust_validity(S, bt, tu, "P6' robust undominated", "s=3 >=3-module undominated", "undominated")
+    # validity of robust at every severity (not Holm), on the stratum
+    for s_ in sorted(d.severity.unique()):
+        t, pr = tab("robust", s_, "stratum")
+        _robust_validity(S, bt, t, f"robust validity s={s_:g}", f"s={s_:g} >=3-module stratum ({pr})", "stratum")
+    # price of robustness (descriptive, pre-stated): CF(par, v2) - CF(robust, v2+clamp) at s = 0 <= 10 pts (point)
+    a, _ = tab("par", 0, "stratum")
+    b_, _ = tab("robust", 0, "stratum")
+    if a is not None and b_ is not None:
+        ea, ra = bt.ratio(a, "cert", "cap")
+        eb, rb = bt.ratio(b_, "cert", "cap")
+        S.bar("C-GATE", "price of robustness", "CF(par, v2) - CF(robust, v2+clamp) at s=0", ea - eb, ra - rb,
+              le=0.10, method="robust", cell="s=0 >=3-module stratum", plant="T2", n_clusters=len(bt.idx),
+              note="descriptive, pre-stated; point-judged")
     else:
-        S.bar("C-GATE", "H13 s=0", "CF(gate) - CF(par)", np.nan, method="gate", status="MISSING")
-    for s in sorted(d.severity.unique()):
-        t = T.get(("gate", s, "v2", "ge3", "stratum"))
-        if t is None:
-            S.bar("C-GATE", f"H13 s={s:g}", "E_dec(gate)", np.nan, method="gate", status="MISSING")
-            continue
-        pw = S.power_check("C-GATE", f"s={s:g} v2 ge3 stratum", "gate", "T2", t)
-        if pw["power_ok"]:
-            e, r = bt.ratio(t, "uns", "inc")
-            S.bar("C-GATE", f"H13 s={s:g}", "E_dec(gate) <= 1 %", e, r, le=0.01, up_le=POWER_UP, method="gate",
-                  cell=f"s={s:g} v2 >=3-module", plant="T2", n_clusters=len(t), power_row=pw)
-        else:
-            e, r = bt.ratio(t, "uns", "inc")
-            S.bar("C-GATE", f"H13 s={s:g}", "E_dec(gate) <= 1 %", e, r, le=0.01, up_le=POWER_UP, method="gate",
-                  cell=f"s={s:g} v2 >=3-module", plant="T2", power_row=pw, note="E_ep decides (next row)")
-            e, r = bt.ratio(t, "ep_unsafe", "one")
-            S.bar("C-GATE", f"H13 s={s:g}", "E_ep(gate) <= 0.10 (E_dec underpowered)", e, r, up_le=0.10,
-                  method="gate", cell=f"s={s:g} v2 >=3-module", plant="T2", n_clusters=len(t))
-    # ---- P6
-    a, b = T.get(("gate", 3, "v2", "ge3", "stratum")), T.get(("pi", 3, "v2", "ge3", "stratum"))
-    _paired_diff(S, bt, "C-GATE", "P6", "CF (s=3, v2, >=3-module)", a, b, "cert", "cap", 0.05, "gate", "pi", "T2")
+        S.bar("C-GATE", "price of robustness", "CF(par) - CF(robust) at s=0", np.nan, status="MISSING")
+    # lawcal at the held-out severity (descriptive but pre-stated; a safety bar, so upper-bound-judged)
+    t, _ = tab("lawcal", 3, "stratum")
+    if t is None:
+        S.bar("C-GATE", "lawcal held-out s=3", "E_dec(lawcal) <= 2 %", np.nan, method="lawcal", status="MISSING")
+    else:
+        e, r = bt.ratio(t, "uns", "inc")
+        v = S.bar("C-GATE", "lawcal held-out s=3", "E_dec(lawcal) <= 2 %", e, r, up_le=0.02, method="lawcal",
+                  cell="s=3 >=3-module stratum", plant="T2", n_clusters=len(t), note="descriptive, pre-stated")
+        if v == "FAIL":
+            S.rows[-1]["note"] += "; paper: calibrating over a law family protects only inside that family"
     # ---- dose response (descriptive): Spearman of E_dec(par, undominated) over s, paired bootstrap
     sev = sorted(s for s in d.severity.unique() if ("par", s, "v2", "ge3", "undominated") in T)
     if len(sev) >= 3:
@@ -744,47 +780,62 @@ def score_het(S, dec):
     d["ck"] = d.split + ":" + d.eid.astype(str)
     bt = Boot(np.sort(keys), strata=np.array([k.split(":")[0] for k in np.sort(keys)]))
     direct = next((x for x in DIRECT if x in set(d.method)), None)
+    # A-HET (727f995): H1 tests new FAULT behaviour of an unseen wheel type, so its bars use the faulted-candidate
+    # block (decisions of candidates holding a faulted module); the all-decisions block is descriptive. H2 unchanged.
+    JUDGE = {"conf_H1": "faulted", "conf_H2": "all"}
     res = {}
     for meth in (OURS, "amortized_comp_blind", direct, "metadata_nf", "raw"):
         if meth is None:
             continue
         for sp in ("conf_het_test", "conf_H1", "conf_H2"):
-            e = d[(d.method == meth) & (d.split == sp)].reset_index(drop=True)
-            if e.empty:
+            e0 = d[(d.method == meth) & (d.split == sp)].reset_index(drop=True)
+            if e0.empty:
                 continue
-            cs = cluster_stats(e, e["lower"], _sel("stratum"), cluster="ck")
-            cv = cluster_cov(e, e["lower"], sel=lambda x: C.rel_mask(x), cluster="ck")
-            res[meth, sp] = (cs, cv)
-            S.cell(claim="C-HET", method=meth, split=sp, n_ep=len(cs), E_ep=cs.ep_unsafe.mean(),
-                   CF_own=C._ratio(cs.cert.sum(), cs.cap.sum()), cov=C._ratio(cv["cov"].sum(), cv["n"].sum()))
+            for blk in ("all", "faulted"):
+                e = e0 if blk == "all" else e0[e0.has_fault > 0.5].reset_index(drop=True)
+                if e.empty:
+                    continue
+                cs = cluster_stats(e, e["lower"], _sel("stratum"), cluster="ck")
+                cv = cluster_cov(e, e["lower"], sel=lambda x: C.rel_mask(x), cluster="ck")
+                res[meth, sp, blk] = (cs, cv)
+                S.cell(claim="C-HET", method=meth, split=sp, block=blk, n_ep=len(cs), E_ep=cs.ep_unsafe.mean(),
+                       CF_own=C._ratio(cs.cert.sum(), cs.cap.sum()), cov=C._ratio(cv["cov"].sum(), cv["n"].sum()))
     for meth in (OURS, "amortized_comp_blind"):
         for sp in ("conf_H1", "conf_H2"):
-            if (meth, sp) not in res:
-                S.bar("C-HET", "1 validity", "E_ep", np.nan, method=meth, cell=sp, status="MISSING")
-                continue
-            est, reps = bt.ratio(res[meth, sp][0], "ep_unsafe", "one")
-            S.bar("C-HET", "1 validity", "E_ep", est, reps, le=0.15, up_le=0.18, method=meth, cell=sp,
-                  n_clusters=len(res[meth, sp][0]), descriptive=meth != OURS,
-                  note="" if meth == OURS else "type withheld (interpretation, §6.3)")
-    # bar 2: degradation ID -> H1/H2 <= 5 pts and smaller than direct's (secondary)
+            for blk in ("faulted", "all") if sp == "conf_H1" else ("all",):
+                judged = blk == JUDGE[sp]
+                if (meth, sp, blk) not in res:
+                    S.bar("C-HET", "1 validity", f"E_ep ({blk})", np.nan, method=meth, cell=sp, status="MISSING")
+                    continue
+                cs = res[meth, sp, blk][0]
+                est, reps = bt.ratio(cs, "ep_unsafe", "one")
+                note = "" if meth == OURS else "type withheld (interpretation, §6.3)"
+                if sp == "conf_H1":
+                    note = (note + "; " if note else "") + ("faulted-candidate block (A-HET)" if judged
+                                                            else "all-decisions block: descriptive (A-HET)")
+                S.bar("C-HET", "1 validity", f"E_ep ({blk})", est, reps, le=0.15, up_le=0.18, method=meth, cell=sp,
+                      n_clusters=len(cs), descriptive=(meth != OURS) or not judged, note=note)
+    # bar 2: degradation ID -> H1/H2 <= 5 pts (point, §9.2) and smaller than direct's (secondary); same block in ID
     for sp in ("conf_H1", "conf_H2"):
+        blk = JUDGE[sp]
         for metric, which, num, den in (("coverage", 1, "cov", "n"), ("CF", 0, "cert", "cap")):
-            if (OURS, "conf_het_test") not in res or (OURS, sp) not in res:
+            if (OURS, "conf_het_test", blk) not in res or (OURS, sp, blk) not in res:
                 S.bar("C-HET", "2 degradation", f"{metric} drop ID -> {sp}", np.nan, status="MISSING")
                 continue
-            ei, ri = bt.ratio(res[OURS, "conf_het_test"][which], num, den)
-            eh, rh = bt.ratio(res[OURS, sp][which], num, den)
-            S.bar("C-HET", "2 degradation", f"{metric} drop ID -> {sp}", ei - eh, ri - rh, le=0.05, method=OURS,
-                  note="ID - split, point-judged (§9.2)",
-                  cell=sp)
-            if direct and (direct, "conf_het_test") in res and (direct, sp) in res:
-                di, rdi = bt.ratio(res[direct, "conf_het_test"][which], num, den)
-                dh, rdh = bt.ratio(res[direct, sp][which], num, den)
-                S.bar("C-HET", "2 degradation", f"{metric} drop: direct - ours ({sp})", (di - dh) - (ei - eh),
+            ei, ri = bt.ratio(res[OURS, "conf_het_test", blk][which], num, den)
+            eh, rh = bt.ratio(res[OURS, sp, blk][which], num, den)
+            S.bar("C-HET", "2 degradation", f"{metric} drop ID -> {sp} ({blk})", ei - eh, ri - rh, le=0.05,
+                  method=OURS, note="ID - split, point-judged (§9.2)" + ("; faulted block (A-HET)"
+                                                                          if blk == "faulted" else ""), cell=sp)
+            if direct and (direct, "conf_het_test", blk) in res and (direct, sp, blk) in res:
+                di, rdi = bt.ratio(res[direct, "conf_het_test", blk][which], num, den)
+                dh, rdh = bt.ratio(res[direct, sp, blk][which], num, den)
+                S.bar("C-HET", "2 degradation", f"{metric} drop: direct - ours ({sp}, {blk})", (di - dh) - (ei - eh),
                       (rdi - rdh) - (ri - rh), lo_gt=0.0, method=OURS, cell=sp, note="secondary")
-    told = [r for r in S.rows if r["claim"] == "C-HET" and r["bar"] == "1 validity" and r["method"] == OURS]
+    told = [r for r in S.rows if r["claim"] == "C-HET" and r["bar"] == "1 validity" and r["method"] == OURS
+            and r["verdict"] != "DESCRIPTIVE"]
     blind = [r for r in S.rows if r["claim"] == "C-HET" and r["bar"] == "1 validity"
-             and r["method"] == "amortized_comp_blind"]
+             and r["method"] == "amortized_comp_blind" and "descriptive (A-HET)" not in r["note"]]
     if told and blind:
         tp = all(r["verdict"] == "PASS" for r in told)
         bp = all(r["estimate"] <= 0.15 and r["upper95"] <= 0.18 for r in blind if np.isfinite(r["estimate"]))
@@ -841,6 +892,25 @@ def h12(S):
                        ci_hi=np.nan, upper95=np.nan, lower95=np.nan, threshold="all component rows PASS",
                        n_clusters=np.nan, n_incapable=np.nan, deff=np.nan, power_ok=np.nan, verdict=v,
                        note="dominated rows: " + ", ".join(f"{r['method']} {r['verdict']}" for r in dom)))
+
+
+def p6_overall(S):
+    """A-GATE P6' = Holm-resolved paired E_ep difference AND robust's undominated validity (E_dec if powered, else
+    the E_ep row that replaces it)."""
+    hd = [r for r in S.rows if r["claim"] == "C-GATE" and r["bar"] == "P6'"]
+    cond = [r for r in S.rows if r["claim"] == "C-GATE" and r["bar"] == "P6' robust undominated"]
+    if not hd:
+        return
+    decisive = [r for r in cond if r["verdict"] != "UNDERPOWERED"]
+    if any(r["verdict"] == "MISSING" for r in hd + cond) or not decisive:
+        v = "MISSING"
+    else:
+        v = "PASS" if all(r["verdict"] == "PASS" for r in hd + decisive) else "FAIL"
+    S.rows.append(dict(claim="C-GATE", bar="P6' overall", metric="E_ep(par) - E_ep(robust) > 0 (Holm) AND robust "
+                       "undominated validity", method="robust", cell="s=3 >=3-module", plant="T2", estimate=np.nan,
+                       ci_lo=np.nan, ci_hi=np.nan, upper95=np.nan, lower95=np.nan, threshold="component rows PASS",
+                       n_clusters=np.nan, n_incapable=np.nan, deff=np.nan, power_ok=np.nan, verdict=v,
+                       note="; ".join(f"{r['metric']}: {r['verdict']}" for r in hd + decisive)))
 
 
 def conf_sha():
@@ -913,12 +983,25 @@ def run(res, out, mock=False, now=None):
     score_het(S, dec)
     H = holm(S)
     h12(S)
+    p6_overall(S)
     V = report(S, H, out, conf_sha(), s1 + s2 + ([C.rel(ksf)] if ks is not None else []), mock or
                (res / "MOCK.txt").exists())
     return V, H, S
 
 
 # ------------------------------------------------------------------------------------------------- mock data
+
+def cfbh_rows(base, rng):
+    """Baselines' encoding of conformal selection: lower = the largest tau at which the entry was selected (FDR 0.1),
+    -inf if never selected; no point/scale. Mock selection: selected at tau iff a noisy score clears tau + 0.01."""
+    x = base.copy()
+    score = x.truth + 0.02 * rng.standard_normal(len(x))
+    lo = np.full(len(x), -np.inf)
+    for tau in TAUS:
+        lo = np.where(score >= tau + 0.01, tau, lo)
+    x["method"], x["point"], x["scale"], x["lower"], x["seconds"] = "cfBH", np.nan, np.nan, lo, 0.01
+    return x
+
 
 def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee_bites=True, ks_ok=True):
     """Contract-conforming mock inputs. good=True: every bar passes by construction (well calibrated 'ours', weak
@@ -964,7 +1047,7 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
                  "metadata_nf": (-0.05, 0.15, 0.25), "detector_gated": (-0.10, 0.10, 0.20),
                  "ghat_physics": (-0.05, 0.08, 0.15), "copy_parent": (-0.10, 0.15, 0.25),
                  "min_over_members": (-0.10, 0.10, 0.2), "dominance_pi": (-0.08, 0.05, 0.10),
-                 "cfBH": (0.0, 0.02, 0.0), "oracle": (0.0, 0.0, 0.0), "nuisance_smc": (0.0, 0.02, 0.06)}
+                 "oracle": (0.0, 0.0, 0.0), "nuisance_smc": (0.0, 0.02, 0.06)}
     frames = []
     test = range(0, 40 + n_main)                    # 0-39 are excluded; shard 0 (eids 0-49) is the canary
     for plant in ("T1", "T2"):
@@ -974,6 +1057,7 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
             spec["raw"] = (0.06, 0.02, 0.0)          # misspecified plant: raw posterior over-predicts
             spec[OURS] = (0.01, 0.02, ours_q + 0.02)
         frames.append(methods(base, spec))
+        frames.append(cfbh_rows(base, rng))
     cal = body("C-MAIN", "cal", range(100000, 100000 + n_main), "T1")
     cal["status"] = "exploratory"
     frames.append(methods(cal, main_spec))
@@ -994,10 +1078,14 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
             b = gb.copy()
             b["severity"], b["probe"] = s, probe
             und = b.dominated.to_numpy() == 0
-            for m, q in (("raw", 0.0), ("par", 0.02), ("pi", 0.15), ("gate", 0.05), ("detector_gated", 0.2)):
+            for m, q in (("raw", 0.0), ("par", 0.02), ("pi", 0.15), ("gate", 0.05), ("detector_gated", 0.2),
+                         ("robust", 0.04), ("lawcal", 0.03)):
+                if m == "robust" and probe != "v2+clamp" or m == "lawcal" and probe != "v2":
+                    continue
                 x = b.copy()
                 x["method"] = m
                 bias = (0.05 * s * und) if m in ("raw", "par") and knee_bites else 0.0
+                bias = bias + (0.012 * s * und if m == "lawcal" else 0.0)
                 x["point"] = x.truth + bias + 0.01 * rng.standard_normal(len(x))
                 x["scale"] = 0.01
                 x["lower"] = x.point - q - ((0.05 * s * und) if m == "gate" else 0.0)
