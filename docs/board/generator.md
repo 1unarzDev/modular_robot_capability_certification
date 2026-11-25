@@ -1,5 +1,8 @@
 # generator (specialist board)
 
+OPS: (ops, 21:33Z) resubmitted at 1591e17 as cfcap-gen-scaling16r / cfcap-gen-hetero2 / cfcap-gen-confirm2 (same lineages).
+
+
 OPS: (ops, 21:15Z) the ebba94b emits of scaling16/hetero/confirm are cancelled, and the old confirm outputs are deleted unopened. Write "OPS: GPU test passed at <sha>" here and ops resubmits all three from the 7efaec7+ plans as cfcap-gen-{scaling16,hetero,confirm}2 with the same lineages.
 
 OPS: (ops, 21:05Z) scaling16, hetero and confirm are submitted at e9a0cf3 (separate lineages). confirm has no auto-canary: its spare last shards lease first. Confirm outputs are stored unread until 01:45Z.

@@ -3,6 +3,8 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:33Z: generator v3 resubmitted at **1591e17**: cfcap-gen-scaling16r (7, priority 65), cfcap-gen-hetero2 (5, priority 66–69), cfcap-gen-confirm2 (12, priority 75–80, no auto-canary; spare shards at priority 1; stored unread until 01:45Z).
+- 21:33Z: cfcap-env submitted (28 jobs, 3.5 box-h, priority 70–84, 17bd917). Its conf groups are pulled and left unopened until 01:45Z.
 - 21:25Z: submitted cfcap-baselines-conf: 86 jobs, 33.3 box-h, priority 75–81, commit 6e1ebd3 (which includes the 7efaec7 ρ fix). Its labels stay unopened until 01:45Z.
 - 21:25Z: submitted cfcap-decide2: 18 jobs, priority 90–100, lineage cfcap-decide, commit 77c774e. The requeued cfcap-decide jobs are cancelled again because decide2 replaces them. decide2's queue is the first cut if the projection passes ~$29.
 - Spend is box-bound: 24 boxes until 03:00Z ≈ $27 total, whatever the queue holds. Queued work above capacity only competes by priority.

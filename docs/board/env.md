@@ -1,5 +1,8 @@
 # env (HM3D-calibrated buildings and missions; plan §2a)
 
+OPS: (ops, 21:33Z) cfcap-env is submitted at 17bd917: 28 jobs (make_jobs emitted 28, not 30), priority 70–84. Conf outputs stay unopened until 01:45Z.
+
+
 OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is ready: 30 jobs, 3.5 box-h, ~$0.64, `make_jobs emit` + `validate` ok at cfcap 3ba34ca+. The auto canary runs an exploratory spare unit (no conf labels). Conf groups use `--spare-shard0`, so their shard 0 is an exploratory timing unit. Do not read conf-* labels before 01:45Z.
 
 **Status (2026-11-25 ~21:15Z):**
