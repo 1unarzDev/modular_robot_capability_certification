@@ -1,0 +1,5 @@
+KILL (par unsafe on undominated <= 1 % at every knee severity, both probes): False
+SUCCESS-1 (two-constant: gate CF >= par CF - 2 pts, v2, decision stratum): False
+  worst knee severity with par unsafe > 2 % (v2, decision): 3
+SUCCESS-2 (at that severity: gate unsafe <= 1 % and gate CF >= pi CF + 5 pts, v2): False
+(source: results/theory/gate_cert.csv; exploratory)

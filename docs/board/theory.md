@@ -69,6 +69,53 @@ Trust-gated certificate on T0 under a misspecified motor law. Script `scripts/th
 - Also reported: the share of certified decisions that are undominated, by leg type and child size, under the
   two-constant truth.
 
+## E1 results (exploratory; `scripts/theory_gate.py`, `results/theory/gate_cert.csv`, `gate_verdict.txt`, `gate_extrapolated_share.csv`, `gate_thresholds.csv`)
+**Setup.** 1,200 parents of 2–6 modules with 1–2 faults, 300 per law (two-constant law, knee severities 1–3 from
+`cfcap/t0/envelope.py`). Every connected child × 10 legs × τ ∈ {0.6, 0.7, 0.8}: 57–58k decisions per law and probe
+set. α = 0.1 per episode, 2-fold cross-fit; folds are independent of the law. Knee fixed points converged on
+almost all legs.
+
+**Decision stratum, v2 / v2+clamp.** Each cell is CF % · per-decision unsafe % · ep_any_unsafe %.
+
+| certifier | two-constant | knee 1 | knee 2 | knee 3 |
+|---|---|---|---|---|
+| raw (uncalibrated) | 99.2·6.3·11 / 99.3·6.5·12 | 99.2·6.6·12 / 99.2·6.7·13 | 99.3·8.0·23 / 99.3·8.5·24 | 99.5·**48**·**89** / 99.5·**49**·**89** |
+| par (physics-trusting, cal on two-constant truth) | 96.6·2.3·4 / 96.1·1.4·2 | 96.6·3.0·6 / 96.0·1.6·2 | 96.5·3.7·12 / 95.9·2.1·7 | 97.0·**29**·**74** / 96.4·**22**·**67** |
+| par_pooled (cal over all laws) | 78.9·0.6·1 / 71.8·0.5·1 | 77.4·0.8·1 / 70.5·0.6·1 | 77.6·0.2·1 / 70.4·0.2·1 | 73.6·1.1·8 / 67.4·1.1·8 |
+| pi (model-free corners, no cal) | 75.1·0.2·1 / 92.7·0.3·1 | 74.1·0.1·0 / 92.2·0.2·1 | 73.0·0.1·0 / 90.8·2.6·9 | 70.9·2.3·18 / 89.6·13·56 |
+| pi_cal | 72.4·0.1·0 / 90.7·0·0 | 71.1·0.1·0 / 90.1·0·0 | 69.9·0·0 / 86.9·0.1·0 | 66.9·1.1·10 / 79.0·0.4·4 |
+| **gate** | 81.8·0.5·1 / 94.1·1.0·3 | 79.5·0.7·1 / 92.9·1.7·3 | 79.4·0.2·1 / 87.9·0.6·2 | 72.1·1.7·12 / 77.4·0.4·4 |
+
+(nominal 0 % CF; detector_gated 0–1.4 % CF.)
+
+**Verdict against the pre-registered bars** (`gate_verdict.txt`):
+- **Kill not met:** the knee law does bite. Its main effect is at severity 3. There the physics-trusting `par` has 29 %
+  unsafe on undominated decisions with v2 (22 % with v2+clamp), and 74 % / 67 % of episodes contain an unsafe commit.
+  - At severities 1–2 `par` is close to its two-constant level, but ep_any rises 4 → 12 % with v2 (α = 10 %).
+  - Caveat: `par`'s per-decision unsafe rate is already 2.3 % under the *correct* law. Its guarantee is per episode
+    (ep_any 4 % ≤ α), so the 1 % per-decision kill bar is partly confounded.
+- **SUCCESS-1 FAILS.** Under the two-constant truth with v2, gate CF is 81.8 % against par's 96.6 % (−14.8 pts). With
+  v2+clamp it is 94.1 vs 96.1 (−2.0, at the bar), but the bar was set on v2.
+- **SUCCESS-2 FAILS.** At severity 3 with v2, gate has 1.7 % unsafe (> 1 %), and its CF of 72.1 % is only +1.2 pts over
+  pi's 70.9 %. With v2+clamp it has 0.4 % unsafe and 4 % ep_any, but its CF of 77.4 % sits below pi_cal's 79.0 %.
+- **What the data do say:**
+  1. **Trusting the law fails silently.** raw and par commit 48 % / 29 % unsafe at knee 3, and raw is at 6 % even under
+     the correct law.
+  2. **Any end-to-end calibration that has seen the wrong law stays valid** (par_pooled, pi_cal and gate all keep
+     ep_any ≤ 12 %). The question is which one keeps CF.
+  3. **The clamp probe is what buys CF back.** Under v2 the valid certifiers sit at 67–82 % CF. Under v2+clamp,
+     gate / pi_cal reach 94 / 91 % at the correct law and 77 / 79 % at knee 3.
+  4. The misfit gate as specified adds little over pi_cal once clamp is run. Clamp's dominance coverage does the
+     work, not the misfit statistic. F1 survives only as "gate = dominance after clamp".
+- **Extrapolated share of certified decisions** (par, two-constant truth, all τ): **63 % with v2** (speed 56 %,
+  torque 23 %) and **21 % with v2+clamp** (speed 10 %, torque 19 %).
+  - With v2, every diagonal decision and every yaw decision of a ≥ 2-module child is extrapolated.
+  - For ≥ 3-module children, yaw is 84–99 % torque-extrapolated as well (`gate_extrapolated_share.csv`).
+- Per the pre-registered fallback: T0's knee law bites only at severity 3, so the regime-2 headline should also be
+  scored on T2 all+motor (stress N3), now that the shared `knee_factors` exists.
+- Caveat: `pi` is a corner approximation of the identified set and is not a valid bound at knee 3 with clamp (13 %
+  unsafe), which is why only `pi_cal` is reported as valid.
+
 ## Predictions other roles can test
 - **nuisance** (T1 SMC pilot):
   - (P1) With the posterior using v2's duty evidence, the ambiguous share is ≪ 5 %. Predicted at δ = 0.08: ~0.05 %

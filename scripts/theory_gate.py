@@ -7,7 +7,7 @@ Episode code: cfcap/theory_task.py gate_episode (runner task GATE); wrong law: c
   analyze                               -> results/theory/gate_cert.csv, gate_extrapolated_share.csv
 
 Certifiers (lower bound l per (candidate, leg); commit iff l >= tau; alpha = 0.1 simultaneous per episode;
-2-fold cross-fit by seed parity, cal fold -> test fold, both directions pooled):
+2-fold cross-fit by (seed // 4) parity (law = seed % 4), cal fold -> test fold, both directions pooled):
   raw            rho_par (two-constant fit at the probes), q = 0                                   (uncalibrated)
   par            rho_par - q, q = conformal max-over-episode residual on two-constant-truth cal episodes (trusts physics)
   par_pooled     rho_par - q, q pooled over all laws in the cal fold
@@ -92,8 +92,8 @@ def lower_bounds(cal, test, probe):
     qd = q_sim(cal[cal.has_fault == 0], "det_l0")
     out["detector_gated"] = np.where(test.has_fault.values == 1, -np.inf, test.rho_nom.values - qd)
     # gate: q_gate on half A, margin on half B
-    A = cal[cal.seed % 4 < 2]
-    B = cal[cal.seed % 4 >= 2]
+    A = cal[(cal.seed // 8) % 2 == 0]                                   # halves independent of law (seed % 4)
+    B = cal[(cal.seed // 8) % 2 == 1]
     mis = f"misfit_{probe}"
     grid = np.unique(np.concatenate([[-1.0], np.quantile(A[mis], np.linspace(0, 1, 21)), [np.inf]]))
     best, best_cf = -1.0, -1.0
@@ -127,7 +127,8 @@ def cmd_analyze(a):
     for probe in PROBES:
         L = {}
         for fold in (0, 1):
-            cal, test = D[D.seed % 2 != fold], D[D.seed % 2 == fold]
+            fo = (D.seed // 4) % 2                                       # law = seed % 4, so folds use seed // 4
+            cal, test = D[fo != fold], D[fo == fold]
             lb, info = lower_bounds(cal, test, probe)
             qrows.append(dict(probe=probe, fold=fold, **info))
             for k, v in lb.items():
