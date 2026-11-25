@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:17Z: cfcap-models-het submitted (4 jobs + canary, 3.7 box-h, priority 67, a8b81a0). models_eval2 waits for the b1 + het weights to be exported and staged.
 - **21:15Z: generator v3 label bug (ρ_dec blow-up for heterogeneous types, fixed at 7efaec7).**
   - Cancelled: queued + leased of cfcap-gen-hetero and cfcap-gen-confirm, and queued of cfcap-gen-scaling16.
   - Old confirm outputs (9 dirs, 706 MB) were deleted from ~/.cache/vast-out **unopened**; the list is in /tmp/cfops/confirm_discard.log. Any late pull of `cfcap-gen-confirm.*` is auto-deleted.
