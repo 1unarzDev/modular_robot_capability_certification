@@ -49,9 +49,12 @@ kill and resume. No job has been submitted or rented. The canary jobs are ready 
   - The next resume exited 0 with 6/6 units, 600k rows, hashes ok, 14 finite metrics, `units_resumed`=3 and one unit
     resumed mid-unit.
   - The 30 s units took 30 s.
-  - The free-lane job ran from cloned bundles at the pinned commits.
+  - The free-lane job (`st-free.s000`) ran from cloned bundles at the pinned commits, through `bash -lc` under
+    nice: exit 0, 6/6 units, 300 s for 6 × 50 s units.
+  - The `gen_shard` adapter is tested against a stub `write_shard` (shard mapping, resume). It has not run on the
+    GPU: the GPU lock was held by other roles' pilots, so I cancelled my run.
   - `jobs.json` passed `validate`.
-  - Tests: `tests/test_runner.py` 19 pass; the full suite 94 pass.
+  - Tests: `tests/test_runner.py` 20 pass; the full suite passed (94) before the adapter test was added.
 - **Path bug for other roles.** Inputs land at **`/workspace/in/<basename>`** (boot.sh `CRANE_INPUTS_DIR`, crane-vast
   `rsync SRC box:/workspace/in/`), not at `/workspace/inputs/`. The docstrings of `scripts/gen_shard.py` and
   `scripts/stageA0_throughput.py` give `/workspace/inputs/`.

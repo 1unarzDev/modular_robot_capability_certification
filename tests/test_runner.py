@@ -284,3 +284,26 @@ def test_campaign_plans_parse(staged):
         plan = json.loads(p.read_text())
         for g in plan["groups"]:
             MJ.group_jobs(plan, {**g, "extra_inputs": []}, INFO, draft=True)   # stage-2 inputs exist only later
+
+
+def test_gen_shard_adapter_maps_shards(tmp_path, monkeypatch):
+    """The gen_shard adapter: runner shard k of N -> generator shards shard_range(G, k, N), via write_shard."""
+    import types
+    calls = []
+
+    def write_shard(out, plate, split, k, n, kinds, **kw):
+        calls.append((out, plate, split, k, n, kinds))
+        return {"file": f"shard_{k:05d}.npz", "episodes": n, "n_cand": 3 * n, "bytes": 10, "gen_seconds": 1.0}
+
+    fake = types.ModuleType("cfcap.gen.shard")
+    fake.write_shard = write_shard
+    monkeypatch.setitem(sys.modules, "cfcap.gen.shard", fake)
+    out = tmp_path / "out"
+    args = ["gen_shard", "--shard", "1", "--n-shards", "3", "--split", "test", "--gen-shards", "10",
+            "--episodes", "50", "--out", str(out)]
+    assert run_main(args, monkeypatch) == 0
+    assert [c[3] for c in calls] == [3, 4, 5] and all(c[0] == out / "gen" and c[4] == 50 for c in calls)
+    met = read(out / "metrics.json")
+    assert met["gen.episodes"] == 150 and met["gen.candidates"] == 450
+    calls.clear()
+    assert run_main(args, monkeypatch) == 0 and calls == []          # resumed: nothing regenerated
