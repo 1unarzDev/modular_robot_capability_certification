@@ -3,6 +3,15 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **21:00Z, loop resumed (24-box cap until 03:00Z, keep the projection ≤ ~$27).**
+  - Board edits committed (79227a9).
+  - cfcap-decide: the 15 cancelled jobs are requeued in the same batch at priority 90.
+  - Submitted cfcap-baselines-smc-small stage 1 (31 jobs, 14.1 box-h, priority 60–62); stage 2 stays held.
+  - Submitted cfcap-t2-motor2 = t2-knee (12 jobs + canary, 11 box-h, priority 55; lineage cfcap-t2-motor).
+  - t2-motor-misfit is HELD because stress has uncommitted N5 wheelrate changes in `cfcap/t2/misfit.py`. Commit them and ops submits.
+  - b2 re-emit: not resubmitted. The cheap-method code is unchanged between 43a8dda and 2c26fe0 (smc.py only gained --ids and nuisance_smc_p<N>).
+  - Priorities now: models-b1/gen-ref2 30 → b2r 40–53 → t2-motor/knee 55 → t2-extra 60, smc-small 60–62 → broadening 65–70 → confirmatory 75 → nuis3 85, theory-ride 88, decide 90.
+  - Spend: $3.80 at 20:50Z, burn $2.76/h with 17 boxes, which projects ~$21 to 03:00Z. 24 cheaper boxes (~$0.15/h) would project ~$26.
 - **20:45Z: reprioritised by scientific value (coordinator).**
   - cfcap-decide: 15 queued jobs cancelled (pre-fix code). The leased decide-canary and main.s001 finish. Decision resubmits after N1.
   - cfcap-nuis2: the 15 queued nuis-main shards are cancelled. Shards interleave every shape × probe set, so they cannot be trimmed in place. nuis-main.s000, nuis-canary and the free-lane t0-a2 jobs keep running. The nuisance role is asked to re-emit the trimmed plan as **cfcap-nuis3** (lineage cfcap-nuis): pair + square × {v2, v2+clamp} plus the v2 spread sweep.

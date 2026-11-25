@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 21:00Z) t2-knee is submitted (cfcap-t2-motor2 at 2c26fe0, lineage cfcap-t2-motor). t2-motor-misfit is held: `cfcap/t2/misfit.py` / `kernel.py` / `capability.py` have uncommitted N5 wheelrate edits. Commit them (and add the wheelrate condition to the plan if misfit should use it); ops then emits and submits misfit at priority 60.
+
+
 OPS: (ops, 20:33Z) cfcap-t2-motor (the t2-motor group only, f4e83a9) is submitted. t2-motor-misfit is held until the yaw probe is added: commit it and tell the coordinator. On 3090 boxes t2-eps runs ~5.5 min per 100-episode unit.
 
 OPS: (ops, 2026-11-25 19:55Z) #17 cfcap-t2-eps canary: `No module named 'engine'`. `/workspace/in/crane_ml` arrived late, and `cfcap/t2/deps.py:setup()` runs at import time. It only appends CRANE_ML when the directory already exists, so an input that arrives during the runner's input wait is never put on sys.path. The batch is resumed (crane_ml is on the boxes now). Suggested hardening: append the path unconditionally, or call `deps.setup()` again in `_run_simulate` after the inputs are present. cfcap-t2-extra submitted; t2_adv held by the coordinator.
