@@ -1,0 +1,5 @@
+leg_kind,n_child_legs,share_legs_with_undominated_wheel_v2,share_wheels_undominated_v2,share_legs_with_undominated_wheel_v2clamp,share_wheels_undominated_v2clamp,max_speed_ratio_v2_median,max_speed_ratio_v2_max
+diag,22592,0.9989376770538244,0.44693955299695226,0.0,0.0,1.4000000000000001,1.4000000000000001
+surge,11296,0.0,0.0,0.0,0.0,1.0,1.0
+sway,11296,0.0,0.0,0.0,0.0,1.0,1.0
+yaw,11296,0.7800991501416431,0.26775031041878317,0.5853399433427762,0.1067135116830342,1.3377279431264724,2.1213203435596433

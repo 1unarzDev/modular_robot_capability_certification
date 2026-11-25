@@ -1,0 +1,2 @@
+n_pairs,n_merges,alpha1_each,bound_union,bound_product,miscov_per_merge_any_leg,miscov_per_merge_leg,miscov_simultaneous_per_pair,stage1_uncovered_G1,stage1_uncovered_G2,stage1_uncovered_either,viol_given_covered,cert_frac_capable_06,mean_merges_per_pair
+600,3590,0.1,0.2,0.18999999999999995,0.011420612813370474,0.003788300835654596,0.016666666666666666,0.09833333333333338,0.07333333333333336,0.16500000000000004,0.0,0.8852367688022285,5.983333333333333

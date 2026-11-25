@@ -1,0 +1,2 @@
+n_parents,max_abs_err_closed_form_radps,w_dot_r_abs_min,w_dot_r_abs_max,surge_speed_radps,diag_speed_radps,clamp_speed_radps
+200,0.0,0.7071067811865475,0.7071067811865475,5.9880239520958085,8.383233532934133,8.982035928143713
