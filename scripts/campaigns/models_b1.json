@@ -1,0 +1,20 @@
+{
+ "campaign": "cfcap-models-b1",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the 48-run grid (arch st/bb/ds x diversity n6/n4/n2/n6c/n4c x seeds 1-3, plus stl x n6 x 3) or when the owner's $35 cap for 2026-11-25 is reached; seeds 2-3 (shards 16-47) may be cancelled first.",
+ "_doc": "Role models. Task cfcap/models/train.py:TASK, one job = one grid entry (shard = entry index of grid b1; priority order seed 1 first). Data: the generator's train-split episodes (cfcap.gen, plated, HET_FULL) generated on the fly inside the job from their indices, parent pre-filtered by the diversity level; label rho_dec = rho_abs / rho_ref (cfcap.t1.reference), rho_rel secondary. Units: 8 training chunks (120 s generation + 120 s training each, checkpointed in OUT/ckpt.pt, mid-chunk ctx.save_state) + eval-cal/test/H3/H4 (generator episodes 0..299 of each split, identical for every run; direct-head and compositional quantiles, per-wheel posteriors). Outputs: units/*.npz rows, weights.pt, wheels_<split>.npz; scripts/models_export.py turns pulled runs into results/models/paper/{dec_models.csv.gz,diversity.csv,latency_models.csv}. unit_s is an ESTIMATE: training chunks are wall-time budgeted (240 s + ~20 s load/ckpt), eval units are generation-bound (local 4070 under GPU contention: 0.8 s per full-candidate episode; 3090 assumed similar) ~240 s for cal/test/H3 and longer for H4 (45 candidates, N 7-10); mean 260 s over the 12 units. The batch canary runs --smoke (one unit: a 20 s chunk + every eval split at 12 episodes) and is the first execution of the eval path on a box.",
+ "groups": [
+  {"name": "models-train", "task": "train", "stage": 1, "lane": "rented", "profile": "torch", "shards": 48,
+   "units_per_shard": 12, "unit_s": 260, "overhead_s": 120, "vram_gb": 8, "priority": 10, "seed": 0,
+   "task_args": ["--grid", "b1", "--chunks", "8", "--gen-s", "120", "--train-s", "120", "--buffer", "4",
+                 "--max-cand", "8", "--eval-n", "300", "--compose-n", "100", "--compose-S", "16"],
+   "canary_task_args": ["--grid", "b1", "--smoke", "--gen-s", "20", "--train-s", "20", "--eval-n", "12",
+                        "--compose-n", "4", "--compose-S", "4"],
+   "canary_est_s": 420,
+   "pilot": "local 4070 Ti SUPER (shared, GPU at 99 % from other roles): python -m cfcap.runner train --grid smoke --chunks 2 --steps 200 --pool 200 ($CFCAP_OUT/runs/train/smoke/units/train-0*.json): generator episodes with all candidates 0.80 s/episode (160 s / 200), training 5.8 steps/s at 1536 wheels/step, peak VRAM 1.3 GB; own-data pilot (scripts/models_pilot_train.py, uncontended) 35 steps/s, 6.6k episodes/s, weights 3.9 MB. Chunks are now wall-time budgeted (gen 120 s + train 120 s), so unit_s for training units is fixed by construction; eval units are estimates.",
+   "role": "models",
+   "purpose": "Train one cfcap amortized capability model (set-transformer posterior with direct head, black-box direct-only, DeepSets ablation, or larger set transformer) of the architecture x training-diversity x seed grid on generator episodes with heterogeneity on and the rho_dec label, then evaluate it on the generator cal, test, H3 and H4 splits."}
+ ]
+}
