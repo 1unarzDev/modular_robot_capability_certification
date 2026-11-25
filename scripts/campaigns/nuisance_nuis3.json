@@ -1,0 +1,20 @@
+{
+ "campaign": "cfcap-nuis3",
+ "lineage": "cfcap-nuis",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the trimmed nuisance grid (pair + square x {v2, v2+clamp} at delta 0.08, v2 delta sweep): it decides whether the rho_dec ambiguity after v2 reaches the 5 percent probing threshold and whether a clamp ramp cuts it by 30 percent (docs/board/nuisance.md).",
+ "_doc": "Trimmed resubmit of cfcap-nuis2.nuis-main (cancelled at ~3x the estimate). Same task, seeds and episode blocks (nseed 1909, 8 episodes per unit), so units match nuis2 ids. Scope: pair 64 / square 48 episodes x {v2, v2+clamp} at delta 0.08, plus v2 at delta 0.02/0.04/0.12/0.16 on pair 32 / square 24 (0.08 is the main grid). Excludes the 7 in-scope units of the still-leased cfcap-nuis2.nuis-main.s000 (listed in --exclude-units). 49 units over 7 shards. unit_s 780 s = the measured nuis-main rate (~13 min/unit, coordinator, from the nuis2 boxes).",
+ "groups": [
+  {"name": "nuis3-main", "task": "nuisance", "stage": 1, "lane": "rented", "profile": "torch", "shards": 7,
+   "units_per_shard": 7, "unit_s": 780, "overhead_s": 120, "vram_gb": 8, "priority": 15, "seed": 0,
+   "task_args": ["--task-spec", "cfcap.nuisance_task:TASK", "--shapes", "pair,square", "--probe-sets", "v2,v2+clamp",
+                 "--episodes", "pair=64,square=48", "--ep-per-unit", "pair=8,square=8", "--nseed", "1909",
+                 "--particles", "192", "--max-stages", "100", "--sweep-deltas", "0.02,0.04,0.12,0.16",
+                 "--sweep-episodes", "pair=32,square=24", "--exclude-units", ""],
+   "pilot": "measured cfcap-nuis2.nuis-main rate on rented 3090s: ~13 min per unit (coordinator 2026-11-25)",
+   "role": "nuisance",
+   "purpose": "Trimmed nuisance-marginalised T1 posterior grid on pair and square: decides whether the rho_dec decision ambiguity after v2 reaches the probing threshold, whether a clamp ramp cuts it, and gives the ambiguity-vs-spread curve for figure F1."}
+ ]
+}

@@ -37,6 +37,7 @@ def _args(p):
     p.add_argument("--delta", type=float, default=0.08, help="per-wheel motor spread half-width of the main grid")
     p.add_argument("--sweep-deltas", default="", help="extra deltas run with probe set v2 only (F1 curve)")
     p.add_argument("--sweep-episodes", default="", help="episodes per shape for the delta sweep (default --episodes)")
+    p.add_argument("--exclude-units", default="", help="comma list of unit ids computed elsewhere (another campaign)")
 
 
 def _items(a):
@@ -57,7 +58,8 @@ def _items(a):
 
 
 def _units(a, shard, n_shards):
-    return _items(a)[shard::n_shards]
+    ex = set(x for x in a.exclude_units.split(",") if x)
+    return [u for u in _items(a) if u not in ex][shard::n_shards]
 
 
 def _run(unit, ctx):

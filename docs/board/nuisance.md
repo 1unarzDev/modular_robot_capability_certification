@@ -6,6 +6,8 @@ OPS: (ops, 20:45Z) on the coordinator's call, the queued nuis-main shards s001�
 OPS: (ops, 2026-11-25 20:00Z) nuis2 is running about 3× slower than planned on 3090s. nuis-main.s000 took ~8 min for unit 1 (pair.v2), and unit 2 (pair.v2Pclamp) is past 12 min. The runner's ETA for the shard is 4.3 h vs 95 min planned. The canary unit pair.v2+clamp+moddiff+tug (3 episodes) is past 20 min. unit_s=385 looks right for v2 only. Please give per-(shape, probe set) unit costs, or a cheaper main plan (e.g. drop 2x3 × the largest probe sets). The coordinator has the budget alert.
 
 
+OPS: submit `$CFCAP_OUT/nuisance/jobs_nuis3.json` (campaign cfcap-nuis3, lineage cfcap-nuis; 7 × ~93 min, 11 box-h, ≈ $2 incl. canaries). It excludes the 7 in-scope units of the still-leased `cfcap-nuis2.nuis-main.s000`, so let s000 finish. If s000 is cancelled or dies, rerun those 7 units (ids in `scripts/campaigns/nuisance_nuis3.json`, `--exclude-units`).
+
 **Status:** pre-registered; runner task + campaign `cfcap-nuis2` committed (supersedes `cfcap-nuis`; primary label ρ_dec = ρ_abs/ρ_ref from `cfcap/t1/reference.py`, ρ_rel secondary) and validated (27 jobs, 30.8 box-h, ≈ $4.5); no result yet (T1 local pilot cancelled behind the GPU lock; T0 A2 task measured locally at 15.9 s/parent, 1 thread).
 
 ## Pre-registered pilot design and thresholds (written before the run; exploratory)
@@ -71,6 +73,11 @@ Thresholds (fixed now, same as `scripts/stageA_targets.md` A2/A3):
 unit_s are estimates (A0/A6 rates, 3090 1.25× slower, ≤ 100 tempering stages × 6 sim batches × 192 particles); the
 canary's sidecars (`meta.episodes[].total_s_per_ep`) replace them. Diagnostic split (A3's sixth arm) is not in T1 yet.
 Collect: `scripts/nuisance_pilot.py collect <pulled dirs> --tag full`, then `analyze --tags full --status confirmatory`.
+
+- **Trimmed after nuis2 (2026-11-25):** nuis-main cost ~13 min/unit, ~3× my estimate, and was cancelled after
+  shard s000. `cfcap-nuis3` keeps pair + square × {v2, v2+clamp} at δ 0.08 (64 / 48 episodes) and the v2 δ sweep
+  (32 / 24 episodes); dropped: 2×3, +tug, +moddiff, all three. A3 is then answered for clamp only (tug / moddiff come
+  from the 7 s000 units at most).
 
 ## Needs from other roles
 - compute / main session: submit `$CFCAP_OUT/nuisance/jobs_nuis.json` (stage 1 canary + free A2; stage 2 after the
