@@ -94,4 +94,48 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Open questions and ideas queue (ranked by the research lead; see docs/board/research.md)
-- (to be filled by the research lead)
+Updated 2026-11-25 ~20:15Z, after round-0 review. Full specs, novelty notes and kill lines are in research.md.
+
+**Reframed thesis (research lead).**
+- The data removes the ambiguity, not the problem.
+- About half of all certified counterfactual decisions extrapolate through the motor law at operating points the
+  robot never visited: diagonals, and yaw of ≥ 3-module children (Prop. 2b).
+- Every plant so far shares that law, so the paper must show three regimes:
+  - in-model: the raw posterior is near-oracle (H10 expected true);
+  - law-misspecified: plug-in fails silently, and the trust-gated certificate holds;
+  - never-existed merges.
+
+**Proposed new hypotheses** (pre-registered; status OPEN):
+- **H11. Silent extrapolation failure.** Under a knee/current-limit motor truth, parametric and raw certificates
+  exceed U* = 1 % unsafe on undominated decisions, while dominated decisions stay ≤ U*. (E1; stress T2 motor-law
+  arm.)
+- **H12. Trust-gated certificate.**
+  - Under the two-constant truth: CF ≥ parametric − 2 pts.
+  - Under the knee truth: unsafe ≤ 1 % and CF ≥ model-free + 5 pts (v2 only). (E1.)
+- **H13. Merges are plug-in.** δ_comp decision flips < 1 % (T1) and < 2 % (T2). The compositional certificate's
+  simultaneous miscoverage per pair is ≤ α. (E2.)
+- **H14. Learning beats strong non-learned baselines.**
+  - The best posterior method is ≥ 10 pts CF@U* over detector-gated, ĝ-physics, copy-parent, metadata_nf and
+    min-over-members.
+  - It is ≥ 5 pts over the identified-set bound with v2 only. (E3.)
+  - If H14 fails, C3 is reworded to latency, v2-only and gating.
+
+**Ranked queue.**
+1. E1: trust-gated certificate on T0 under a misspecified motor law. Theory role, CPU, $0. Uses the ENVELOPE task.
+   It shares the law definition with the stress T2 arm.
+2. E2: A4 merge composition defect plus a certificate for never-co-assembled merges, T1 + T2. Stress role, local,
+   about $0–0.2.
+3. E3: trivial + identified-set + review baselines, by body size, on the pilot eids. Baselines role, CPU, $0.
+4. E4: real-corpus assembly→lone counterfactual re-scoring, behind a 30-min feasibility check (≥ 30 matched pairs).
+5. F4: size-aware two-simulator margin for singles and pairs (H8 exception, turned into a positive result).
+6. F5/F6: decide re-scoring.
+   - fixed v2+clamp (+ child-rate yaw);
+   - a C_unsafe/V sweep giving the split-to-see break-even;
+   - the running-max monotone certificate (the H9 fix).
+7. t2-adv retargeted to a real certifier on singles and pairs (not the T1 oracle), ≤ 100 restarts.
+- Not recommended now: a learned T1→T2 residual (it would spend T2's independence).
+
+**Open questions.**
+- Exact share of certified decisions that are undominated (E1 reports it).
+- Whether ĝ-physics (MARS-style) is within 5 pts of the learned posterior in-model.
+- Whether FDR selection (cfBH) is the better error notion for fleet assignment.
