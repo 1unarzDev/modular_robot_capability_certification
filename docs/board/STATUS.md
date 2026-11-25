@@ -3,6 +3,8 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **22:37Z OUTPUTS READY: cfcap-gen-scaling16r** (7/7, H4b 11–16 modules) at `~/.cache/vast-out/*/crane/cfcap-gen-scaling16r.*`. gen-hetero2 is 4/5. Ops is also pulling done outputs that never left the old boxes (t2-eps, models-b1, theory-ride), using a read-only rsync into vast-out.
+- 22:37Z: GPU slots are underused again (11/20 boxes at 1/3 jobs, 8 at 0% GPU) while 8 GB jobs wait as "outranked". Sent to the compute session. Burn is $3.04/h and spend $10.24, so the projection is ~$24.
 - **22:30Z gen-ref2: 19/19 done, but 2 outputs were lost.** plated-H3.s000 and H4.s000 sat on box 62570123, which was destroyed before its outputs were pulled (sent to the compute session). They are rerun as cfcap-gen-ref3 (same f70d265 refs, priority 20). Three more shards (plated-cal.s001, plated-test.s000, plateless-test.s000) are being rsynced from a live old box. Every other shard is in `~/.cache/vast-out/*/crane/cfcap-gen-ref2.*`. Outputs-ready note for the generator once all are present.
 - **22:25Z OUTPUTS READY: cfcap-stress-n4** (20/20 done, all pulled to `~/.cache/vast-out/*/crane/cfcap-stress-n4.*`). Stress is told, so the N4 margins can be committed before 01:45Z.
 - **22:18Z RISK: b2r2 / conf2 (123 jobs, ~50 box-h) have leased nothing in 25 min.** At vram 22 each job needs a whole 24 GB GPU, and the boxes keep packing 8 GB jobs, so a whole GPU rarely frees. Best fix: baselines caps the sim batch (capxfer `_integrate` B) so peak ≤ 10 GB, and ops re-emits at vram 10. Otherwise these campaigns (b2 cheap table and the conf baselines) may not finish by 03:00Z.
@@ -78,28 +80,33 @@ All results so far are exploratory and come from simulation.
 ## Rented campaigns (owner: ≤24 interruptible boxes until 2026-11-26 03:00Z, ≤$35, floor $2; ops target ≤ ~$27)
 | Campaign | What | Box-h (est.) | Priority | Done/total (leased, queued) |
 |---|---|---|---|---|
-| cfcap-models-b1 | Training grid: arch × diversity × seeds | 43.2 | 30 | 8/49 (26, 15) |
-| cfcap-gen-ref2 | Reference splits cal/test/H*, ρ_dec | 4.3 | 30 | 17/19 (2, 0) |
-| cfcap-baselines-b2r | Cheap baselines + E3 on generator ids (no SMC) | 16.6 | 40–53 | 2/39 (1, 36) |
+| cfcap-models-b1 | Training grid: arch × diversity × seeds | 43.2 | 30 | 32/49 (5, 0) |
+| cfcap-models-b1w | models-b1 remainder (2 running) | — | 30 | 1/13 (1, 0) |
+| cfcap-models-b1x | models-b1 remainder, any worker (quoted) | ~13 | 30 | 1/11 (9, 1) |
+| cfcap-gen-ref2 | Reference splits cal/test/H*, ρ_dec | 4.3 | 30 | 19/19 (0, 0) |
+| cfcap-gen-ref3 | Rerun of 2 lost gen-ref2 shards (H3/H4 plated s000) | 0.4 | 20 | 0/2 (2, 0) |
+| cfcap-baselines-b2r2 | Cheap baselines on generator ids (vram fix of b2r) | 16.6 | 40–53 | 1/37 (1, 35) |
 | cfcap-t2-motor | T2 motor-law arm, 4000 episodes | 7.3 | 55 | 3/9 (6, 0) |
-| cfcap-t2-motor2 | T2 knee severities 1–3, 4000 episodes | 11.0 | 55 | 0/13 (13, 0) |
-| cfcap-t2-motor3 | T2 motor misfit (v2+clamp+yawc) | 17.8 | 60 | 0/21 (21, 0) |
-| cfcap-t2-eps | 4000 plated T2 test episodes | 4.0 | — | 7/9 (2, 0) |
-| cfcap-t2-extra | Plateless T2 + 7-condition ablation | 4.5 | 60 | 1/11 (5, 5) |
-| cfcap-baselines-smc-small | SMC particle sweep (stage 1) | 14.1 | 60–62 | 1/31 (0, 30) |
-| cfcap-gen-scaling16r | H4b 11–16 modules | 0.7 | 65 | 0/7 (0, 7) |
-| cfcap-gen-hetero2 | Module types het/H1/H2 | 0.8 | 66–69 | 0/5 (0, 5) |
-| cfcap-models-het | Training on mixed module types | 3.7 | 67 | 1/5 (0, 4) |
-| cfcap-env | HM3D-calibrated env missions | 3.5 | 70–84 | 8/28 (14, 6) |
-| cfcap-gen-confirm2 | Confirmatory conf_* splits (unopened until 01:45Z) | 1.4 | 75–80 | 0/12 (0, 12) |
-| cfcap-baselines-conf | Baselines on conf ids (unopened until 01:45Z) | 33.3 | 75–81 | 0/86 (0, 86) |
-| cfcap-stress-conf-merge | C-MERGE confirmatory (unopened until 01:45Z) | 7.8 | 75 | 0/19 (0, 19) |
-| cfcap-nuis3 | Trimmed nuisance (pair/square × v2/v2+clamp + sweep) | 10.8 | 85 | 1/8 (0, 7) |
-| cfcap-nuis2 | Running remainder (nuis-main.s000, canary, t0-a2) | — | — | 10/29 (4, 0) |
-| cfcap-theory-ride | T0 phase diagram + envelope (spare cores) | 17 CPU-h | 88 | 1/26 (25, 0) |
-| cfcap-decide2 | Decide T1 grid (first to cut) | 30.5 | 90–100 | 0/18 (0, 18) |
+| cfcap-t2-motor2 | T2 knee severities 1–3, 4000 episodes | 11.0 | 55 | 4/13 (9, 0) |
+| cfcap-stress-n4 | N4 merge (margins before 01:45Z) | 4.8 | 5 | 20/20 (0, 0) |
+| cfcap-t2-motor4 | T2 motor misfit (v2+clamp+yawc, obs + true faults) | 17.8 | 60 | 2/21 (19, 0) |
+| cfcap-t2-eps | 4000 plated T2 test episodes | 4.0 | — | 8/9 (1, 0) |
+| cfcap-t2-extra | Plateless T2 + 7-condition ablation | 4.5 | 60 | 6/11 (5, 0) |
+| cfcap-baselines-smc-small | SMC particle sweep (stage 1) | 14.1 | 60–62 | 4/31 (1, 26) |
+| cfcap-gen-scaling16r | H4b 11–16 modules | 0.7 | 65 | 7/7 (0, 0) |
+| cfcap-gen-hetero2 | Module types het/H1/H2 | 0.8 | 66–69 | 4/5 (1, 0) |
+| cfcap-models-hetx | Training on mixed module types (any worker) | 3.7 | 67 | 1/5 (1, 3) |
+| cfcap-env | HM3D-calibrated env missions | 3.5 | 70–84 | 28/28 (0, 0) |
+| cfcap-gen-confirm2 | Confirmatory conf_* splits (unopened until 01:45Z) | 1.4 | 75–80 | 7/12 (2, 3) |
+| cfcap-baselines-conf2 | Baselines on conf ids (vram fix; unopened until 01:45Z) | 33.3 | 75–81 | 1/86 (0, 85) |
+| cfcap-stress-conf-merge | C-MERGE confirmatory (unopened until 01:45Z) | 7.8 | 75 | 15/19 (3, 1) |
+| cfcap-stress-conf-gate | C-GATE: gate-cal + conf-gate (unopened until 01:45Z) | 17.2 | 75/80 | 2/28 (21, 5) |
+| cfcap-nuis3 | Trimmed nuisance (pair/square × v2/v2+clamp + sweep) | 10.8 | 85 | 1/8 (7, 0) |
+| cfcap-nuis2 | Running remainder (nuis-main.s000, canary, t0-a2) | — | — | 10/29 (2, 1) |
+| cfcap-theory-ride | T0 phase diagram + envelope (spare cores) | 17 CPU-h | 88 | 12/26 (14, 0) |
+| cfcap-decide2 | Decide T1 grid (first to cut) | 30.5 | 90–100 | 1/18 (0, 17) |
 
-Spend so far (ledger, UTC day): $5.56 at 21:22Z. Superseded/cancelled: gen-pilot*, canary*, baselines-pilot2, b2, theory-cpu, decide, gen-scaling16/hetero/confirm (ebba94b), t2-adv.
+Spend so far (ledger, UTC day): $10.24 at 22:35Z. Superseded/cancelled: gen-pilot*, canary*, baselines-pilot2, b2, theory-cpu, decide, gen-scaling16/hetero/confirm (ebba94b), t2-adv.
 
 ## Findings to date
 - A2/A3 (T0 oracle, motor law known): 0.02 % of decisions are ambiguous after v2, and the oracle certifies 99.98 %
