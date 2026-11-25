@@ -25,9 +25,14 @@ T2_SITE = pathlib.Path(os.environ.get("CFCAP_T2_SITE", pathlib.Path.home()
 
 
 def setup():
+    """Append (never prepend) the crane checkout and the numba/jax site-packages. The staged box input
+    ($CRANE_INPUTS_DIR/crane_ml) is appended even when it does not exist yet: a rented box may receive it during the
+    runner's input wait, after this module was imported, and a missing sys.path entry is harmless until then."""
     os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")     # JAX shares the GPU with torch
-    for p in (str(CRANE_ML), str(T2_SITE)):
-        if p not in sys.path and pathlib.Path(p).exists():
+    staged = pathlib.Path(os.environ.get("CRANE_INPUTS_DIR") or "/workspace/in") / "crane_ml"
+    cands = [str(CRANE_ML), str(staged), str(T2_SITE)]
+    for p in cands:
+        if p not in sys.path and (pathlib.Path(p).exists() or p == str(staged)):
             sys.path.append(p)
 
 
