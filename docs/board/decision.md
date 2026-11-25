@@ -471,8 +471,46 @@ Seeds 2700–3299, 588 converged episodes. Source: `results/decision/n1robust_*`
 **Reported:** the empty-screen share by severity, before (K = 5) and after. Fallback if the bars fail: a heavy-tailed
 (Student-t) screen statistic, pre-registered separately.
 
+## NEXT-1b result: bars PASSED (knee-tolerant conformal screen)
+- **Calibration** (seeds 5000–5599, exploratory, 587 converged): K = **28.7**.
+  - Truth statistic quantiles (q50 / q90 / q99) by severity: sev 0: 2.0 / 3.5 / 26.9; sev 1: 2.7 / 6.3 / 25.5;
+    sev 2: 6.6 / 14.7 / 21.0; sev 3: 14.4 / 24.5 / 40.6.
+- **Evaluation** (seeds 3900–4499, 585 converged; `results/decision/n1bK_*` vs `n1b5_*`; paper file
+  `paper/probe_t0n1bK.csv`, test_plant T0-knee-post-ktol, confirmatory).
+
+| env_cal | K = 5 (before) | K = 28.7 (after) |
+|---|---|---|
+| empty-screen share | 30.1 % | **0.5 %** |
+| empty-screen share, sev 0 / 1 / 2 / 3 | 4.7 / 6.7 / 34 / 80 % | 0.7 / 0 / 0 / 1.5 % |
+| evoi useful | 64.9 % | **93.1 %** |
+| evoi ep unsafe | 0 | 0.34 % |
+| evoi regret ± se | 59.2 ± 3.6 | 16.9 ± 2.2 |
+| evoi probe s | 1.05 | 1.71 |
+| clamp useful / regret | 65.5 % / 65.5 | 93.5 % / 22.9 |
+| dom useful / regret | 65.4 % / 62.4 | 93.3 % / 18.8 |
+| v2 useful / regret | 57.1 % / 71.2 | 82.7 % / 31.8 |
+
+- After, paired Δregret: evoi − clamp −6.0 [−6.9, −4.9]; evoi − dom −1.9 [−2.8, −0.95]; evoi − v2 −14.9.
+- **Verdict.**
+  - Useful 93.1 % ≥ 75 %, at ep unsafe 0.34 % ≤ 10 %.
+  - Empty-screen share 0.5 % ≤ 10 %.
+  - B1: 1.71 ≤ 4.4 s.
+  - B2: upper end −4.9 ≤ 0.
+  - B3: −0.3 pt ≥ −1 pt.
+  - B4: upper end −0.95 ≤ 0.
+  - **All bars pass.** The posterior was the lever, as the research lead said: the wider screen closes 28 of the 30
+    points of the usefulness gap.
+- **Caveats.**
+  - The truth is kept among the ≤ 6 hypotheses in only 52 % of episodes. The end-to-end calibration carries the
+    guarantee, so the credible-set envelope is not by itself a valid bound.
+  - Raw `env` with clamp is 12.5 % unsafe on yaw legs of children with ≥ 3 modules; env_cal brings that to 0–4 %.
+  - Severity-3 knees and large bodies remain under-represented by the convergence filter.
+  - Cost: the wider screen keeps more hypotheses alive through all 6 v2 legs, so generation takes about 4 s per
+    episode instead of 2.5 s.
+- **NEXT-2** (90 %-mass set) is now unblocked, but not started tonight.
+
 ## NEXT queue (not started)
-- **N-post-1b (the real lever):** a knee-robust screen. Options:
+- **N-post-1b: DONE (see NEXT-1b result).** Original note: a knee-robust screen. Options:
   - (a) a conformalized screen threshold calibrated on knee-law calibration episodes (truth's max |z| at α_s);
   - (b) a Student-t / Huber screen statistic;
   - (c) a "speed-ceiling-only" screen that tests duty and speed consistency only where the wheel tracks below its fitted
