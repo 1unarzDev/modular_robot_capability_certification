@@ -488,3 +488,17 @@ Flips T1 → T2 by dominance class, with an episode-bootstrap 95 % CI:
   - CF on capable stratum merges ≥ 85 % at realised unsafe ≤ 1 %;
   - miscov ≤ 0.1 in T1 (comp_enum, cross-fit) and ≤ 0.15 in T2 (comp_enum_size);
   - CF beats copy_parent by ≥ 10 pts.
+
+## C-GATE gate statistic: stress's committed choice (committed 2026-11-25 before 22:15Z, before any confirmatory data)
+CONFIRMATORY.md §3 allows exactly one gate statistic. Stress commits the **capability-tracking residual**:
+- **Definition.** R = max over the hold windows w of the probes run (v2, or v2+clamp) of |ρ̂_meas(w) − ρ̂_pred(w)|.
+  - ρ̂_meas(w) = ⟨ξ_meas, ξ_cmd⟩_W / |ξ_cmd|²_W over the window: the robot-visible twist from IMU yaw and integrated
+    acceleration / odometry, W = diag(1, 1, Lc²).
+  - ρ̂_pred(w) is the certifier's own T1 posterior-mean prediction of that ratio, for the same window and the same
+    body.
+  - The gate opens (trust the model's extrapolation) iff R ≤ q_gate. q_gate is fitted on exploratory knee episodes
+    pooled over severities (E1 / t2-knee exploratory seeds), never on confirmatory streams.
+- **Why not the trace misfit D.** Pre-stated D failed exploratory tests on ≥ 3-module yaw: A5y AUC 0.56, A5m 0.27–0.33.
+  R is post-hoc (A5y: AUC 0.83 on 10 yaw flips, 0.81 on 12 flips pooled), and that is said here.
+- The theory role may overrule this before 22:15Z. If both roles commit different statistics, the one in
+  `docs/board/theory.md` wins and this entry is void.
