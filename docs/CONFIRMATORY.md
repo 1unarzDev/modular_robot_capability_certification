@@ -263,3 +263,27 @@ do not count as passing.
   UNDERPOWERED, and the Holm table for P1–P7.
 - It must be committed and unit-tested on mock data **before** the first confirmatory shard is pulled.
 - Results go to `results/confirmatory/verdicts.csv` with the git sha of this file.
+
+## 9. Scorer readings ratified, with three amendments (21:15Z, before any confirmatory label exists)
+The research lead reviewed `scripts/analysis/confirmatory.py` (7fe5883) against `docs/board/paper.md` §5c.
+
+**Ratified as read:**
+- Point-only "≤ b" bars are judged on the one-sided 95 % upper bound ≤ b.
+- The power check uses z = 1.96 (deliberately conservative against the one-sided bound; it reproduces deff ≲ 4.5
+  at 20k), with the Kish fallback at an observed rate of 0.
+- P5 is not power-gated on its excess part: an underpowered cell cannot falsely show E_dec > 1 %.
+- The bound assignment:
+  - matched point for C-MAIN E_dec / P1 / P2 and C-MERGE P4;
+  - own bounds for E_ep everywhere, P3 and all of C-GATE.
+- Holm over m = 7 fixed; a P-bar needs both Holm rejection and its point threshold.
+
+**Amendments:**
+1. **The block for the E_ep validity bar.** E_ep is the guaranteed event, so C-MAIN bar 1 and C-MERGE bar 2 judge E_ep
+   on the **`all` block**: an episode or pair counts if *any* of its decisions is an unsafe commit under the
+   method's own bound. Block-restricted E_ep (stratum, lone-faulted, …) is descriptive only.
+2. **"≥" validity bars** (C-SCALE coverage ≥ 0.85, C-MERGE / P4 CF ≥ 85 %, C-HET drop ≤ 5 pts read as
+   ID − split ≤ 0.05) are judged on the **point estimate**, with the one-sided 95 % bound printed. These are utility
+   or descriptive thresholds, not safety bounds. The safety bars stay upper-bound-judged.
+3. **P5's dominated contrast when underpowered.** If the ≥ 3-module *dominated* cell fails the power rule, its
+   condition becomes: one-sided upper ≤ 2 %, i.e. clearly below the undominated excess threshold. It is printed as
+   "dominated: UNDERPOWERED, contrast-judged". If it is powered, the original ≤ 1 % (upper ≤ 1.3 %) applies.
