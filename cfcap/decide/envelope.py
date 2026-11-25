@@ -192,6 +192,8 @@ def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", sta
     """T4 contract rows (docs/board/paper.md 1b) for one envelope predictor; predictor_class = envelope. Ambiguity
     is undefined for a bound-only predictor (n_amb_* = NaN)."""
     d = rows[rows.predictor == pred]
+    u = d.pivot_table(index="seed", columns="policy", values="U")
+    bought = ((u["clamp"] > u["evoi"] + 1e-9) if {"clamp", "evoi"} <= set(u.columns) else pd.Series(False, u.index))
     out = pd.DataFrame(dict(policy=d.policy.map(PAPER_POLICY), predictor_class="envelope", predictor=pred,
                             split="test", status=status, eid=d.seed, shape=d.parent_size.map(lambda m: f"{m}mod"),
                             n_probes=d.probed, probe_time_s=d.probe_s + v2_s,
@@ -202,7 +204,10 @@ def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", sta
                             n_capable_rel=d.n_capable_rel, n_incapable_rel=d.n_incapable_rel,
                             n_certified_rel=d.n_certified_rel, n_unsafe_rel=d.n_unsafe_rel,
                             oracle_pairs=d.oracle_pairs, oracle_pairs_cert=d.oracle_pairs_cert,
-                            task_rel_cert_share=d.oracle_pairs_cert / d.oracle_pairs.where(d.oracle_pairs > 0)))
+                            task_rel_cert_share=d.oracle_pairs_cert / d.oracle_pairs.where(d.oracle_pairs > 0),
+                            n_served=d.n_served, oracle_served=d.oracle_served,
+                            n_certified_task=d.oracle_pairs_cert, n_capable_task=d.oracle_pairs,
+                            clamp_bought=d.seed.map(bought).astype(int)))
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
 
