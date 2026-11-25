@@ -112,6 +112,42 @@ submittable).
   Mondrian per family, the family is a deterministic function of the episode, so within-family exchangeability
   holds too. ρ_ref is a fixed deterministic table, identical for cal and test.
 
+## Broadening splits (plan §2b–2d, 2026-11-25 ~21:30Z; schema `cfcap.gen/v3` = v2 + `mod_type`)
+**Exact split names** (`cfcap.gen.episode.SPLITS`; mecanum splits are bit-identical to v2: types use their own RNG
+stream):
+- `H4b`: 11–16-module parents (frontier-growth shapes, family FAM_H4), children and merges ≤ 16 modules; test only.
+- `het_train` / `het_cal` / `het_test`: train morphology rules; every assembly is ONE module type, mecanum or
+  conventional (p 0.5); candidates are single-type (cross-type merges excluded).
+- `H1` (unseen module type): the parent is all omni-like; merge partners any single type; candidates any.
+- `H2` (unseen type combination): the parent mixes mecanum and conventional modules (both present, N ≥ 2); partners
+  single-type mecanum or conventional; candidates any without omni.
+- `conf_<split>` for every split above and the v2 ones (`conf_test`, `conf_H4`, `conf_H4b`, `conf_het_test`,
+  `conf_H1`, `conf_H2`, ...): the same rule, split code + 64, seed root `SEED_CONF = 92599`.
+
+**Module types** (`cfcap/t1/plant.py`, additive optional latent `wtype`; absent = capxfer behaviour):
+`MECANUM 0`; `CONVENTIONAL 1` (skid: both contact channels are friction channels along the rolling and lateral
+directions, capxfer's roller_locked geometry, independent of the fault mode); `OMNI 2` (mecanum geometry, roller-axis
+traction μ × `OMNI_MU = 0.5`). The firmware IK is the same mecanum IK for every type. Faults (weak/coast/brake) apply
+on top of any type. Test `test_conventional_module_cannot_sway`: a lone conventional module has |ρ_sway| < 0.1
+(CONFIRMATORY asks < 0.02; the measured value is in the test log below).
+- Columns: `mod_type` (M,) int8 per module (wheel w's type = `mod_type[w // 4]`; candidate types via `cm_mod`).
+- `cfcap.gen.episode.build(name, cells, yaws, ids, plate, types=None)` sets `asm.meta["types"]` (m,) and
+  `asm.meta["wheel_type"]` (n,); `w_hat`/`r_hat` stay the mecanum geometry (the type acts through the plant latent).
+- ρ_ref is per type: keys append `,type` for non-mecanum modules (`"i,j,yaw,type"`), so mecanum keys are unchanged.
+
+**conf_* episodes touched before docs/CONFIRMATORY.md was committed (8ffc33a, ~21:10Z), to be excluded per §0.1:**
+`conf_test` indices 0–39 and 3 were *constructed* (make_episode only: parent, latents, candidates; no simulation, no
+labels) in a CPU timing check at ~20:58Z. Nothing else; the tests now use index 10^7 and pilot2 has no conf split.
+Proposal to the research lead: either exclude conf_test 0–39 from C-MAIN (use 40–3,039) or accept them (no labels or
+observations were ever computed). Each conf split also has one spare last shard (never scored) for an ops canary.
+
+- OPS: `scripts/campaigns/scaling16.json` — H4b 3,000 episodes (6 × 500, plated), 0.8 box-h, $0.14 (+ auto canary).
+- OPS: `scripts/campaigns/hetero.json` — het_cal 10k, het_test / H1 / H2 5k each (plated), 0.8 box-h, $0.15.
+- OPS: `scripts/campaigns/confirm.json` — conf_test 5,000 (+2,500 spare), conf_H4 1,500 (+750), conf_H4b 1,400
+  (+700), conf_het_test / conf_H1 / conf_H2 1,000 each (+1,000 spare), plated; 1.4 box-h, $0.26; no auto canary
+  (a canary must use the spare last shard). Do not read labels before 01:45Z.
+- unit_s for all three come from `scripts/gen_campaigns.py` (one rate table; rerun after the pilot2 numbers).
+
 ## Needs from other roles
 - **models:** confirm the schema works for you (the SendMessage to `models` did not reach). Observations are stored raw
   (50 Hz); featurize on load.

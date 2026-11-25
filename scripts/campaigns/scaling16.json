@@ -1,0 +1,44 @@
+{
+ "campaign": "cfcap-gen-scaling16",
+ "lineage": "cfcap-gen",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the H4b (11-16 modules) exploratory shards are complete (sha256 sidecars).",
+ "_doc": "Plan 2b. Exploratory H4b test split: parents of 11-16 modules (random-growth shapes, family FAM_H4), children and merges up to 16 modules, plated. 3,000 episodes = 6 shards x 500 (bins 11-13 / 14-16 ~1,650 / 1,350). Confirmatory H4b episodes are in confirm.json (conf_H4b), not here.",
+ "groups": [
+  {
+   "name": "gen-H4b",
+   "task": "gen_shard",
+   "stage": 1,
+   "lane": "rented",
+   "profile": "torch",
+   "shards": 6,
+   "units_per_shard": 1,
+   "unit_s": 278,
+   "overhead_s": 180,
+   "vram_gb": 8,
+   "priority": 40,
+   "lineage": "cfcap-gen",
+   "task_args": [
+    "--split",
+    "H4b",
+    "--plate",
+    "plated",
+    "--gen-shards",
+    "6",
+    "--episodes",
+    "500",
+    "--probes",
+    "v2",
+    "--engine",
+    "compile",
+    "--block",
+    "250"
+   ],
+   "pilot": "local 4070 Ti S: scripts/gen_pilot.py (train 17.9 eps/s steady, results/generator/pilot.csv) and scripts/gen_pilot2.py (het/H1/H2/H4b, results/generator/pilot2.csv), scaled to a 3090 by 14/17.9",
+   "role": "generator",
+   "purpose": "Exploratory 11-16-module test episodes for the size-generalisation curve (models eval2-ext, theory)."
+  }
+ ]
+}

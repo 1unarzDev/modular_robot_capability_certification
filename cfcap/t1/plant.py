@@ -49,6 +49,16 @@ class Het:
     payload: tuple | None = None  # (lo, hi) kg payload point mass at a random deck position, or None
 
 
+# Module wheel types (optional per-wheel latent "wtype"; absent = all mecanum, capxfer behaviour unchanged).
+#   MECANUM 0       capxfer's healthy mecanum channels;
+#   CONVENTIONAL 1  skid wheel: both contact channels are friction channels along the rolling and lateral directions
+#                   (capxfer's roller_locked geometry), independent of the fault mode;
+#   OMNI 2          omni-like: mecanum geometry with the roller-axis (traction) friction scaled by OMNI_MU.
+# The firmware IK is unchanged (nominal mecanum r_hat), i.e. the same controller drives every module type.
+MECANUM, CONVENTIONAL, OMNI = 0, 1, 2
+WHEEL_TYPES = ("mecanum", "conventional", "omni")
+OMNI_MU = 0.5
+
 HET_OFF = Het()
 HET_WHEEL8 = Het(wheel_motor=0.08)
 HET_FULL = Het(wheel_motor=0.08, module_motor=0.04, vbatt_module=0.3, mu_module=0.1, load_split=0.15,
@@ -111,7 +121,7 @@ def subset(lat, modules, asm_child=None):
     mods = torch.as_tensor(list(modules), device=lat["mode"].device)
     widx = (mods[:, None] * 4 + torch.arange(4, device=mods.device)).reshape(-1)
     out = dict(lat)
-    for k in ("mode", "g", "stall_w", "noload_w", "yaw_err"):
+    for k in ("mode", "g", "stall_w", "noload_w", "yaw_err") + (("wtype",) if "wtype" in lat else ()):
         out[k] = lat[k][:, widx]
     for k in ("vbatt_off", "mu_mod"):
         out[k] = lat[k][:, mods]
@@ -131,9 +141,19 @@ def _apply_latents(C, asm, lat, nom):
     vb = (lat["dom"]["v_batt"][:, None] + lat["vbatt_off"][:, wm]) / nom["v0"]
     C["vb"] = vb.contiguous()
     C["mu"] = (C["mu"] * lat["mu_mod"][:, wm]).contiguous()
-    # mounting yaw error (capxfer._prepare geometry, rotated by the latent-owned per-wheel error)
+    wt = lat.get("wtype")
+    conv = None
+    if wt is not None:
+        wt = wt.to(dev)
+        conv = wt == CONVENTIONAL
+        C["fric2"] = (C["fric2"] | conv).contiguous()
+        C["mu"] = torch.where(wt == OMNI, C["mu"] * OMNI_MU, C["mu"]).contiguous()
+    # mounting yaw error (capxfer._prepare geometry, rotated by the latent-owned per-wheel error); also rebuilt for
+    # conventional wheels (roller_locked channel directions)
     yerr = lat.get("yaw_err")
-    if yerr is not None and bool(yerr.abs().max() > 0):
+    if yerr is None:
+        yerr = torch.zeros(B, n, device=dev) if conv is not None and bool(conv.any()) else None
+    if yerr is not None and (bool(yerr.abs().max() > 0) or (conv is not None and bool(conv.any()))):
         f32 = dict(dtype=torch.float32, device=dev)
 
         def rot(v):

@@ -8,6 +8,7 @@ family split whatever episode it appears in:
   FAM_TRAIN  N <= 6, topology chain / L / path (zigzag) / cyclic / grid (single included)   -> train, cal, test
   FAM_H3     N <= 6, a junction tree: T, star (plus) or branched (several junctions)        -> capplan H3 (topology)
   FAM_H4     N >= 7, any topology                                                          -> capplan H4a (scale)
+             (N 7-10 in split H4; N 11-16 in the test-only split H4b, shapes by random growth, not uniform)
 
 Grid (square, 2x3) stays in train because it holds the field shapes; T/star/branched are the unseen topology classes.
 Topology classes follow capplan `configs.classify_topology` on the cell adjacency graph (chain and side merge into
@@ -118,3 +119,32 @@ def sample_shape(rng, size_w, split):
     k = int(rng.choice(sizes, p=w / w.sum()))
     sh = shapes_by_split(k)[split]
     return sh[int(rng.integers(len(sh)))]
+
+
+MAX_ENUM_N = 10
+
+
+def random_shape(rng, k):
+    """A random fixed polyomino of size k by frontier growth (Eden): start at one cell and add a uniformly drawn empty
+    face neighbour until k cells; translation-normalised. Used for k > MAX_ENUM_N, where enumeration is infeasible
+    (the distribution favours compact shapes; it is not uniform over fixed polyominoes)."""
+    cells = [(0, 0)]
+    S = {(0, 0)}
+    while len(cells) < k:
+        front = sorted({(x + dx, y + dy) for x, y in cells for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))} - S)
+        c = front[int(rng.integers(len(front)))]
+        cells.append(c)
+        S.add(c)
+    return _norm(cells)
+
+
+def sample_shape_any(rng, size_w, split):
+    """sample_shape, with sizes > MAX_ENUM_N drawn by `random_shape` (their family split is FAM_H4 by size)."""
+    k_hi = [k for k, w in size_w.items() if w > 0 and k > MAX_ENUM_N]
+    if not k_hi:
+        return sample_shape(rng, size_w, split)
+    assert split == FAM_H4 and all(k > MAX_ENUM_N for k, w in size_w.items() if w > 0), "mixed enum/growth sizes"
+    sizes = sorted(k_hi)
+    w = np.array([size_w[k] for k in sizes], float)
+    k = int(rng.choice(sizes, p=w / w.sum()))
+    return random_shape(rng, k)

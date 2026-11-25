@@ -7,8 +7,10 @@ heterogeneity (motor multipliers 1, no V_batt / mu offsets, least-norm normal lo
 deterministic function of (plate, shape key), so it is a fixed table: computed once per key, cached in-process and in
 an optional JSON table (`load_table` / `save_table`), and identical in every shard.
 
-Shape key = translation-normalised module cells with module yaws, "i,j,yaw;..." in candidate module order sorted by
-cell. Yaws are kept (the roller pattern seen by the body depends on them); no symmetry reduction is assumed.
+Shape key = translation-normalised module cells with module yaws, "i,j,yaw;..." sorted by cell. Yaws are kept (the
+roller pattern seen by the body depends on them); no symmetry reduction is assumed. A non-mecanum module appends its
+wheel type, "i,j,yaw,type" (cfcap.t1.plant CONVENTIONAL 1, OMNI 2), so all-mecanum keys are unchanged and every
+module type has its own nominal reference.
 """
 from __future__ import annotations
 
@@ -24,20 +26,23 @@ from cfcap.t1 import params as P
 _CACHE: dict = {}
 
 
-def key(asm):
-    mods = [(int(i), int(j), int(y) % 4) for _, i, j, y in asm.modules]
+def key(asm, types=None):
+    t = [0] * len(asm.modules) if types is None else [int(x) for x in types]
+    mods = [(int(i), int(j), int(y) % 4, tt) for (_, i, j, y), tt in zip(asm.modules, t)]
     mi, mj = min(m[0] for m in mods), min(m[1] for m in mods)
-    return ";".join(f"{i - mi},{j - mj},{y}" for i, j, y in sorted(mods))
+    return ";".join(f"{i - mi},{j - mj},{y}" + (f",{tt}" if tt else "") for i, j, y, tt in sorted(mods))
 
 
-def nominal_latents(asm, plate, B):
+def nominal_latents(asm, plate, B, types=None):
     n, m = asm.n, len(asm.modules)
     th = P.load_theta(plate)
     one = lambda *s: torch.ones(*s)
     zero = lambda *s: torch.zeros(*s)
     return dict(dom=P.point_domain(th, B, "cpu"), mode=torch.zeros(B, n, dtype=torch.long), g=one(B, n),
                 stall_w=one(B, n), noload_w=one(B, n), vbatt_off=zero(B, m), mu_mod=one(B, m), yaw_err=zero(B, n),
-                load_z=zero(B, n), gyro_bias=zero(B), acc_bias=zero(B, 2), drop_p=0.0, payload=None)
+                load_z=zero(B, n), gyro_bias=zero(B), acc_bias=zero(B, 2), drop_p=0.0, payload=None) | (
+        {} if types is None or not np.any(types) else
+        dict(wtype=torch.as_tensor(np.repeat(np.asarray(types, np.int64), 4)).expand(B, n).clone()))
 
 
 def get(plate, k):
@@ -49,15 +54,17 @@ def put(plate, k, rho):
 
 
 def jobs_for(plate, asms, params):
-    """Label jobs (one per missing key) for the nominal references of `asms`; returns (jobs, keys, tws, Lcs)."""
+    """Label jobs (one per missing key) for the nominal references of `asms` (Assembly or (Assembly, module types));
+    returns (jobs, keys, tws, Lcs)."""
     jobs, keys, tws, lcs, seen = [], [], [], [], set()
     for a in asms:
-        k = key(a)
+        a, types = a if isinstance(a, tuple) else (a, None)
+        k = key(a, types)
         if get(plate, k) is not None or k in seen:
             continue
         seen.add(k)
         tabs, tw = cap.leg_tables(a, params)
-        jobs.append(dict(asm=a, lat=nominal_latents(a, plate, len(cap.LEGS)), cmd=tabs, plate=plate))
+        jobs.append(dict(asm=a, lat=nominal_latents(a, plate, len(cap.LEGS), types), cmd=tabs, plate=plate))
         keys.append(k)
         tws.append(tw)
         lcs.append(a.char_length())

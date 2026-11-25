@@ -26,6 +26,12 @@ Splits (episode stream, parent family set, allowed candidate families):
   H6                  train morphology rules; parent faults: >= 2 wheels of one module (+ maybe 1 elsewhere)
                       capplan H6 (unseen failure combinations)
   H7                  train morphology rules; payload regime U(3, 6) kg                capplan H7 (task family)
+  H4b                 FAM_H4 parents N 11-16 (random growth), candidates any family N <= 16; test only
+  het_train/cal/test  train morphology rules; every assembly one module type, mecanum or conventional (skid)
+  H1                  het rules but the parent is all omni-like modules (a type never in het_*)  capplan H1
+  H2                  het rules but the parent mixes mecanum and conventional modules        capplan H2
+  conf_<split>        confirmatory twin of every split: same rule, fresh seed root SEED_CONF and split code + 64
+Module types (cfcap.t1.plant): drawn on their own RNG stream, so the mecanum splits are bit-identical to schema v2.
 """
 from __future__ import annotations
 
@@ -44,7 +50,11 @@ from capxfer import sim
 
 SEED0 = 92511
 PLATES = ("plated", "plateless")
-SPLITS = {"train": 0, "cal": 1, "test": 2, "H3": 3, "H4": 4, "H6": 6, "H7": 7}
+SPLITS = {"train": 0, "cal": 1, "test": 2, "H3": 3, "H4": 4, "H6": 6, "H7": 7, "H4b": 8,
+          "het_train": 10, "het_cal": 11, "het_test": 12, "H1": 13, "H2": 14}
+CONF_OFFSET = 64                 # confirmatory twin of every split: code + 64, its own seed root (fresh streams)
+SEED_CONF = 92599
+SPLITS.update({f"conf_{k}": v + CONF_OFFSET for k, v in list(SPLITS.items())})
 SPLIT_NAMES = {v: k for k, v in SPLITS.items()}
 KIND = {"self": 0, "child": 1, "merge": 2}
 DOM_KEYS = ("mu", "s0", "c_roller", "crr", "tau_bd", "latency", "stall_scale", "noload_scale", "mass_scale",
@@ -69,6 +79,7 @@ class SplitRule:
     cand_max_n: int
     faults: str = "train"         # "train" | "h6"
     payload: str = "train"        # "train" | "h7"
+    types: str = "mecanum"        # module types: "mecanum" | "single" | "h1" | "h2" (see assign_types)
 
 
 RULES = {
@@ -79,6 +90,14 @@ RULES = {
     "H7": SplitRule(F.FAM_TRAIN, PARENT_SIZE_W, (F.FAM_TRAIN,), 6, payload="h7"),
 }
 RULES["cal"] = RULES["test"] = RULES["train"]
+RULES["H4b"] = SplitRule(F.FAM_H4, {11: 0.2, 12: 0.2, 13: 0.15, 14: 0.15, 15: 0.15, 16: 0.15},
+                         (F.FAM_TRAIN, F.FAM_H3, F.FAM_H4), 16)
+RULES["het_train"] = RULES["het_cal"] = RULES["het_test"] = SplitRule(F.FAM_TRAIN, PARENT_SIZE_W, (F.FAM_TRAIN,), 6,
+                                                                      types="single")
+RULES["H1"] = SplitRule(F.FAM_TRAIN, PARENT_SIZE_W, (F.FAM_TRAIN,), 6, types="h1")
+RULES["H2"] = SplitRule(F.FAM_TRAIN, {k: w for k, w in PARENT_SIZE_W.items() if k >= 2}, (F.FAM_TRAIN,), 6,
+                        types="h2")
+RULES.update({f"conf_{k}": v for k, v in list(RULES.items())})
 
 
 @functools.lru_cache(maxsize=None)
@@ -108,6 +127,7 @@ class AsmSpec:
     load_z: np.ndarray         # (n,) null-space load share during this assembly's own probes
     gyro_bias: float
     acc_bias: np.ndarray       # (2,)
+    mtype: np.ndarray = None   # (m,) module wheel type (cfcap.t1.plant MECANUM / CONVENTIONAL / OMNI)
 
     @property
     def m(self):
@@ -124,6 +144,7 @@ class CandSpec:
     fam_split: int
     load_z: np.ndarray         # (n,)
     payload: tuple | None      # (mass, x, y) in the candidate frame, or None
+    types: np.ndarray = None   # (m_c,) module types in candidate module order
 
 
 @dataclass
@@ -142,16 +163,68 @@ class Episode:
 
 
 def episode_rng(plate, split, index, stream=0):
-    return np.random.default_rng([SEED0, PLATES.index(plate), SPLITS[split], int(index), int(stream)])
+    root = SEED_CONF if split.startswith("conf_") else SEED0
+    return np.random.default_rng([root, PLATES.index(plate), SPLITS[split], int(index), int(stream)])
+
+
+TYPE_STREAM = 7
+
+
+def assign_types(rule, asms, rng):
+    """Module types per assembly (own RNG stream, so mecanum splits are unchanged):
+    mecanum  every module mecanum;
+    single   each assembly one type, mecanum or conventional (p 0.5)       [het_train / het_cal / het_test]
+    h1       parent all omni (a type never in het_train); others one type of the three      [H1: unseen type]
+    h2       parent mixes mecanum and conventional modules (both present); others one of the two
+             [H2: unseen combination of seen types: het_* never mixes types in one rigid body]"""
+    M, Cv, O = plant.MECANUM, plant.CONVENTIONAL, plant.OMNI
+    for a in asms:
+        m = a.m
+        if rule.types == "mecanum":
+            t = np.zeros(m, np.int8)
+        elif a.role == 0 and rule.types == "h1":
+            t = np.full(m, O, np.int8)
+        elif a.role == 0 and rule.types == "h2":
+            t = rng.choice([M, Cv], m).astype(np.int8)
+            while len(set(t.tolist())) < 2:
+                t = rng.choice([M, Cv], m).astype(np.int8)
+        else:
+            pool = [M, Cv, O] if rule.types == "h1" else [M, Cv]
+            t = np.full(m, int(rng.choice(pool)), np.int8)
+        a.mtype = t
+        set_types(a.asm, t)
+
+
+def types_ok(types, rule):
+    t = set(int(x) for x in types)
+    if rule.types == "mecanum":
+        return t == {0}
+    if rule.types == "single":
+        return len(t) == 1 and plant.OMNI not in t
+    if rule.types == "h2":
+        return plant.OMNI not in t
+    return True
 
 
 def cells(asm):
     return [(int(i), int(j)) for _, i, j, _ in asm.modules]
 
 
-def build(name, cells_, yaws, ids, plate):
+def build(name, cells_, yaws, ids, plate, types=None):
+    """capxfer Assembly; module types (cfcap.t1.plant MECANUM / CONVENTIONAL / OMNI per module, default all mecanum) go
+    to asm.meta["types"] (m,) and asm.meta["wheel_type"] (n,). Geometry (w_hat, r_hat) is the mecanum one either way:
+    the type acts in the plant through the wtype latent (conventional = roller-locked channels, omni = OMNI_MU)."""
     a = A.build(name, [(ids[k], int(c[0]), int(c[1]), int(yaws[k])) for k, c in enumerate(cells_)], params(plate))
+    set_types(a, types)
     return a
+
+
+def set_types(asm, types=None):
+    t = np.zeros(len(asm.modules), np.int8) if types is None else np.asarray(types, np.int8)
+    assert len(t) == len(asm.modules)
+    asm.meta["types"] = t
+    asm.meta["wheel_type"] = np.repeat(t, 4)
+    return asm
 
 
 def sample_faults(rng, m, p_k, h6=False):
@@ -190,14 +263,14 @@ def _asm_spec(role, asm, rng, dom_t, p_k, h6=False):
 
 
 def _random_asm(rng, size_w, split, plate, name):
-    sh = F.sample_shape(rng, size_w, split)
+    sh = F.sample_shape_any(rng, size_w, split)
     m = len(sh)
     yaws = rng.integers(4, size=m)
     ids = [str(x) for x in rng.choice(("M1", "M2", "M3", "M4"), m)]
     return build(name, sh, yaws, ids, plate)
 
 
-def _cand(kind, asm, modules, origin_cells, rng, ep):
+def _cand(kind, asm, modules, origin_cells, rng, ep, types=None):
     """CandSpec with a fresh null-space load share and the payload moved into the candidate frame."""
     c = cells(asm)
     pitch = float(asm.meta["pitch"])
@@ -209,7 +282,10 @@ def _cand(kind, asm, modules, origin_cells, rng, ep):
             origin = np.array(origin_cells, float).mean(0) * pitch
             pay = (float(mass), float(hc[0] - origin[0]), float(hc[1] - origin[1]))
     lz = (rng.normal(size=asm.n) * HET.load_split).astype(np.float32)
-    return CandSpec(kind, asm, list(modules), F.family_hash(c), F.topology(c), F.family_split(c), lz, pay)
+    if types is None:
+        types = np.array([ep.asms[r].mtype[k] for r, k in modules], np.int8)
+    set_types(asm, types)
+    return CandSpec(kind, asm, list(modules), F.family_hash(c), F.topology(c), F.family_split(c), lz, pay, types)
 
 
 def make_episode(plate, split, index, n_other=None):
@@ -228,22 +304,25 @@ def make_episode(plate, split, index, n_other=None):
         mass = rng.uniform(3.0, 6.0) if rule.payload == "h7" else rng.uniform(0.5, 2.5)
         host = int(rng.integers(len(parent.modules)))
         payload = (float(mass), host, float(rng.uniform(-0.08, 0.08)), float(rng.uniform(-0.08, 0.08)))
+    assign_types(rule, asms, episode_rng(plate, split, index, stream=TYPE_STREAM))
     ep = Episode(plate, split, int(index), dom, asms, payload)
     ep.cands = candidates(ep, rng, rule, par)
     return ep
 
 
-def _allowed(c, rule):
-    return len(c) <= rule.cand_max_n and F.family_split(c) in rule.cand_splits
+def _allowed(c, rule, types=None):
+    return len(c) <= rule.cand_max_n and F.family_split(c) in rule.cand_splits and \
+        (types is None or types_ok(types, rule))
 
 
 def candidates(ep, rng, rule, par):
     pa = ep.parent.asm
     pc = cells(pa)
     m = len(pc)
-    out = [_cand(KIND["self"], pa, [(0, k) for k in range(m)], pc, rng, ep)] if _allowed(pc, rule) else []
+    pt = ep.parent.mtype
+    out = [_cand(KIND["self"], pa, [(0, k) for k in range(m)], pc, rng, ep)] if _allowed(pc, rule, pt) else []
     subs = Cand.connected_subsets(pc)
-    kids = [s for s in subs if _allowed([pc[k] for k in s], rule)]
+    kids = [s for s in subs if _allowed([pc[k] for k in s], rule, pt[list(s)])]
     if len(kids) > MAX_CHILD:
         keep = np.sort(rng.choice(len(kids), MAX_CHILD, replace=False))
         kids = [kids[i] for i in keep]
@@ -266,7 +345,7 @@ def candidates(ep, rng, rule, par):
             t = pl[int(rng.integers(len(pl)))]
             mc = [pc[k] for k in piece] + [(x + t[0], y + t[1]) for x, y in oc]
             key = (o.role, piece, t)
-            if key in seen or not _allowed(mc, rule):
+            if key in seen or not _allowed(mc, rule, np.concatenate([pt[list(piece)], o.mtype])):
                 continue
             seen.add(key)
             mc_ = Cand.merge(pa, piece, o.asm, t, par)
@@ -292,12 +371,15 @@ def plant_latents(ep, modules, load_z, payload, gyro=(0.0, (0.0, 0.0)), B=1, hea
     pickm = lambda key: np.array([getattr(ep.asms[r], key)[k] for r, k in modules])
     T = lambda a, dt=torch.float32: torch.as_tensor(np.broadcast_to(a, (B,) + np.shape(a)).copy(), dtype=dt)
     mode, g = pick("mode"), pick("g")
+    wtype = np.repeat([ep.asms[r].mtype[k] for r, k in modules], 4).astype(np.int64)
     if healthy:
         mode, g = np.zeros_like(mode), np.ones_like(g)
     lat = dict(dom=domain_tensors(ep.dom, B), mode=T(mode, torch.long), g=T(g), stall_w=T(pick("stall_w")),
                noload_w=T(pick("noload_w")), vbatt_off=T(pickm("vbatt_off")), mu_mod=T(pickm("mu_mod")),
                yaw_err=T(pick("yaw_err")), load_z=T(load_z), gyro_bias=T(np.float32(gyro[0])),
                acc_bias=T(np.asarray(gyro[1], np.float32)), drop_p=float(HET.drop_p), payload=None)
+    if wtype.any():                                   # only non-mecanum morphologies carry the type latent
+        lat["wtype"] = T(wtype, torch.long)
     if payload is not None:
         lat["payload"] = dict(mass=T(np.float32(payload[0])), x=T(np.float32(payload[1])),
                               y=T(np.float32(payload[2])))

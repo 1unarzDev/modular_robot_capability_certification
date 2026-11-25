@@ -293,7 +293,7 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
     n_cand_jobs = len(jobs)
     ref_keys = []
     for plate in E.PLATES:
-        asms = [c.asm for ep in eps if ep.plate == plate for c in ep.cands]
+        asms = [(c.asm, c.types) for ep in eps if ep.plate == plate for c in ep.cands]
         rj, rk, rtw, rlc = RR.jobs_for(plate, asms, E.params(plate))
         jobs += rj
         ref_keys += [(plate, k) for k in rk]
@@ -318,7 +318,7 @@ def label_episodes(eps, engine="compile", max_wheels=1 << 17, skip_healthy_twin=
             o += len(tw)
     for ep, d in zip(eps, out):
         d["rho_rel"] = d["rho"] / d["rho_healthy"]
-        d["rho_ref"] = np.stack([RR.get(ep.plate, RR.key(c.asm)) for c in ep.cands]).astype(np.float32) \
+        d["rho_ref"] = np.stack([RR.get(ep.plate, RR.key(c.asm, c.types)) for c in ep.cands]).astype(np.float32) \
             if ep.cands else np.zeros((0, L), np.float32)
         d["rho_dec"] = d["rho"] / d["rho_ref"]
     return out

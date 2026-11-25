@@ -180,3 +180,49 @@ def test_rho_ref_nominal_and_rho_dec():
     # the same shape key in another episode gets the identical (cached) reference
     k = RR.key(c.asm)
     np.testing.assert_array_equal(RR.get("plated", k), l["rho_ref"][-1])
+
+
+def test_new_splits_and_types():
+    from cfcap.t1 import plant as PL
+    for i in range(6):
+        a, b = E.make_episode("plated", "H4b", i), E.make_episode("plated", "H4b", i)
+        assert 11 <= a.parent.m <= 16 and repr(_ep_arrays(a)) == repr(_ep_arrays(b))
+        assert all(len(c.modules) <= 16 for c in a.cands) and len(a.cands) > 10
+    for i in range(30):
+        h = E.make_episode("plated", "het_train", i)
+        for c in h.cands:
+            assert len(set(c.types.tolist())) == 1 and PL.OMNI not in c.types
+        assert (E.make_episode("plated", "H1", i).parent.mtype == PL.OMNI).all()
+        p2 = E.make_episode("plated", "H2", i).parent.mtype
+        assert set(p2.tolist()) == {PL.MECANUM, PL.CONVENTIONAL}
+        assert (E.make_episode("plated", "train", i).parent.mtype == 0).all()
+    # confirmatory twins: same rule, fresh streams
+    a, b = E.make_episode("plated", "test", 10**7), E.make_episode("plated", "conf_test", 10**7)   # far outside any scored range
+    assert a.dom != b.dom and E.RULES["conf_test"] is E.RULES["test"]
+    asm = E.build("x", [(0, 0), (1, 0)], [0, 1], ["M1", "M1"], "plated", types=[1, 0])
+    assert list(asm.meta["wheel_type"]) == [1] * 4 + [0] * 4
+
+
+def test_mecanum_episode_unchanged_by_type_support():
+    ep = E.make_episode("plated", "train", 5)
+    lat = E.plant_latents(ep, ep.cands[0].modules, ep.cands[0].load_z, ep.cands[0].payload)
+    assert "wtype" not in lat
+
+
+@cuda
+def test_conventional_module_cannot_sway():
+    from cfcap.gen import rho_ref as RR
+    from cfcap.t1 import capability as cap
+    asm = E.build("single", [(0, 0)], [0], ["M1"], "plated")
+    out = {}
+    for t in (0, 1, 2):
+        lat = RR.nominal_latents(asm, "plated", 1, types=[t] if t else None)
+        lat = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat.items()}
+        lat["dom"] = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in lat["dom"].items()}
+        out[t] = cap.capability([(asm, lat)], E.params("plated"), engine="graph")[0]["rho"].cpu().numpy()[0]
+    sway = [cap.LEGS.index("sway+"), cap.LEGS.index("sway-")]
+    surge = [cap.LEGS.index("surge+"), cap.LEGS.index("surge-")]
+    assert (out[0][sway] > 0.8).all()
+    assert (np.abs(out[1][sway]) < 0.1).all()                  # skid module: ~zero lone sway capability
+    assert (out[1][surge] > 0.5).all()
+    assert not np.allclose(out[2], out[0], atol=1e-3)           # omni-like differs from mecanum

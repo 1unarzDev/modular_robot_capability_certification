@@ -22,7 +22,7 @@ from cfcap.gen import families as F
 from cfcap.gen import simrun as S
 from cfcap.t1 import capability as cap
 
-SCHEMA = "cfcap.gen/v2"           # v2: + cand_rho_ref, cand_rho_dec (decision label)
+SCHEMA = "cfcap.gen/v3"           # v2: + cand_rho_ref, cand_rho_dec (decision label); v3: + mod_type
 
 
 def config(kinds):
@@ -33,7 +33,7 @@ def config(kinds):
                 dom_keys=E.DOM_KEYS, legs=cap.LEGS, t_leg=cap.T_LEG, leg_window=cap.window(cap.T_LEG),
                 topologies=F.TOPOLOGIES, fam_names=F.FAM_NAMES, kinds=list(kinds),
                 probe_T={k: S.probe_T(k) for k in kinds}, obs_hz=S.REC_HZ, cpr=S.P.CPR, splits=E.SPLITS,
-                plates=E.PLATES, kind_codes=E.KIND)
+                plates=E.PLATES, kind_codes=E.KIND, wheel_types=S.plant.WHEEL_TYPES, omni_mu=S.plant.OMNI_MU)
 
 
 def _assemble(eps, obs, labs, kinds):
@@ -41,7 +41,7 @@ def _assemble(eps, obs, labs, kinds):
     c = {k: [] for k in (
         "ep_index", "ep_split", "ep_plate", "ep_dom", "ep_payload", "ep_payload_host", "ep_n_asm", "ep_n_cand",
         "asm_ep", "asm_role", "asm_family", "asm_topo", "asm_fam_split", "asm_n_mod", "asm_gyro_bias", "asm_acc_bias",
-        "asm_char_length", "mod_asm", "mod_cell", "mod_yaw", "mod_vbatt_off", "mod_mu",
+        "asm_char_length", "mod_asm", "mod_cell", "mod_yaw", "mod_type", "mod_vbatt_off", "mod_mu",
         "wheel_mode", "wheel_g", "wheel_stall", "wheel_noload", "wheel_yaw_err", "wheel_load_z",
         "cand_ep", "cand_kind", "cand_family", "cand_topo", "cand_fam_split", "cand_n_mod", "cand_payload",
         "cand_n_fault", "cand_char_length", "cand_rho", "cand_rho_healthy", "cand_rho_rel", "cand_drift",
@@ -78,6 +78,7 @@ def _assemble(eps, obs, labs, kinds):
                 c["mod_asm"].append(a_row)
                 c["mod_cell"].append((i, j))
                 c["mod_yaw"].append(y)
+            c["mod_type"].append(a.mtype)
             c["mod_vbatt_off"].append(a.vbatt_off)
             c["mod_mu"].append(a.mu_mod)
             for f, key in (("wheel_mode", "mode"), ("wheel_g", "g"), ("wheel_stall", "stall_w"),
@@ -126,6 +127,7 @@ def _assemble(eps, obs, labs, kinds):
         mod_asm=np.array(c["mod_asm"], np.int32), mod_cell=np.array(c["mod_cell"], np.int8),
         mod_yaw=np.array(c["mod_yaw"], np.int8),
         mod_vbatt_off=np.concatenate(c["mod_vbatt_off"]).astype(np.float32),
+        mod_type=np.concatenate(c["mod_type"]).astype(np.int8),
         mod_mu=np.concatenate(c["mod_mu"]).astype(np.float32),
         wheel_mode=np.concatenate(c["wheel_mode"]).astype(np.int8),
         cand_ep=np.array(c["cand_ep"], np.int32), cand_kind=np.array(c["cand_kind"], np.int8),
