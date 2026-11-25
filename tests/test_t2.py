@@ -115,3 +115,15 @@ def test_observe_shapes(setup):
     R = cap2.simulate(s, lat, par, tab, T, build.ALL)
     obs = cap2.observe(R, lat)
     assert obs["pre_duty"].shape == (2, R["t"].shape[0], 8) and np.isfinite(obs["gz"]).all()
+
+
+def test_eval_simulate_episode():
+    """t2_eval simulate on one generator episode: labels for every candidate, unfaulted candidates have rho_rel = 1."""
+    from cfcap.gen import episode as E
+    from cfcap.t2 import eval as ev
+    ep = E.make_episode("plated", "test", 0)
+    lab, faulted, ob = ev.simulate_episode(ep, ("all",), obs=True)
+    rr = lab["all"]["rho_rel"]
+    assert rr.shape == (len(ep.cands), 10) and np.isfinite(rr).all()
+    assert np.all(rr[~faulted] == 1.0)
+    assert ob["duty"].shape[1] == ep.parent.asm.n and ob["imu"].shape[1] == 3

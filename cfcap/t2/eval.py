@@ -15,8 +15,11 @@ stream, robot-visible channels as cfcap.gen.simrun.observe_np) goes to OUT/obs/<
 T2 effect draws are seeded by (plate, split, index).
 
 evaluate. Reads the simulate units from --episodes-dir, calls the predictor `fn(models_dir, episode, v2_obs)` ->
-lower bounds (n_cand, L) on rho_rel, and writes per (candidate, leg, tau) truth and go: unsafe-go and certified
-fraction in the metrics. The predictor is the models / baselines roles' (cfcap.t2 provides none).
+either lower bounds (n_cand, L) on rho_rel or {method: dict(lower, point, scale, route, posterior, train, alpha)}
+(arrays (n_cand, L)), and keeps one row per (method, episode, candidate, leg) with the paper's dec_*.csv columns
+(docs/board/paper.md §1a; test_plant T2, truth = T2 rho_rel); unsafe-go and certified fraction at --taus go to the
+metrics. `export_dec_csv(out_dirs, "results/stress/paper/dec_t2.csv")` concatenates the units. The predictor is the
+models / baselines roles' (cfcap.t2 provides none); its bounds must be calibrated on T1 cal only.
 
 Requires torch (CPU only: the episode generator and capxfer imports) and numba (default backend) or JAX
 (`--backend jax`, GPU); plus the crane kernel files (scripts/stage_crane_t2.sh -> /workspace/in/crane_ml).
@@ -213,10 +216,27 @@ def _run_simulate(unit, ctx):
     return {k: np.array([r[k] for r in rows]) for k in rows[0]}
 
 
+DEC_COLS = ("method", "route", "posterior", "train", "test_plant", "split", "eid", "shape", "family", "cand", "kind",
+            "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower", "alpha", "seconds")
+KIND_NAMES = {0: "self", 1: "child", 2: "merge"}
+
+
+def _as_methods(out):
+    """Predictor output -> {method: dict(lower, point, scale, route, posterior, train, alpha)}."""
+    if isinstance(out, dict) and "lower" in out:
+        out = {"predictor": out}
+    elif not isinstance(out, dict):
+        out = {"predictor": dict(lower=out)}
+    return out
+
+
 def _run_evaluate(unit, ctx):
+    """Per-row decision table (docs/board/paper.md dec_*.csv), one row per (method, episode, candidate, leg); taus are
+    applied by the paper scripts (metrics here use --taus)."""
     import glob
     import importlib
     import os
+    import time
     from cfcap.gen import episode as E
     a = ctx.args
     if not a.predictor:
@@ -233,32 +253,73 @@ def _run_evaluate(unit, ctx):
     taus = [float(t) for t in a.taus.split(",")]
     cond = a.conds.split(",")[0]
     L = 10
-    rows = {k: [] for k in ("ep_index", "cand", "leg", "tau", "truth", "go", "lower", "rho_rel")}
-    offs = {}
+    obs = {}
     if ob is not None:
         o1 = o2 = 0
         for i, e in enumerate(ob["ep_index"]):
             T, n = int(ob["T"][i]), int(ob["n"][i])
-            offs[int(e)] = dict(duty=ob["duty"][o1:o1 + T * n].reshape(T, n), dcnt=ob["dcnt"][o1:o1 + T * n].reshape(T, n),
-                                imu=ob["imu"][o2:o2 + T], cmd=ob["cmd"][o2:o2 + T], amp=float(ob["amp"][i]),
-                                lead=float(ob["lead"][i]))
+            obs[int(e)] = dict(duty=ob["duty"][o1:o1 + T * n].reshape(T, n), dcnt=ob["dcnt"][o1:o1 + T * n].reshape(T, n),
+                               imu=ob["imu"][o2:o2 + T], cmd=ob["cmd"][o2:o2 + T], amp=float(ob["amp"][i]),
+                               lead=float(ob["lead"][i]))
             o1, o2 = o1 + T * n, o2 + T
     plate, split = E.PLATES[int(z["plate"][0])], E.SPLIT_NAMES[int(z["split"][0])]
+    rows = {k: [] for k in DEC_COLS}
+    st = {"n": 0, "unsafe": 0, "go_cap": 0, "cap": 0}
     for ei in np.unique(z["ep_index"]):
+        if ctx.should_stop():
+            raise Stop("t2_eval evaluate: unit restarts from its first episode")
         m = z["ep_index"] == ei
         ep = E.make_episode(plate, split, int(ei))
-        lower = np.asarray(pred(a.models, ep, offs.get(int(ei))), float)
+        t0 = time.time()
+        meths = _as_methods(pred(a.models, ep, obs.get(int(ei))))
+        sec = (time.time() - t0) / max(1, len(ep.cands))
         rr = np.stack([z[f"{cond}.rho_rel.{l}"][m] for l in range(L)], 1)
-        for ci in range(rr.shape[0]):
-            for l in range(L):
-                for t in taus:
-                    for k, v in (("ep_index", ei), ("cand", ci), ("leg", l), ("tau", t), ("truth", rr[ci, l] >= t),
-                                 ("go", lower[ci, l] >= t), ("lower", lower[ci, l]), ("rho_rel", rr[ci, l])):
-                        rows[k].append(v)
-    go, tr = np.array(rows["go"]), np.array(rows["truth"])
-    ctx.meta.update(n=int(len(go)), unsafe_go=int((go & ~tr).sum()), go_capable=int((go & tr).sum()),
-                    capable=int(tr.sum()))
+        cand, nf = z["cand"][m], z["n_fault"][m]
+        shape = ep.parent.topo
+        for meth, d in meths.items():
+            lower = np.asarray(d["lower"], float)
+            nanL = np.full_like(lower, np.nan)
+            point = np.asarray(d.get("point", nanL), float)
+            scale = np.asarray(d.get("scale", nanL), float)
+            for k, ci in enumerate(cand):
+                c = ep.cands[int(ci)]
+                for l in range(L):
+                    vals = dict(method=meth, route=d.get("route", "none"), posterior=d.get("posterior", "none"),
+                                train=d.get("train", "T1"), test_plant="T2", split=split, eid=int(ei), shape=shape,
+                                family=str(c.topo), cand=int(ci), kind=KIND_NAMES.get(int(c.kind), str(c.kind)),
+                                cand_size=len(c.modules), has_fault=int(nf[k]), leg=l, truth=float(rr[k, l]),
+                                point=float(point[ci, l]), scale=float(scale[ci, l]), lower=float(lower[ci, l]),
+                                alpha=float(d.get("alpha", np.nan)), seconds=sec)
+                    for key in DEC_COLS:
+                        rows[key].append(vals[key])
+                    for t in taus:
+                        go, tr = lower[ci, l] >= t, rr[k, l] >= t
+                        st["n"] += 1
+                        st["unsafe"] += int(go and not tr)
+                        st["go_cap"] += int(go and tr)
+                        st["cap"] += int(tr)
+    ctx.meta.update(n=st["n"], unsafe_go=st["unsafe"], go_capable=st["go_cap"], capable=st["cap"])
+    if not rows["eid"]:
+        return None
     return {k: np.array(v) for k, v in rows.items()}
+
+
+def export_dec_csv(out_dirs, path):
+    """Concatenate evaluate units (columnar npz) into results/stress/paper/dec_t2.csv (docs/board/paper.md §1a)."""
+    import csv
+    import glob
+    import os
+    import pathlib
+    files = sorted(f for d in out_dirs for f in glob.glob(os.path.join(d, "**/units/ev-*.npz"), recursive=True))
+    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(DEC_COLS)
+        for f in files:
+            z = np.load(f)
+            for r in zip(*[z[k] for k in DEC_COLS]):
+                w.writerow([x.item() if hasattr(x, "item") else x for x in r])
+    return len(files)
 
 
 def _run(unit, ctx):
@@ -280,3 +341,9 @@ def _summary(recs, a):
 
 TASK = Task("t2_eval", _units, _run, _args, _summary, ("numpy", "torch", "numba"),
             "T2 stress-plant labels + v2 observations of generator episodes (simulate), predictor evaluation (evaluate)")
+
+
+def refuse_all(models_dir, episode, v2_obs):
+    """Reference predictor (tests, smoke runs): refuses every decision (lower = -inf)."""
+    n = len(episode.cands)
+    return {"refuse_all": dict(lower=np.full((n, 10), -np.inf), route="none", posterior="none", train="none")}
