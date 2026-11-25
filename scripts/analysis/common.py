@@ -398,6 +398,9 @@ class Numbers:
         self.items: dict[str, tuple[str, str, str]] = {}
 
     def set(self, key, value, sources, status="exploratory"):
+        value = str(value)
+        if "$" not in value:   # text values: a bare underscore would break the build (found compiling T5)
+            value = re.sub(r"(?<!\\)_", r"\\_", value)
         src = ", ".join(sorted(set(sources))) if not isinstance(sources, str) else sources
         self.items[macro_name(key)] = (value, src, status)
 

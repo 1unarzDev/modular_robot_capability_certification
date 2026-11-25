@@ -245,3 +245,12 @@ def test_f4_kill_rule(tmp_path):
     import f4_gate
     n = f4_gate.run(tmp_path, tmp_path / "paper")
     assert n.items[C.macro_name("f4.verdict")][0].startswith("E1 killed")
+
+
+def test_text_macro_underscores_are_escaped():
+    n = C.Numbers("t")
+    n.set("a", "pending (dec_merge.csv)", "x")
+    n.set("b", r"dominance\_pi", "x")
+    n.set("c", r"$\rho_l$", "x")
+    v = {k: x[0] for k, x in n.items.items()}
+    assert v["cfA"] == r"pending (dec\_merge.csv)" and v["cfB"] == r"dominance\_pi" and v["cfC"] == r"$\rho_l$"

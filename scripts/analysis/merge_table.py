@@ -27,7 +27,7 @@ COMP = "compositional_enum"
 def _defect(M, srcs, st, path, N):
     A = M[M.group.isin(["all", "faulted"])]
     lines = [r"\begin{tabular}{lllrrrrr}", r"\toprule",
-             r"Plant & payload & merges & decision flips (\%) [95\,\% CI] & $|\Delta\rho|$ q95 & q99 & "
+             r"Plant & payload & group & decision flips (\%) [95\,\% CI] & $|\Delta\rho|$ q95 & q99 & "
              r"sim.\ miscov./pair (\%) & decisions\\", r"\midrule"]
     for _, r in A.sort_values(["plant", "arm", "group"]).iterrows():
         lines.append(f"{r.plant} & {r.arm} & {r.group} & {C.fmt_pct(r.flip, 2)} [{C.fmt_pct(r.flip_lo, 2)}, "
@@ -121,7 +121,7 @@ def run(res, paper):
             defect_ok = bool(ok1 and ok2 and ok3)
             if not len(cf):   # the certificate half has not landed: never call that a failure
                 v = ("E2 delta-comp part passes" if defect_ok else "E2 delta-comp part fails") \
-                    + "; certificate part pending (dec_merge.csv)"
+                    + "; certificate part pending (dec\\_merge.csv)"
             else:
                 v = "E2 passes" if defect_ok and cf.iloc[0] >= 0.85 else "E2 fails its pre-written success rule"
         N.set("t5.verdict", v, msrc + (sorted(D["_src"].unique()) if not D.empty else []), "exploratory")
