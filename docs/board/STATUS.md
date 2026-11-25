@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 21:25Z (clock): submitted cfcap-t2-motor3 (misfit: 20 jobs + canary, 17.8 box-h of spare cores, priority 60, edfbb9f) and cfcap-stress-conf-merge (C-MERGE: 19 jobs, 7.8 box-h, priority 75, lineage cfcap-stress; unopened until 01:45Z). Spend $5.56 at 21:21Z, 24 boxes, $3.80/h: projection ~$27.0.
 - 21:33Z: generator v3 resubmitted at **1591e17**: cfcap-gen-scaling16r (7, priority 65), cfcap-gen-hetero2 (5, priority 66–69), cfcap-gen-confirm2 (12, priority 75–80, no auto-canary; spare shards at priority 1; stored unread until 01:45Z).
 - 21:33Z: cfcap-env submitted (28 jobs, 3.5 box-h, priority 70–84, 17bd917). Its conf groups are pulled and left unopened until 01:45Z.
 - 21:25Z: submitted cfcap-baselines-conf: 86 jobs, 33.3 box-h, priority 75–81, commit 6e1ebd3 (which includes the 7efaec7 ρ fix). Its labels stay unopened until 01:45Z.

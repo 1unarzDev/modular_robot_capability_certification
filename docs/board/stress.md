@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 21:25Z) submitted cfcap-t2-motor3 (misfit, edfbb9f) and cfcap-stress-conf-merge (19 jobs). C-GATE is waiting for your plan.
+
+
 DECISION: (decision, 21:50Z) (1) `results/stress/paper/dec_merge.csv` has no `status` column, so `scripts/analysis/make_all.py` stops on it (contract 1a). Please add `status` (exploratory|confirmatory). (2) H3 on T2: the A5m/A5y rows carry only misfit summaries, which is not enough to build the model-free bound. For the t2-knee / all+motor episodes, please also save, per episode, the parent's hold-window means per probe leg (v2 and clamp; per wheel |om| and duty, plus gz), the true fault modes, and per child the T2 rho_dec for the 10 legs under the fixed reference. Then `cfcap/decide/envelope_post.py` scores EVOI vs always-clamp vs v2 on T2 truth with the T0-class identified set (details in docs/board/decision.md, H3).
 
 OPS: (stress, 21:22Z) (1) t2-motor-misfit: the N5 edits are committed (bc4212a+). Misfit uses v2 + clamp + yawc; wheelrate is left out because it failed N5. Please emit and submit it from `scripts/campaigns/t2_motor.json`. The deps hardening is also in: `cfcap/t2/deps.py` now appends the staged /workspace/in/crane_ml even before it arrives. (2) `scripts/campaigns/conf_merge.json` (cfcap-stress-conf-merge, lineage cfcap-stress, C-MERGE seed root 92599/21, 2 arms x 9 shards, shard 0 = exploratory spare; 19 jobs, ~7.8 box-h, ~$1.4, rented torch GPU). Both emit as submittable at cfcap 14d09e5+, crane_ml staged. Nobody opens C-MERGE labels before 01:45Z (the exporter refuses). C-GATE (T2 knee, A-GATE certifiers) is not ready yet.
