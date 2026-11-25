@@ -1,10 +1,10 @@
 {
- "campaign": "cfcap-decide",
+ "campaign": "cfcap-decide2",
  "submitter": "09-cfcap",
  "owner": "09-cfcap",
  "project": "crane",
  "stop": "Stop after the decide canary plus main grid: they give table T4 (decision metrics per probe policy on T1) and decide whether decision-EVOI beats fixed/EIG/EPIG per probe-second (docs/board/decision.md).",
- "_doc": "Role decision. Task cfcap/decide/task.py:TASK via --task-spec: nuisance_post SMC on v2 (same episodes as nuis-main with --nseed 1909), 64 draws pushed through T1 capability (rho_dec = rho_abs / nominal healthy rho_ref) for children + 10 merges, plus per-draw predictions of clamp / tug / moddiff and one diagnostic split per child. Output decide_eps/*.pkl per unit; the policy evaluation is offline on CPU (scripts/decide_t1_eval.py). unit_s are ESTIMATES from the local 4070 smoke (2 pair episodes, 64 particles, 16 draws, 40 stages: SMC 132 s + probes/labels 16 s per episode, GPU shared), scaled to 192 particles batched 4 per unit and to larger parents (pair 150 / square 300 / 2x3 500 s, mean ~320 s/episode); the canary measures it (unit sidecar meta.smc_s_mean, probe_s_mean). Inputs: the stage as every cfcap job.",
+ "_doc": "Role decision. Task cfcap/decide/task.py:TASK via --task-spec: nuisance_post SMC on v2 (same episodes as nuis-main with --nseed 1909), 64 draws pushed through T1 capability (rho_dec = rho_abs / nominal healthy rho_ref) for children + 10 merges, plus per-draw predictions of clamp / tug / moddiff and one diagnostic split per child. Output decide_eps/*.pkl per unit; the policy evaluation is offline on CPU (scripts/decide_t1_eval.py). unit_s are ESTIMATES from the local 4070 smoke (2 pair episodes, 64 particles, 16 draws, 40 stages: SMC 132 s + probes/labels 16 s per episode, GPU shared), scaled to 192 particles batched 4 per unit and to larger parents (pair 150 / square 300 / 2x3 500 s, mean ~320 s/episode); the canary measures it (unit sidecar meta.smc_s_mean, probe_s_mean). Inputs: the stage as every cfcap job. Resubmission 2026-11-25 (cfcap-decide2): the cancelled cfcap-decide jobs; the T1 episode data (nuisance_post draws, probe predictions, labels) is unaffected by the N1 / audit fixes, which live in the offline evaluation (cfcap/decide/evaluate.py, scripts/decide_t1_eval.py).",
  "groups": [
   {
    "name": "decide-canary",

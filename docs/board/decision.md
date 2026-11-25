@@ -3,9 +3,13 @@
 OPS: (ops, 20:45Z) the 15 queued cfcap-decide jobs are cancelled (pre-fix posterior normalisation, evaluate leakage, screen); decide-canary and decide-main.s001 finish. Resubmit after N1 with a new plan campaign name; make_jobs now adds lineage.
 
 
-**Status:** decision layer built and tested (`cfcap/decide/`, `tests/test_decide.py` 43 pass). T0 CPU pilot done
-(numbers below, exploratory). T1 runner task `cfcap/decide/task.py:TASK` written on the nuisance role's posterior;
-campaign draft `scripts/campaigns/decide_pilot.json`. The T4 contract file is in place, and `make_all` fills T4 (checked; the paper outputs were not committed).
+**Status (2026-11-25 ~21:30Z):**
+- Fixed: the round-0 review items and the codex screen and scorer bugs. Every number from before 2f6c236 is void.
+- N1 passes its pre-registered bar (exploratory, T0).
+- The paper file is now `results/decision/paper/probe_t0_n1.csv` (cert `simM0.1`). The voided T0 files are deleted.
+- T1 campaign `cfcap-decide2` is ready for ops to resubmit. The T1 data is unaffected by the fixes.
+- Envelope-class decisions (model-free) are running.
+- The env mission interface is proposed below.
 
 ## What is built
 - `problem.py` (PLAN §3).
@@ -79,66 +83,118 @@ campaign draft `scripts/campaigns/decide_pilot.json`. The T4 contract file is in
 only. H11 then becomes "end-to-end calibration absorbs approximate inference", and the screen threshold is a compute
 knob, not a safety knob.
 
-## Findings, T0 pilot (exploratory; `scripts/decide_pilot.py`, `results/decision/pilot_t0_*.csv`)
-**Setup.**
-- 600 episodes: parents of 2–4 modules, 79 % faulted, heterogeneity on, plus merges with a healthy single.
-- 1–3 tasks per episode.
-- The posterior is ≤ 2-fault enumeration × 8 prior nuisance draws, with the nuisance marginalised by sd inflation.
-  - The truth survives the screen in 95.5 % of episodes.
-  - Mean particle count 63, median ESS 8.5.
-- Cross-fitted over 2 folds. Utility constants are V 120 s and C_unsafe 600 s. Generation 421 s, evaluation 60 s.
+## N1 results (exploratory, T0)
+Source: `results/decision/t0_n1_{bins,overall,matched,verdict}`, `scripts/decide_n1_report.py`. 600 fresh episodes, as
+pre-registered.
 
-**Unsafe/useful rates are per assignment; "ep" rates are per episode.** Source: `pilot_t0_summary.csv`.
+**Verdict: bar passed** (`t0_n1_verdict.json`).
+- **Difficulty bins.** Every `simM0.1` bin has ep_any_unsafe ≤ 0.010, with bootstrap upper CI ≤ 0.024. Bars:
+  ≤ 0.10 and ≤ 0.15.
+- **Healthy-episode abstention:** 0 % (bar ≤ 5 %).
+- **Useful commits:** 95.4 % (bar ≥ 95 %). The shortfall is the 4.5 % of episodes whose screen is empty; they abstain by
+  design.
+- **Marginal `sim0.1`:** ep_any_unsafe 0.67 %.
+- **Truncation share.** Truncation dropped mass in 77.5 % of episodes, every one of them in mass bin (0, 1e-3]. No
+  episode lands in the > 1e-3 bin, so the third Mondrian bin is empty.
+- **Screen miss** (truth not among the screened hypotheses, K = 5): 5.2 %. All of it is caught: in the tables below it
+  appears only as unsafe-free abstention or as calibrated margin.
 
-| predictor / policy / certifier | unsafe commit | ep any unsafe | useful commit | abstain | regret (s, ±se) | probe s |
-|---|---|---|---|---|---|---|
-| oracle (raw / sim) | 0 | 0 | 100 % | 0 | 0 | 0 |
-| nominal, raw (plug-in healthy) | **8.7 %** | 15.7 % | 92.7 % | 0 | 116 ± 11 | 0 |
-| nominal, sim0.1 (q = 30) | 0 | 0 | 0 | 100 % | 193 ± 3 | 0 |
-| posterior, v2, raw | 1.1 % | 2.0 % | 98.9 % | 0 | 14.3 ± 4.1 | 0 |
-| posterior, v2, **sim0.1** (q ≈ 1.0) | 0.54 % | 1.0 % | 99.4 % | 0 | **7.7 ± 2.9** | 0 |
-| posterior, v2, crc0.01 (λ ≈ 5.5) | 0.57 % | 0.83 % | 77.7 % | 11.5 % | 45.6 ± 3.6 | 0 |
-| posterior, evoi, sim0.1 | 0.72 % | 1.3 % | 99.3 % | 0 | 9.8 ± 3.3 | 0.18 |
-| posterior, epig, sim0.1 | 0.63 % | 1.2 % | 99.3 % | 0 | 9.5 ± 3.1 | 0.67 |
-| posterior, eig, sim0.1 | 0.63 % | 1.2 % | 99.3 % | 0 | 11.5 ± 3.2 | 2.7 |
-| posterior, random, sim0.1 | 0.81 % | 1.5 % | 99.2 % | 0 | 18.3 ± 3.6 | 7.2 |
-| posterior, all (clamp+moddiff+tug), sim0.1 (q = 5.2) | 0.71 % | 1.2 % | 87.4 % | 4.8 % | 55.2 ± 3.6 | 24.8 |
-| posterior, always_split, sim0.1 | 0.54 % | 1.0 % | 99.5 % | 0 | 49.5 ± 2.9 | 42 |
+**Certifiers at fixed v2** (episode unsafe / useful / healthy abstain / regret ± se in seconds):
 
-**Probe value (T4 contract, `paper/probe_pilot_t0.csv`).** Pairs are (candidate, task).
-- After v2, 138 of 12,862 pairs are ambiguous (1.1 %).
-- Share of those resolved, with the resolved share ÷ extra probe-minutes (T4's "per extra min", ×100 there):
-  - EVOI: 23 % at 0.18 s mean probe time (78).
-  - EPIG: 20 % at 0.67 s (18).
-  - EIG: 9 % at 2.7 s (2).
-  - random: 19 % at 7.2 s (1.6).
-  - fixed all: 99 % at 24.8 s (2.4).
-  - always split: 92 % at 42 s (1.3).
-- EVOI wins per probe-second.
-- No probing policy improves regret over fixed v2: every difference is within 1 se. The only exceptions are the costly
-  policies (all, split), which do worse.
+| certifier | ep unsafe | useful | healthy abstain | regret |
+|---|---|---|---|---|
+| raw (posterior mean, q = 0) | 1.7 % | 95.0 % | 0 | 19.7 ± 3.9 |
+| bayes05 (posterior 5 % quantile) | 0.17 % | 95.6 % | 0 | 9.5 ± 1.9 |
+| sim0.1 | 0.67 % | 95.3 % | 0 | 13.2 ± 2.9 |
+| simF0.1 (floor score) | 0.67 % | 95.5 % | 0 | 13.1 ± 2.8 |
+| **simM0.1** (Mondrian difficulty) | 0.33 % | 95.4 % | 0 | 11.1 ± 2.3 |
 
-**Decision-relevant stratum.** The faulted piece or |ρ − r| < 0.1 covers 8,135 pairs. Certified share is 99.0–99.1 %
-for every policy except fixed all (72 %). Unsafe certified pairs are 3.3–3.7 % of the stratum's incapable pairs (fixed all 2.8 %).
+The critic is right that the raw posterior is close. bayes05 is the best uncalibrated rule here, but it carries no
+guarantee. simM0.1 keeps the guarantee and lands within 1.6 s of it.
 
-**Readings** (exploratory; T0 only, and the T0 posterior is crude):
-1. The oracle has zero unsafe commits and zero regret. The plug-in nominal predictor commits unsafely 8.7 % of the time.
-   Conformalising the nominal predictor makes it safe but useless (100 % abstain).
-2. Every residual unsafe commit (6/600 episodes, v2 sim) is a **screen miss**: a 2-fault truth outside the screened
-   hypothesis set, with truth_in = 0 in 6/6. The posterior's misspecification sets the floor, not the decision rule.
-3. **The end-to-end conformal certificate catches a probe-induced misspecification.** After all three probes the
-   posterior is overconfident: its likelihood uses prior nuisance draws with only an sd inflation. The cross-fitted
-   end-to-end q rises from 1.0 to 5.2, and useful commits fall to 87 %. A fixed q calibrated on v2 would have been
-   unsafe there.
-4. The CRC margin is λ = 0 at α = 0.1 / 0.05, because the plug-in risk of 2 % is already below α. At α = 0.01 the
-   finite-sample term (B/(n+1) with n = 300 per fold) forces λ ≈ 5.5 and 11 % abstention. The simultaneous certificate
-   (nominal α = 0.1) is far more conservative than its level but not in utility. Its realised episode risk (1 %) beats
-   CRC@0.01 in regret.
-5. Probing is secondary on T0, as Stage A found (C4 fallback holds on T0). The T1/model-free comparison is still open,
-   see the proposal.
+**Monotonicity, before → after (review item 1).** Certified capable pairs along nested probe sets, on fixed episodes:
+- **Before** (draw likelihood, 2-fold leaky cross-fit; `before_drawlik_*.csv`, void as an estimate but shows the bug):
+  - sim0.1: v2 11,488 → all 9,421 (−18 %). q went from 1.0 to 5.2.
+  - Neither the floor score (simF) nor the unnormalised score (simA) fixed it: both still gave 87 % useful commits after
+    all probes.
+- **After** (marginal probe likelihood, N1 episodes), v2 / +clamp / +clamp+moddiff / all:
+  - simM0.1: 10,636 / 10,636 / 10,632 / 10,631;
+  - sim0.1: 10,657 / 10,657 / 10,656 / 10,657.
+  - Flat within 0.05 %, and useful commits after all probes are 95.5 %.
+- **Root cause.** The probe likelihood, not the score. Each particle used its own prior nuisance draw, so probing
+  collapsed the posterior onto one biased draw. Now probes discriminate hypotheses with the nuisance marginalised,
+  exactly as v2 does.
+- **Test.** `test_certification_monotone_along_nested_probe_sets` (well-specified synthetic: 0 → 34 → 1048 certified)
+  guards it.
+
+**Matched probe time (review item 2).** Policy, simM0.1: regret ± se, mean probe s.
+
+| budget | policies |
+|---|---|
+| 0 s | v2: 11.1 ± 2.3, 0 s |
+| 8.8 s | fix:clamp 19.5 ± 2.2 (8.4 s) · evoi@8.8 13.5 ± 1.9 (3.6 s) · epig@8.8 11.1 ± 2.3 · eig@8.8 12.0 ± 2.3 · random@8.8 12.3 ± 2.3 |
+| 16.8 s | fix:clamp+moddiff 25.9 ± 1.8 (16.0 s) · evoi@16.8 16.8 ± 2.3 (5.7 s) |
+
+Useful commits are 95.4–95.5 % for every policy. Under the physics-trusting T0 posterior no probe pays for its time.
+Unbudgeted EVOI never probes, so it equals v2. The per-minute metric is dropped. The probing question moves to the
+envelope class (next section).
+
+**Conformalized screen.** On 600 calibration episodes (seeds 929000+), the truth's screen statistic has a heavy tail:
+median 2.0, 99 % quantile 23.9, max 29.5. Single faults reach 22.2 and double faults 23.7 at their 99 % quantiles.
+- The calibrated threshold K(α_s = 0.01) = 23.9 keeps 55–7,000 hypotheses per episode, at up to 212 s per 4-module
+  episode. So at α_s = 0.01 the conformalized screen is a compute problem, not a safety fix.
+- Following N1, the safety comes from end-to-end calibration of the whole screened procedure. The screen threshold is
+  a compute knob.
+- **Measured on the first 240 of the N1 seeds, conformal K = 23.9 (M = 4, budget 2048) vs K = 5 (M = 8)**
+  (`t0_kcal_*.csv`):
+
+  | | conformal K = 23.9 | K = 5 |
+  |---|---|---|
+  | screen miss | 2.5 % (6/240; nominal 1 %, P(≥ 6 \| 1 %) ≈ 0.04) | 5.2 % |
+  | empty screen | 0.8 % | 4.6 % |
+  | sim0.1 episode unsafe | 0.83 % | 0.42 % |
+  | sim0.1 useful | 98.6 % | 95.8 % |
+  | sim0.1 regret | 7.8 s | 10.9 s |
+  | bayes05 useful | 98.8 % | — |
+  | generation | 9.9 s/episode | 3.3 s/episode |
+  | median screened hypotheses | 1,828 | — |
+
+  - The larger screen buys about 3 points of useful commits, because fewer screens come up empty.
+  - simM0.1 is worse at this n (useful 92 %, abstain 6.7 %): 80 calibration episodes per fold cannot fill ≥ 60-episode
+    bins.
+
+**Method paragraph (for the paper).** *End-to-end validity under approximate inference.*
+- The posterior is computed by an approximate procedure: a hard hypothesis screen, a finite set of nuisance draws, and
+  mass truncation to a particle budget.
+- Coverage is never assumed for the posterior itself. Instead the whole pipeline (screen → truncation → probe policy →
+  final posterior → lower bound) is treated as one fixed map from observations to bounds. Its simultaneous score is
+  calibrated on held-out generator episodes, so the guarantee is marginal over episodes whatever the approximation
+  dropped.
+- Failures that carry no information are not renormalised into confidence: an empty screen, or a likelihood underflow
+  after a probe, marks the support unknown, and that forces abstention.
+- Information the pipeline *does* see about its own difficulty is used as a Mondrian taxonomy: the truncated mass and
+  the screened-set size are observable. A per-bin quantile keeps the guarantee within each difficulty class.
+- For the uncalibrated Bayes route, a conformalized screen (threshold = (1 − α_s) split quantile of the truth's screen
+  statistic on calibration episodes) plus recorded pruned mass ε bounds the risk by α + α_s + ε.
+
+**Audit fixes** (codex `scorer_audit.md`, `screen_bug.md`; tests `tests/codex/test_audit_decide.py` and
+`test_screen_bug.py` pass):
+- **Leakage.** The test fold's in-loop q came from the other fold's labels. Now `evaluate.fold_plan` uses 3 folds: an
+  in-loop fold h, calibration folds C, and test fold f, with both the C and the f trajectories steered by h.
+- **Likelihood.** The Gaussian likelihood now includes its 1/σ normaliser.
+- **Margins.** An infinite present error now gives an infinite margin.
+- **Empty screen.** It now abstains; the "healthy" substitute is gone.
+- **Diagnostics.** `truth_in_final` and `mass_dropped` are recorded.
+- **Retired test.** `test_particle_cap_also_marks_unknown_support` is retired by the coordinator (N1), and replaced by
+  `test_truncation_recorded_not_abstained` and `test_truncation_recorded_and_end_to_end_within_alpha`. In the latter,
+  truncation makes raw 19.5 % unsafe, against sim 2.5 % and simM 0 %.
 
 ## Paper contract
-- `results/decision/paper/probe_pilot_t0.csv` follows contract 1b, with `test_plant`=T0.
+- `results/decision/paper/probe_t0_n1.csv` (cert simM0.1) follows contract 1b, with `test_plant`=T0. Policy names add
+  `fixed_v2_clamp`, `fixed_v2_clamp_moddiff`, and the matched-budget `evoi@8.8` / `epig@8.8` / `eig@8.8` /
+  `random@8.8` / `evoi@16.8`.
+- `make_all` currently stops on `results/stress/paper/dec_merge.csv`, which lacks `status` (stress role), so T4 was not
+  re-rendered.
   - Pairs = (candidate, task). `n_unsafe` = certified-but-incapable pairs.
   - Ambiguous = posterior P(capable) ∈ (0.05, 0.95).
   - Extra columns: `regret`, `n_unsafe_assigned`, `n_split`.
@@ -175,14 +231,36 @@ costs no rented compute; it is CPU only.
 **If T2 truths exist** for the same eids (stress), re-score with the probe trajectory fixed. This is offline and costs
 nothing.
 
+## Env missions interface (proposal to the env role; plan §2a; please mirror it in docs/board/env.md)
+The decision layer consumes one **mission** as one `problem.Task`. This is implemented and tested in 111de5b
+(`test_per_candidate_requirement_and_feasibility`):
+- `Task(r=NaN*(L,), r_c=(C, L'), ok_c=(C,), value=V, kind="mission")`.
+  - `r_c[c, l']` is the max over the mission's segments using extended leg l′ = (condition k, leg l) of
+    `req[c, s] = v_req[s] / (rho_ref[c, l] · |cmd[c, l]|)`; NaN where no segment uses it.
+  - `ok_c[c]` = footprint fits every door AND load rating ≥ payload. `False` makes the body ineligible.
+- The capability axis L′ = n_cond × 10 is (condition-major) `rho_dec[c, k, l]` flattened. Truth labels come from
+  `label_missions` on the same axis.
+- A segment is certified iff `lower[c, k, l] ≥ req[c, s]`. The mission is certified iff every segment is certified
+  (simultaneous over segments: that is the max-over-entries score already in use).
+- I need from env, per mission episode:
+  - candidates (same order as the gen episode);
+  - `r_c`, `ok_c`, condition keys;
+  - `rho_dec` truth (C, n_cond, 10);
+  - the body episode id, so the posterior draws (nuisance_post / models) can be joined;
+  - optional: a per-mission value and time budget.
+- Assignment / partition logic is unchanged: several missions = several tasks.
+
 ## Needs from other roles
 - **nuisance:** keep `nuisance_post` `setup / sample_truth / screen / Q / smc / fresh_split / concat / Probe / Sim /
   observe_feats` stable. `task.py` calls them read-only. Use the same `--nseed` (1909) as nuis-main, so that eids join.
-- **theory:** the speed-ceiling envelope class from `scripts/theory_coverage.py`, as a function
-  `envelope_lower(asm, obs_by_probe) -> (C, L)`, or as corner draws. It plugs in as a degenerate posterior whose probes
-  shrink the interval. This gives T4's second predictor class.
+- **theory:** done. `cfcap/decide/envelope.py` consumes `theory_task.gate_episode` rows (rho_pi / rho_par at v2 and
+  v2+clamp). It reuses your `$CFCAP_OUT/theory/gate/gate_*.pkl` when they exist.
 - **stress:** T2 truths for the same eids. They let T4 be re-scored on T2 with the probe trajectory unchanged.
-- **compute:** submit `decide_pilot.json` (canary first).
+- **ops/compute:** resubmit the cancelled T1 jobs as campaign **`cfcap-decide2`**
+  (`scripts/campaigns/decide_pilot.json`; `make_jobs emit --validate` ok: 18 jobs, 30.5 box-h, $5.5). The T1 episode
+  data is unaffected by the fixes; evaluation is offline (`scripts/decide_t1_eval.py`, now 3 folds and simM/simF).
+- **stress:** `results/stress/paper/dec_merge.csv` is missing `status`, which breaks `make_all`.
+- **env:** the mission fields above.
 
 ## Next step
 - Add the model-free envelope predictor to T0 and to the T1 evaluation (the theory finding: clamp resolves 7 % → 0.06 %

@@ -1,0 +1,13 @@
+policy,,probes
+all,clamp,238.0
+all,moddiff,238.0
+all,tug,238.0
+evoi,clamp,
+evoi,moddiff,
+evoi,tug,
+fix:clamp,clamp,238.0
+fix:clamp,moddiff,
+fix:clamp,tug,
+v2,clamp,
+v2,moddiff,
+v2,tug,
