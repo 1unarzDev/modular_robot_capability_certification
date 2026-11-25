@@ -178,6 +178,14 @@ def run_line(g: dict, lane: str, shard: int, n: int, task_args_list: list | None
                 "for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
                 "do [ -n \"$p\" ] && [ -x \"$p\" ] && PY=$p && break; done; "
                 f"exec $PY {common}")
+    if g.get("_any_worker"):
+        # --any-worker: no input push (free workers get none). theta from the cfcap repo (data/theta), else from the
+        # pinned capxfer stage repo (older cfcap refs); python as on the CPU lanes (CFCAP_PY, the capxfer venv, python3).
+        return (code + "CAPXFER_THETA_DIR=$S/cfcap/data/theta; [ -d $CAPXFER_THETA_DIR ] || "
+                "CAPXFER_THETA_DIR=$S/capxfer/theta; export CAPXFER_THETA_DIR; PY=python3; "
+                "for p in \"${CFCAP_PY:-}\" \"$HOME/crane_explain/capxfer/.venv/bin/python\"; "
+                "do [ -n \"$p\" ] && [ -x \"$p\" ] && PY=$p && break; done; "
+                f"exec $PY {common}")
     req = ",".join(["theta", *[Path(x).expanduser().name for x in g.get("extra_inputs") or []]])
     return (code + "CAPXFER_THETA_DIR=/workspace/in/theta CRANE_INPUTS_DIR=/workspace/in; "
             f"exec python3 {common} --require-inputs {req}")
@@ -207,6 +215,8 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
     # torch boxes (tags cloud-ok, torch, no needs.gpu: crane-vast counts it as torch backlog, 8 per box).
     cpu_tags = ["cloud-ok", g.get("ride") or "cpu"] + (["rented"] if g.get("extra_inputs") else [])
     tags = {"rented": ["cloud-ok", profile, "rented"], "cpu": cpu_tags, "free": []}[lane]
+    if g.get("_any_worker"):
+        tags = [t for t in tags if t != "rented"]          # free GPU workers (paxton, harmony) can lease it too
     needs: dict = {"os": ["linux"]}
     if tags:
         needs["tags"] = tags
@@ -219,6 +229,8 @@ def group_jobs(plan: dict, g: dict, info: dict, draft: bool, first_only: bool = 
     inputs: list[str] = []
     if lane in ("free", "cpu") and not g.get("extra_inputs"):
         pass
+    elif g.get("_any_worker"):
+        pass                                               # theta comes from the repos; nothing is pushed
     elif lane == "free":
         if g.get("extra_inputs"):
             raise PlanError(f"group {g['name']}: the free lane has no input push; extra_inputs need a rented lane")
@@ -297,8 +309,10 @@ def lineage_of(campaign: str) -> str:
 
 def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bool = True, log=print,
          first_only: bool = False, canary: bool = True, campaign: str | None = None,
-         cfcap_ref: str | None = None) -> dict:
-    """campaign: re-emit the plan under another campaign name (job ids follow it: a new batch, `--resubmit-as`).
+         cfcap_ref: str | None = None, any_worker: bool = False) -> dict:
+    """any_worker: rented/cpu groups without extra_inputs drop the "rented" tag and the theta push, so free workers
+    can lease them; groups with extra_inputs stay rented (a warning says so).
+    campaign: re-emit the plan under another campaign name (job ids follow it: a new batch, `--resubmit-as`).
     cfcap_ref: pin this cfcap commit instead of HEAD. Every job of the file carries the same refs (one batch per kind)."""
     # spec.lineage: a stable name across resubmits and new commits (the coordinator opens a new batch at once when
     # its lineage already has an open batch). The plan's own campaign, minus -bN / N / r version suffixes.
@@ -315,6 +329,15 @@ def emit(plan: dict, draft: bool = False, allow_dirty: bool = False, restage: bo
     if cfcap_ref:
         info["cfcap_commit"] = git(CFCAP, "rev-parse", "--verify", f"{cfcap_ref}^{{commit}}")
     jobs, warns, rows = [], [], []
+    if any_worker:
+        gs = []
+        for g in plan["groups"]:
+            if g.get("lane", "rented") in ("rented", "cpu") and not g.get("extra_inputs"):
+                g = {**g, "_any_worker": True}
+            elif g.get("lane", "rented") != "free":
+                warns.append(f"{g['name']}: has extra_inputs, stays rented (--any-worker skipped)")
+            gs.append(g)
+        plan = {**plan, "groups": gs}
     for g in sorted(plan["groups"], key=lambda g: (int(g.get("stage", 1)), int(g.get("priority", 0)))):
         js, w = group_jobs(plan, g, info, draft, first_only)
         jobs += js
@@ -425,6 +448,8 @@ def main(argv=None) -> int:
     e.add_argument("--no-canary", action="store_true", help="do not prepend the per-batch canary jobs")
     e.add_argument("--resubmit-as", metavar="CAMPAIGN", help="emit the plan under this campaign name (new batch)")
     e.add_argument("--cfcap-ref", help="pin this cfcap commit instead of HEAD")
+    e.add_argument("--any-worker", action="store_true",
+                   help="groups without extra_inputs: no 'rented' tag, no theta push (free workers can run them)")
     e.add_argument("--first-shard-only", action="store_true",
                    help="only shard 0 of each group (canary; same ids and bodies as the full emit)")
     v = sub.add_parser("validate")
@@ -437,7 +462,8 @@ def main(argv=None) -> int:
         if a.cmd == "emit":
             plan = json.loads(Path(a.plan).read_text())
             doc = emit(plan, a.draft, a.allow_dirty, restage=not a.no_restage, first_only=a.first_shard_only,
-                       canary=not a.no_canary, campaign=a.resubmit_as, cfcap_ref=a.cfcap_ref)
+                       canary=not a.no_canary, campaign=a.resubmit_as, cfcap_ref=a.cfcap_ref,
+                       any_worker=a.any_worker)
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(doc, indent=1) + "\n")
             print(f"wrote {a.out} ({'DRAFT: not submittable' if 'draft_jobs' in doc else 'submittable'})")

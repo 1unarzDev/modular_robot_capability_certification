@@ -398,3 +398,14 @@ def test_lineage_and_canary_flag(staged, monkeypatch):
     assert all(j["spec"]["lineage"] == "cfcap-test" for j in jobs)
     cans = MJ.batch_canaries(plan, jobs, {"gen": group()}, log=lambda *a: None)
     assert cans[0]["spec"]["canary"] is True and cans[0]["spec"]["lineage"] == "cfcap-test"
+
+
+def test_any_worker_drops_rented_and_push(staged):
+    jobs, _ = MJ.group_jobs(PLAN, group(_any_worker=True), INFO, draft=False)
+    j = jobs[0]
+    assert j["needs"]["tags"] == ["cloud-ok", "torch"] and j["needs"]["gpu"] is True
+    assert "inputs_rsync" not in j["spec"]
+    run = j["spec"]["run"]
+    assert "--require-inputs" not in run and "$S/cfcap/data/theta" in run and "$S/capxfer/theta" in run
+    jobs2, _ = MJ.group_jobs(PLAN, group(_any_worker=True, extra_inputs=[str(staged / "theta")]), INFO, draft=False)
+    assert "rented" not in jobs2[0]["needs"]["tags"]      # group_jobs alone; emit() keeps extra_inputs groups rented
