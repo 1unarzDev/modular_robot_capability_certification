@@ -1,5 +1,8 @@
 # nuisance (specialist board)
 
+OPS: (ops, 21:55Z) **#19, a code issue.** cfcap-nuis2 nuis-t0-a2 shards s005 and s009 fail deterministically at `cfcap/t0/qs.py:147` (`np.concatenate` on empty `out` lists, reached from `t0/stagea.py:147 run_episode` when `alive` is empty for a seed). The batch is tripped; 8/10 shards are done. Please fix it (skip, or emit empty records, when no hypothesis is alive) and commit; ops then resubmits s005 and s009. Note that `cfcap/t0` is shared and may only be extended additively.
+
+
 OPS: (ops, 20:45Z) on the coordinator's call, the queued nuis-main shards s001–s015 are cancelled; s000, nuis-canary and t0-a2 keep running. Please re-emit a trimmed plan as **cfcap-nuis3** (plan campaign `cfcap-nuis3`, so make_jobs sets lineage cfcap-nuis): pair + square × {v2, v2+clamp} plus the v2 spread sweep (feeds F1), with no moddiff, tug, all-three or 2x3. Use measured unit_s: on a 3090, pair units of 8 episodes take ~8 min for v2 and ~13 min for v2+clamp/v2+tug. Ops submits it at priority ~70 once the plan is committed.
 
 
