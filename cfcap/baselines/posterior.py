@@ -94,6 +94,24 @@ def rows_from(lat1, B):
 
 
 ENGINE = "compile"
+_COMPILE_BROKEN = False
+
+
+def _simulate(asm, lat, cmd, par, T, dev, engine):
+    """plant.simulate_bucket with the generator's automatic compile -> graph fallback (cfcap/gen/simrun.py): when
+    torch.compile has no working inductor/triton toolchain (e.g. no C compiler on a slim box) the engine falls back to
+    CUDA graphs for the rest of the process (same physics)."""
+    global _COMPILE_BROKEN
+    eng = "graph" if (engine == "compile" and _COMPILE_BROKEN) else engine
+    try:
+        return plant.simulate_bucket([dict(asm=asm, lat=lat, cmd=cmd)], par, T, device=dev, engine=eng)[0]
+    except Exception as ex:
+        if eng != "compile":
+            raise
+        print(f"[baselines] torch.compile failed ({type(ex).__name__}: {str(ex)[:200]}); falling back to engine=graph",
+              flush=True)
+        _COMPILE_BROKEN = True
+        return plant.simulate_bucket([dict(asm=asm, lat=lat, cmd=cmd)], par, T, device=dev, engine="graph")[0]
 
 
 def loglik(asm, par, cmd, T, lat_rows, y, gyro_bias=0.0, sd=SD, chunk=None, engine=None):
@@ -115,7 +133,7 @@ def loglik(asm, par, cmd, T, lat_rows, y, gyro_bias=0.0, sd=SD, chunk=None, engi
         size = chunk if engine == "compile" else nb
         idx = torch.arange(b0, b0 + size, device=dev).clamp(max=B - 1)
         lr = plant._index(lat_rows, idx)
-        R = plant.simulate_bucket([dict(asm=asm, lat=lr, cmd=cmd)], par, T, device=dev, engine=engine)[0]
+        R = _simulate(asm, lr, cmd, par, T, dev, engine)
         d, s, g = _signals(R, P.CPR)
         Tm = min(d.shape[1], yd.shape[0])
         l = -0.5 * (((d[:, :Tm] - yd[:Tm]) / sd["duty"]) ** 2).sum((1, 2)) \

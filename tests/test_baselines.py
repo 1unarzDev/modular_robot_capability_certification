@@ -137,3 +137,19 @@ def test_decision_stratum_counts_only_faulted_near_tau():
     r = {x["tau"]: x for x in base.metrics(lower, truth, hf, taus=(0.7,), band=0.1)}[0.7]
     assert r["n_dec"] == 2            # 0.75 and 0.78 (faulted, within 0.1 of tau); 0.95 too far, 0.65 not faulted
     assert r["cert_frac"] == 1.0 and r["n_unsafe"] == 0
+
+
+def test_compile_failure_falls_back_to_graph(monkeypatch):
+    from cfcap.t1 import plant
+    calls = []
+
+    def fake(jobs, par, T, device=None, engine=None):
+        calls.append(engine)
+        if engine == "compile":
+            raise RuntimeError("Failed to find C compiler")
+        return ["ok"]
+    monkeypatch.setattr(plant, "simulate_bucket", fake)
+    monkeypatch.setattr(Po, "_COMPILE_BROKEN", False)
+    assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
+    assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
+    assert calls == ["compile", "graph", "graph"]
