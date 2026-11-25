@@ -1,8 +1,10 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
-**Status:** the pilot is done (own T1 data, ρ_rel label, local 4070). Stage B task `cfcap/models/train.py:TASK` and
-campaign `scripts/campaigns/models_b1.json` are committed (c87f4aa). The campaign is emitted and validated: 48 jobs plus
-a canary, 43.2 box-h, $7.78. It has not been submitted yet.
+**Status:** the pilot is done (own T1 data, ρ_rel label, local 4070).
+- Stage B training, `scripts/campaigns/models_b1.json`: 48 jobs plus a canary, 43.2 box-h, $7.78. Emitted and
+  validated; not submitted yet.
+- Stage 2 eval and T2, `scripts/campaigns/models_eval2.json`: 18 jobs, 5.0 box-h, $0.90. Validated; it needs the b1
+  outputs before it can run.
 
 ## Model (`cfcap/models/posterior.py`)
 - **Architecture.** A set transformer over wheel tokens. Defaults: h = 96, 3 pre-norm layers, 0.97 M parameters,
@@ -126,10 +128,36 @@ Detection uses each detector's own threshold at 1 % false alarm on healthy episo
   `diversity.csv` and `latency_models.csv`. The decision-relevant stratum goes to
   `results/models/strata/diversity_relevant.csv`, outside the paper glob, so it is not double counted.
 
+## Stage 2: `scripts/campaigns/models_eval2.json` (review round 0 fix 5; validated, needs the b1 outputs)
+The b1 train jobs record per-row eids and timing, but not true end-to-end latency. Their `infer_ms_per_episode` is
+batched; their `comp_seconds` covers composition only, on 100 episodes. So stage 2 does the following.
+- **models-eval2** (`cfcap/models/eval2.py:TASK`; 10 jobs, 2.9 box-h, $0.52).
+  - It loads the pulled weights once. They are staged with `models_export.py --stage-weights
+    $CFCAP_OUT/compute/stage2/models-b1-weights`.
+  - It regenerates generator cal 0–1999, test 0–1999 and H3/H4 0–499 by (plate, split, index): the same eids as
+    gen-ref2 and the baselines.
+  - It runs the six n6 models: st × 3 seeds, bb, ds, stl.
+  - **Timing per episode.** `sec_direct` is batch-1 synchronised wall time, observations → posterior → direct head
+    for every candidate. `sec_comp` adds the compositional rollouts of every candidate (S = 16, st-n6-1). Both are
+    end-to-end per decision.
+  - **Export.** `dec_models.csv.gz` with `seconds` = end-to-end, keyed by `eid`/`cand`/`leg`, so it joins the
+    baselines on eid. Also `latency_models.csv` (`end_to_end` = 1, hardware = GPU name), and the T1-cal constants
+    `results/models/calib/calib_<tag>.json`.
+- **models-t2** (stage 3; 8 jobs, 2.1 box-h, $0.37).
+  - Runs stress's `t2_eval --mode evaluate --predictor cfcap.models.predict:predict` on the T2 test episodes. It uses
+    st-n6-1's weights plus `calib.json` (T1 cal only).
+  - Merges are refused there, because only the parent's T2 observation exists.
+  - Together with stage 2, this fills the {SMC, amortized} × {T1, T2} grid on the same eids.
+- **Not mine:**
+  - (b) matched-compute SMC: baselines runs SMC at a wall budget equal to `sec_comp`.
+  - (c) capxfer on the same eids: baselines' capxfer_cert.
+
 ## Needs from other roles
 - **generator:** the ref-split shards (cfcap-gen-ref2) for a stage-2 eval on 20k cal/test, so calibration is not limited to 300 episodes.
 - **stress:** T2 evaluation of the pulled `weights.pt` (stage 2).
-- **baselines:** SMC on the same generator test eids.
+- **baselines:** SMC and capxfer on the same generator eids (cal 0–1999, test 0–1999). Also a matched-compute SMC whose
+  wall budget per decision equals our median `sec_comp` (from models-eval2).
+- **stress:** T2 simulate outputs staged at `$CFCAP_OUT/compute/stage2/b1-t2eps` for models-t2.
 - **paper:** filter by `stratum` if `strata/` is used.
 
 ## Next step
