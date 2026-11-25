@@ -1,0 +1,43 @@
+{
+ "generated": 600,
+ "in_range": 600,
+ "consistent": 581,
+ "duplicates": 0,
+ "rederived": 600,
+ "rederive_agree": 0.9616666666666667,
+ "leg_set_equal": 0.9916666666666667,
+ "leg_set_jaccard_mean": 0.9973616666666667,
+ "level_mad_median": 0.0,
+ "included": 558,
+ "by_domain": {
+  "rescue": 141,
+  "inspection": 140,
+  "logistics": 139,
+  "warehouse": 138
+ },
+ "by_kind": {
+  "payload": 347,
+  "route": 211
+ },
+ "legs_required_share": {
+  "surge+": 0.962,
+  "surge-": 0.523,
+  "sway+": 0.405,
+  "sway-": 0.387,
+  "yaw+": 0.213,
+  "yaw-": 0.222,
+  "diag++": 0.111,
+  "diag+-": 0.122,
+  "diag-+": 0.039,
+  "diag--": 0.056
+ },
+ "r_quantiles": {
+  "0.1": 0.073,
+  "0.5": 0.37,
+  "0.9": 0.879
+ },
+ "flag_counts": {
+  "body wider than the narrowest passage": 18,
+  "text needs reverse, no rearward leg": 1
+ }
+}

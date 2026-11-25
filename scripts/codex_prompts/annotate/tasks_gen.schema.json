@@ -1,0 +1,182 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "items"
+ ],
+ "properties": {
+  "items": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "case_id",
+     "domain",
+     "title",
+     "description",
+     "environment",
+     "payload_kg",
+     "payload_desc",
+     "team_modules",
+     "duration_s",
+     "motion",
+     "motion_rationale"
+    ],
+    "properties": {
+     "case_id": {
+      "type": "string"
+     },
+     "domain": {
+      "type": "string",
+      "enum": [
+       "warehouse",
+       "rescue",
+       "inspection",
+       "logistics"
+      ]
+     },
+     "title": {
+      "type": "string"
+     },
+     "description": {
+      "type": "string"
+     },
+     "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "floor",
+       "aisle_width_m",
+       "constraints"
+      ],
+      "properties": {
+       "floor": {
+        "type": "string",
+        "enum": [
+         "sealed_concrete",
+         "epoxy",
+         "vinyl_tile",
+         "rubber_mat",
+         "plywood",
+         "wet_concrete",
+         "low_pile_carpet",
+         "steel_plate"
+        ]
+       },
+       "aisle_width_m": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 50
+       },
+       "constraints": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "payload_kg": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+     },
+     "payload_desc": {
+      "type": "string"
+     },
+     "team_modules": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+     },
+     "duration_s": {
+      "type": "number",
+      "minimum": 0
+     },
+     "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "surge_mps",
+       "surge_dirs",
+       "sway_mps",
+       "sway_dirs",
+       "diag_mps",
+       "diag_dirs",
+       "yaw_dps",
+       "yaw_dirs"
+      ],
+      "properties": {
+       "surge_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "surge_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "surge+",
+          "surge-"
+         ]
+        }
+       },
+       "sway_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "sway_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "sway+",
+          "sway-"
+         ]
+        }
+       },
+       "diag_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "diag_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "diag++",
+          "diag+-",
+          "diag-+",
+          "diag--"
+         ]
+        }
+       },
+       "yaw_dps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 360
+       },
+       "yaw_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "yaw+",
+          "yaw-"
+         ]
+        }
+       }
+      }
+     },
+     "motion_rationale": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ }
+}

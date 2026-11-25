@@ -1,0 +1,115 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "items"
+ ],
+ "properties": {
+  "items": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "case_id",
+     "team_modules",
+     "payload_kg",
+     "motion"
+    ],
+    "properties": {
+     "case_id": {
+      "type": "string"
+     },
+     "team_modules": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+     },
+     "payload_kg": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+     },
+     "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "surge_mps",
+       "surge_dirs",
+       "sway_mps",
+       "sway_dirs",
+       "diag_mps",
+       "diag_dirs",
+       "yaw_dps",
+       "yaw_dirs"
+      ],
+      "properties": {
+       "surge_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "surge_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "surge+",
+          "surge-"
+         ]
+        }
+       },
+       "sway_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "sway_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "sway+",
+          "sway-"
+         ]
+        }
+       },
+       "diag_mps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+       },
+       "diag_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "diag++",
+          "diag+-",
+          "diag-+",
+          "diag--"
+         ]
+        }
+       },
+       "yaw_dps": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 360
+       },
+       "yaw_dirs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "yaw+",
+          "yaw-"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

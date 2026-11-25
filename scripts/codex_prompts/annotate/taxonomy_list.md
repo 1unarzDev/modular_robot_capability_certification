@@ -1,0 +1,14 @@
+- screen_miss: The true fault hypothesis was removed by the hypothesis screen (the screen's nuisance model is too tight), so the posterior puts no mass on the truth and certifies a body that is truly short.
+- mode_confusion: The truth survived the screen, but another fault hypothesis (wrong wheel, wrong mode, or a different g) explains v2 about as well, and the posterior favours it.
+- spread_masked_weak: A weak wheel with g inside the motor-spread band (g ≥ ≈0.85) is the same plant as a healthy wheel with slower motors. No probe can identify it, and the error is irreducible.
+- passive_wheel_hidden: A coast or brake wheel whose effect on the required leg is not visible in v2 (below the back-drive threshold, or on a roller channel v2 never loads).
+- unexcited_envelope: v2 never drives the wheels to the operating point the decision needs (duty clamp, friction limit, the child's own load split). One targeted probe (clamp / moddiff / tug) settles it.
+- split_needed: Only running the child on its own (the diagnostic split) settles the decision; no parent-side probe does.
+- near_threshold: The label lies within 0.05 of the requirement or τ, so a small posterior, plant or numerical error decides the side.
+- conformal_margin_slack: The posterior is right: its mean clears r on every required leg. The conformal margin q·(sd + 0.02) refuses a capable body.
+- probe_overconfidence: The pair is certified after v2 but refused after the extra probes. The probe likelihood is overconfident, so the cross-fitted end-to-end q inflates (1.0 → ≈5) and the bounds collapse.
+- kernel_numerics: A5: the flip already happens with the independent crane kernel alone (`base`: slip-ratio friction, Coulomb roller drag, massless wheels). Its cause is the plant formulation, not an added effect.
+- friction_scatter: A5: removing the per-wheel roller-friction scatter from T2 `all` removes the flip. One wheel's friction error does not average out on small bodies.
+- dock_effects: A5: dock compliance / hook play, load transfer or roller-drag anisotropy alone flips the decision, and the bare kernel does not.
+- genuine_shortfall: The body truly falls more than 0.05 short on a required leg. The certificate's caution is correct, and the question is only why it was not more confident.
+- other: None of the above; the explanation must say why.

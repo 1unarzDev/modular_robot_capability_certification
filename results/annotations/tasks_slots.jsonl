@@ -1,0 +1,600 @@
+{"case_id": "task0000", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0001", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0002", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0003", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0004", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0005", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0006", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0007", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0008", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0009", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0010", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0011", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0012", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0013", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0014", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0015", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0016", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0017", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0018", "domain": "rescue", "setting": "train carriage interior", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0019", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0020", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0021", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0022", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0023", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0024", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0025", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0026", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0027", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0028", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0029", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0030", "domain": "logistics", "setting": "hospital supply run", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0031", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0032", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0033", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0034", "domain": "logistics", "setting": "library book return", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0035", "domain": "logistics", "setting": "lab sample transport", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0036", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0037", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "mixed: several motion types", "team_hint": 3}
+{"case_id": "task0038", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0039", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0040", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0041", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0042", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0043", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0044", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0045", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0046", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0047", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0048", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0049", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0050", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0051", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0052", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0053", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0054", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0055", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0056", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0057", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "precise slow alignment", "team_hint": 6}
+{"case_id": "task0058", "domain": "rescue", "setting": "train carriage interior", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0059", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0060", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0061", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0062", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0063", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0064", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0065", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0066", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0067", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0068", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0069", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0070", "domain": "logistics", "setting": "hospital supply run", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0071", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0072", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0073", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0074", "domain": "logistics", "setting": "library book return", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0075", "domain": "logistics", "setting": "lab sample transport", "emphasis": "light payload but fast transit", "team_hint": 1}
+{"case_id": "task0076", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0077", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0078", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0079", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0080", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0081", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0082", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0083", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0084", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0085", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0086", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0087", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0088", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0089", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0090", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0091", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0092", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0093", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0094", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0095", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0096", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0097", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0098", "domain": "rescue", "setting": "train carriage interior", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0099", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0100", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0101", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0102", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0103", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0104", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0105", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0106", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0107", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0108", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0109", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0110", "domain": "logistics", "setting": "hospital supply run", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0111", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0112", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0113", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0114", "domain": "logistics", "setting": "library book return", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0115", "domain": "logistics", "setting": "lab sample transport", "emphasis": "mixed: several motion types", "team_hint": 1}
+{"case_id": "task0116", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0117", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0118", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0119", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0120", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0121", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0122", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0123", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0124", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0125", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0126", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0127", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0128", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0129", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0130", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0131", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0132", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0133", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0134", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0135", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0136", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0137", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0138", "domain": "rescue", "setting": "train carriage interior", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0139", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0140", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0141", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0142", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0143", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0144", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0145", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0146", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0147", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0148", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "mixed: several motion types", "team_hint": 3}
+{"case_id": "task0149", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0150", "domain": "logistics", "setting": "hospital supply run", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0151", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0152", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0153", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0154", "domain": "logistics", "setting": "library book return", "emphasis": "light payload but fast transit", "team_hint": 1}
+{"case_id": "task0155", "domain": "logistics", "setting": "lab sample transport", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0156", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0157", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0158", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0159", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0160", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0161", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0162", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0163", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0164", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0165", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0166", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0167", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "precise slow alignment", "team_hint": 6}
+{"case_id": "task0168", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0169", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0170", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0171", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0172", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0173", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0174", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0175", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "mixed: several motion types", "team_hint": 3}
+{"case_id": "task0176", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0177", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0178", "domain": "rescue", "setting": "train carriage interior", "emphasis": "diagonal approach to a docking point", "team_hint": 6}
+{"case_id": "task0179", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0180", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0181", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0182", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0183", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0184", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0185", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0186", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0187", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0188", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0189", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0190", "domain": "logistics", "setting": "hospital supply run", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0191", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0192", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0193", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0194", "domain": "logistics", "setting": "library book return", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0195", "domain": "logistics", "setting": "lab sample transport", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0196", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0197", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0198", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "mixed: several motion types", "team_hint": 1}
+{"case_id": "task0199", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0200", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0201", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0202", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0203", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0204", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0205", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0206", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0207", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0208", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0209", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0210", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0211", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0212", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0213", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0214", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0215", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0216", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0217", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0218", "domain": "rescue", "setting": "train carriage interior", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0219", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0220", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0221", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0222", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0223", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0224", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0225", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0226", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0227", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0228", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0229", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0230", "domain": "logistics", "setting": "hospital supply run", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0231", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0232", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0233", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0234", "domain": "logistics", "setting": "library book return", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0235", "domain": "logistics", "setting": "lab sample transport", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0236", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0237", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0238", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0239", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "light payload but fast transit", "team_hint": 1}
+{"case_id": "task0240", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0241", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0242", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0243", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0244", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0245", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0246", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0247", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0248", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0249", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0250", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0251", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0252", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0253", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0254", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0255", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0256", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0257", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0258", "domain": "rescue", "setting": "train carriage interior", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0259", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0260", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0261", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0262", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0263", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0264", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0265", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "mixed: several motion types", "team_hint": 1}
+{"case_id": "task0266", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0267", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "diagonal approach to a docking point", "team_hint": 6}
+{"case_id": "task0268", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0269", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0270", "domain": "logistics", "setting": "hospital supply run", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0271", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0272", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0273", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0274", "domain": "logistics", "setting": "library book return", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0275", "domain": "logistics", "setting": "lab sample transport", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0276", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0277", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0278", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0279", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0280", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0281", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0282", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0283", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0284", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0285", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0286", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0287", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0288", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0289", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0290", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0291", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "mixed: several motion types", "team_hint": 1}
+{"case_id": "task0292", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0293", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0294", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0295", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0296", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0297", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0298", "domain": "rescue", "setting": "train carriage interior", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0299", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0300", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0301", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0302", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0303", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0304", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0305", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0306", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0307", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0308", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0309", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0310", "domain": "logistics", "setting": "hospital supply run", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0311", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0312", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0313", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0314", "domain": "logistics", "setting": "library book return", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0315", "domain": "logistics", "setting": "lab sample transport", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0316", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0317", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0318", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0319", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0320", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0321", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0322", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "precise slow alignment", "team_hint": 6}
+{"case_id": "task0323", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0324", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0325", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0326", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0327", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0328", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0329", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0330", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0331", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0332", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0333", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0334", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0335", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0336", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0337", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "light payload but fast transit", "team_hint": 1}
+{"case_id": "task0338", "domain": "rescue", "setting": "train carriage interior", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0339", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0340", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0341", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0342", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0343", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0344", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0345", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0346", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0347", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0348", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0349", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0350", "domain": "logistics", "setting": "hospital supply run", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0351", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0352", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0353", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0354", "domain": "logistics", "setting": "library book return", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0355", "domain": "logistics", "setting": "lab sample transport", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0356", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0357", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0358", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "mixed: several motion types", "team_hint": 3}
+{"case_id": "task0359", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0360", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0361", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0362", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0363", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0364", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0365", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0366", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0367", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0368", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0369", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0370", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0371", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0372", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0373", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0374", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0375", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0376", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0377", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0378", "domain": "rescue", "setting": "train carriage interior", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0379", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0380", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0381", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0382", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0383", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0384", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0385", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0386", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0387", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0388", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0389", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0390", "domain": "logistics", "setting": "hospital supply run", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0391", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0392", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0393", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0394", "domain": "logistics", "setting": "library book return", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0395", "domain": "logistics", "setting": "lab sample transport", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0396", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0397", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0398", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0399", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0400", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0401", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0402", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0403", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0404", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0405", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0406", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0407", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0408", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0409", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0410", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "diagonal approach to a docking point", "team_hint": 6}
+{"case_id": "task0411", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0412", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0413", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0414", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0415", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0416", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0417", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0418", "domain": "rescue", "setting": "train carriage interior", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0419", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0420", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0421", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0422", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0423", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0424", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0425", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0426", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0427", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0428", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0429", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0430", "domain": "logistics", "setting": "hospital supply run", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0431", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0432", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0433", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0434", "domain": "logistics", "setting": "library book return", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0435", "domain": "logistics", "setting": "lab sample transport", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0436", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0437", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0438", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0439", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0440", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "reversing out of dead ends", "team_hint": 1}
+{"case_id": "task0441", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0442", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0443", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0444", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0445", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0446", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0447", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0448", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0449", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0450", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0451", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0452", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0453", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0454", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0455", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0456", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0457", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0458", "domain": "rescue", "setting": "train carriage interior", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0459", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0460", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0461", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0462", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0463", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0464", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0465", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0466", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0467", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0468", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0469", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0470", "domain": "logistics", "setting": "hospital supply run", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0471", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0472", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0473", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0474", "domain": "logistics", "setting": "library book return", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0475", "domain": "logistics", "setting": "lab sample transport", "emphasis": "precise slow alignment", "team_hint": 6}
+{"case_id": "task0476", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0477", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0478", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0479", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "mixed: several motion types", "team_hint": 3}
+{"case_id": "task0480", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0481", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0482", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0483", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0484", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0485", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0486", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0487", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0488", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0489", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0490", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0491", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "reversing out of dead ends", "team_hint": 6}
+{"case_id": "task0492", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0493", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0494", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0495", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "tight lateral clearance", "team_hint": 6}
+{"case_id": "task0496", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0497", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "carrying a fragile load", "team_hint": 1}
+{"case_id": "task0498", "domain": "rescue", "setting": "train carriage interior", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0499", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0500", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0501", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "light payload but fast transit", "team_hint": 1}
+{"case_id": "task0502", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0503", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0504", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0505", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0506", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0507", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0508", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0509", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0510", "domain": "logistics", "setting": "hospital supply run", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0511", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0512", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0513", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0514", "domain": "logistics", "setting": "library book return", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0515", "domain": "logistics", "setting": "lab sample transport", "emphasis": "long straight runs", "team_hint": 3}
+{"case_id": "task0516", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0517", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0518", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0519", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0520", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "reversing out of dead ends", "team_hint": 3}
+{"case_id": "task0521", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "frequent in-place reorientation", "team_hint": 6}
+{"case_id": "task0522", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "frequent in-place reorientation", "team_hint": 1}
+{"case_id": "task0523", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0524", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0525", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0526", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0527", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0528", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0529", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0530", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0531", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0532", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0533", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0534", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0535", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "precise slow alignment", "team_hint": 6}
+{"case_id": "task0536", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0537", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "diagonal approach to a docking point", "team_hint": 6}
+{"case_id": "task0538", "domain": "rescue", "setting": "train carriage interior", "emphasis": "mixed: several motion types", "team_hint": 1}
+{"case_id": "task0539", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "long straight runs", "team_hint": 4}
+{"case_id": "task0540", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "mixed: several motion types", "team_hint": 6}
+{"case_id": "task0541", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0542", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0543", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "heavy payload", "team_hint": 4}
+{"case_id": "task0544", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0545", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0546", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0547", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "heavy payload", "team_hint": 3}
+{"case_id": "task0548", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "carrying a fragile load", "team_hint": 2}
+{"case_id": "task0549", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "precise slow alignment", "team_hint": 1}
+{"case_id": "task0550", "domain": "logistics", "setting": "hospital supply run", "emphasis": "carrying a fragile load", "team_hint": 6}
+{"case_id": "task0551", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0552", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0553", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "reversing out of dead ends", "team_hint": 4}
+{"case_id": "task0554", "domain": "logistics", "setting": "library book return", "emphasis": "heavy payload", "team_hint": 2}
+{"case_id": "task0555", "domain": "logistics", "setting": "lab sample transport", "emphasis": "mixed: several motion types", "team_hint": 4}
+{"case_id": "task0556", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0557", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0558", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0559", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0560", "domain": "warehouse", "setting": "narrow-aisle picking", "emphasis": "heavy payload", "team_hint": 1}
+{"case_id": "task0561", "domain": "warehouse", "setting": "pallet shuttle across a cross-dock", "emphasis": "diagonal approach to a docking point", "team_hint": 1}
+{"case_id": "task0562", "domain": "warehouse", "setting": "shelf-to-station tote transfer", "emphasis": "tight lateral clearance", "team_hint": 1}
+{"case_id": "task0563", "domain": "warehouse", "setting": "inventory scan along racks", "emphasis": "frequent in-place reorientation", "team_hint": 4}
+{"case_id": "task0564", "domain": "warehouse", "setting": "loading-bay trailer unload", "emphasis": "precise slow alignment", "team_hint": 3}
+{"case_id": "task0565", "domain": "warehouse", "setting": "cold-storage aisle", "emphasis": "long straight runs", "team_hint": 1}
+{"case_id": "task0566", "domain": "warehouse", "setting": "mezzanine conveyor feed", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0567", "domain": "warehouse", "setting": "returns sorting area", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0568", "domain": "warehouse", "setting": "high-density mobile racking", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0569", "domain": "warehouse", "setting": "pharmacy fulfilment cell", "emphasis": "tight lateral clearance", "team_hint": 2}
+{"case_id": "task0570", "domain": "rescue", "setting": "collapsed-corridor search", "emphasis": "tight lateral clearance", "team_hint": 3}
+{"case_id": "task0571", "domain": "rescue", "setting": "smoke-filled office floor", "emphasis": "diagonal approach to a docking point", "team_hint": 6}
+{"case_id": "task0572", "domain": "rescue", "setting": "debris field at a parking garage", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0573", "domain": "rescue", "setting": "flooded basement (shallow water, flat floor)", "emphasis": "carrying a fragile load", "team_hint": 3}
+{"case_id": "task0574", "domain": "rescue", "setting": "tunnel inspection after a quake", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0575", "domain": "rescue", "setting": "hospital evacuation corridor", "emphasis": "precise slow alignment", "team_hint": 2}
+{"case_id": "task0576", "domain": "rescue", "setting": "stairwell landing (flat section only)", "emphasis": "light payload but fast transit", "team_hint": 4}
+{"case_id": "task0577", "domain": "rescue", "setting": "warehouse fire aftermath", "emphasis": "frequent in-place reorientation", "team_hint": 3}
+{"case_id": "task0578", "domain": "rescue", "setting": "train carriage interior", "emphasis": "diagonal approach to a docking point", "team_hint": 4}
+{"case_id": "task0579", "domain": "rescue", "setting": "mine refuge chamber", "emphasis": "reversing out of dead ends", "team_hint": 2}
+{"case_id": "task0580", "domain": "inspection", "setting": "data-centre cold aisle", "emphasis": "diagonal approach to a docking point", "team_hint": 3}
+{"case_id": "task0581", "domain": "inspection", "setting": "solar-farm inverter room", "emphasis": "diagonal approach to a docking point", "team_hint": 2}
+{"case_id": "task0582", "domain": "inspection", "setting": "aircraft hangar floor under a wing", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0583", "domain": "inspection", "setting": "ship engine room deck", "emphasis": "light payload but fast transit", "team_hint": 6}
+{"case_id": "task0584", "domain": "inspection", "setting": "nuclear plant turbine hall", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0585", "domain": "inspection", "setting": "pipe gallery under a plant", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0586", "domain": "inspection", "setting": "bridge deck underside walkway", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0587", "domain": "inspection", "setting": "wind-turbine nacelle floor", "emphasis": "precise slow alignment", "team_hint": 4}
+{"case_id": "task0588", "domain": "inspection", "setting": "semiconductor cleanroom bay", "emphasis": "heavy payload", "team_hint": 6}
+{"case_id": "task0589", "domain": "inspection", "setting": "parking-structure column scan", "emphasis": "long straight runs", "team_hint": 2}
+{"case_id": "task0590", "domain": "logistics", "setting": "hospital supply run", "emphasis": "long straight runs", "team_hint": 6}
+{"case_id": "task0591", "domain": "logistics", "setting": "hotel room-service corridor", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0592", "domain": "logistics", "setting": "airport baggage hall", "emphasis": "light payload but fast transit", "team_hint": 3}
+{"case_id": "task0593", "domain": "logistics", "setting": "factory line-side kitting", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0594", "domain": "logistics", "setting": "library book return", "emphasis": "carrying a fragile load", "team_hint": 4}
+{"case_id": "task0595", "domain": "logistics", "setting": "lab sample transport", "emphasis": "mixed: several motion types", "team_hint": 2}
+{"case_id": "task0596", "domain": "logistics", "setting": "retail backroom restock", "emphasis": "tight lateral clearance", "team_hint": 4}
+{"case_id": "task0597", "domain": "logistics", "setting": "construction-site indoor slab", "emphasis": "light payload but fast transit", "team_hint": 2}
+{"case_id": "task0598", "domain": "logistics", "setting": "film-studio camera dolly", "emphasis": "frequent in-place reorientation", "team_hint": 2}
+{"case_id": "task0599", "domain": "logistics", "setting": "museum gallery after hours", "emphasis": "heavy payload", "team_hint": 2}

@@ -1,0 +1,50 @@
+{"case_id": "a2-265-sensor-parent7/c3-diag++-0.8", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 1, "v2+moddiff": 0, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P0-s1-pair-e112-sway+-0.8", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 0, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P0-s1-single-e138-surge+-0.8", "source": "a5_flip", "condition_flip": {"base": 1, "compliance": 1, "load_transfer": 1, "aniso": 1, "aniso_mu": 1, "all-aniso_mu": 1}, "cap": true}
+{"case_id": "t0-909121-c1-t1", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.984, "probe_resolves": {"clamp": 0, "moddiff": 1, "tug": 1, "split": 1}, "cap": true}
+{"case_id": "t0-909227-c6-t0", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 1.0, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909304-c2-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909047-c3-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-32-floor-parent8/c2-diag+--0.7", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 0, "v2+moddiff": 0, "v2+tug": 0, "v2+clamp+moddiff+tug": 0, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P0-s0-single-e86-sway--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 0, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P1-s0-single-e105-sway--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": true}
+{"case_id": "t0-909354-c2-t1", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.945, "probe_resolves": {"clamp": 1, "moddiff": 0, "tug": 0, "split": 1}, "cap": false}
+{"case_id": "t0-909537-c9-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.985, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909452-c2-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909337-c2-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-296-floor-parent4/c2-diag---0.6", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 0, "v2+moddiff": 0, "v2+tug": 0, "v2+clamp+moddiff+tug": 0, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P1-s0-single-e29-sway--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P0-s1-L3-e106-yaw+-0.8", "source": "a5_flip", "condition_flip": {"base": 1, "compliance": 1, "load_transfer": 1, "aniso": 1, "aniso_mu": 1, "all-aniso_mu": 1}, "cap": true}
+{"case_id": "t0-909309-c3-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 1.0, "probe_resolves": {"clamp": 1, "moddiff": 1, "tug": 0, "split": 1}, "cap": true}
+{"case_id": "t0-909352-c2-t0", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 1.0, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909452-c5-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909057-c3-t2", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-258-floor-parent6/c1-diag-+-0.8", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 1, "v2+moddiff": 1, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 1}, "cap": false}
+{"case_id": "a5-P0-s1-pair-e142-surge--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P0-s0-single-e8-yaw--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": true}
+{"case_id": "t0-909195-c3-t0", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.568, "probe_resolves": {"clamp": 0, "moddiff": 0, "tug": 0, "split": 1}, "cap": true}
+{"case_id": "t0-909511-c4-t0", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.079, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909452-c1-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909044-c1-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-251-sensor-parent4/c1-diag+--0.8", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 0, "v2+moddiff": 1, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P1-s0-single-e29-sway+-0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P1-s0-single-e126-sway--0.8", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 1, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": true}
+{"case_id": "t0-909079-c1-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.921, "probe_resolves": {"clamp": 0, "moddiff": 0, "tug": 0, "split": 1}, "cap": false}
+{"case_id": "t0-909064-c0-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.929, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909452-c2-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909057-c1-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-150-sensor-parent6/c2-diag++-0.7", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 1, "v2+moddiff": 1, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P0-s0-single-e43-sway--0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P0-s0-square-e85-yaw--0.8", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": true}
+{"case_id": "t0-909249-c4-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.999, "probe_resolves": {"clamp": 1, "moddiff": 1, "tug": 0, "split": 1}, "cap": false}
+{"case_id": "t0-909264-c12-t1", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.87, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909322-c1-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909057-c3-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-32-sensor-parent8/c2-diag+--0.7", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 1, "v2+moddiff": 0, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 0}, "cap": true}
+{"case_id": "a5-P0-s0-single-e77-sway+-0.7", "source": "a5_flip", "condition_flip": {"base": 0, "compliance": 0, "load_transfer": 0, "aniso": 0, "aniso_mu": 1, "all-aniso_mu": 0}, "cap": false}
+{"case_id": "a5-P0-s0-single-e9-yaw+-0.8", "source": "a5_flip", "condition_flip": {"base": 1, "compliance": 1, "load_transfer": 1, "aniso": 1, "aniso_mu": 1, "all-aniso_mu": 1}, "cap": true}
+{"case_id": "t0-909379-c3-t0", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 0.125, "probe_resolves": {"clamp": 1, "moddiff": 1, "tug": 1, "split": 1}, "cap": false}
+{"case_id": "t0-909328-c4-t2", "source": "t0_decision", "truth_in_screen": 1, "truth_mass": 1.0, "probe_resolves": {}, "cap": true}
+{"case_id": "t0-909452-c1-t0", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "t0-909371-c1-t1", "source": "t0_decision", "truth_in_screen": 0, "truth_mass": 0.0, "probe_resolves": {}, "cap": false}
+{"case_id": "a2-88-sensor-parent6/c2-diag---0.7", "source": "a2_ambiguous", "truth_in_screen": 1, "probe_resolves": {"v2+clamp": 1, "v2+moddiff": 0, "v2+tug": 0, "v2+clamp+moddiff+tug": 1, "diag_split": 0}, "cap": true}

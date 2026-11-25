@@ -1,0 +1,110 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "items"
+ ],
+ "properties": {
+  "items": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "case_id",
+     "mechanism",
+     "explanation",
+     "confidence",
+     "claims"
+    ],
+    "properties": {
+     "case_id": {
+      "type": "string"
+     },
+     "mechanism": {
+      "type": "string"
+     },
+     "explanation": {
+      "type": "string"
+     },
+     "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "claims": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "kind",
+        "target",
+        "op",
+        "value",
+        "mode",
+        "text"
+       ],
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "wheel_mode",
+          "wheel_gain",
+          "wheel_stall",
+          "wheel_noload",
+          "spread_masked",
+          "wheel_in_candidate",
+          "candidate_has_fault",
+          "module_mu",
+          "latent",
+          "leg_truth",
+          "leg_t1",
+          "leg_margin",
+          "leg_shift",
+          "post_mean",
+          "post_sd",
+          "p_leg",
+          "set_min",
+          "set_max",
+          "truth_mass",
+          "truth_in_screen",
+          "probe_resolves",
+          "condition_flip"
+         ]
+        },
+        "target": {
+         "type": "string"
+        },
+        "op": {
+         "type": "string",
+         "enum": [
+          "lt",
+          "gt",
+          "eq"
+         ]
+        },
+        "value": {
+         "type": "number"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "",
+          "ok",
+          "weak",
+          "coast",
+          "brake"
+         ]
+        },
+        "text": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}
