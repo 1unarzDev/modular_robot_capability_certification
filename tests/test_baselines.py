@@ -128,3 +128,12 @@ def test_smc_task_units_cover_split():
     a = p.parse_args(["--episodes", "37", "--per-unit", "4"])
     eps = [j for k in range(5) for u in smc._units(a, k, 5) for j in parse_chunk(u)]
     assert eps == list(range(37))
+
+
+def test_decision_stratum_counts_only_faulted_near_tau():
+    truth = np.array([[0.75, 0.95, 0.65, 0.78]])
+    hf = np.array([[1, 1, 0, 1]], float)
+    lower = truth - 0.01
+    r = {x["tau"]: x for x in base.metrics(lower, truth, hf, taus=(0.7,), band=0.1)}[0.7]
+    assert r["n_dec"] == 2            # 0.75 and 0.78 (faulted, within 0.1 of tau); 0.95 too far, 0.65 not faulted
+    assert r["cert_frac"] == 1.0 and r["n_unsafe"] == 0

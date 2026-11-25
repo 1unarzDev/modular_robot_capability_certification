@@ -91,22 +91,26 @@ def cross_fit_lower(point, scale, truth, folds, alpha):
     return lower, qs
 
 
-def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None):
+def metrics(lower, truth, has_fault, taus=TAUS, ep_mask=None, band=None):
     """lower/truth/has_fault (E, W) padded with NaN. Per tau: certified fraction of capable entries (all, and those of
     candidates holding a faulted wheel), unsafe-commit rate among incapable entries, and the episode-level rate of
-    any unsafe commit (the simultaneous guarantee bounds it by alpha)."""
+    any unsafe commit (the simultaneous guarantee bounds it by alpha).
+    band: restrict every count to the decision-relevant stratum of that tau, i.e. entries of candidates holding a
+    faulted module with |truth - tau| < band (coordinator, 2026-11-25: band 0.1; the paper headline). The lower bounds
+    themselves are unchanged (calibrated on all entries)."""
     rows = []
     E = lower.shape[0]
     m = np.ones(E, bool) if ep_mask is None else ep_mask
     lo, tr, hf = lower[m], truth[m], has_fault[m]
-    present = ~np.isnan(tr)
+    present0 = ~np.isnan(tr)
     for tau in taus:
+        present = present0 if band is None else present0 & (np.nan_to_num(hf) > 0.5) & (np.abs(tr - tau) < band)
         go = np.where(present, np.nan_to_num(lo, nan=-np.inf) >= tau, False)
         cap_ = present & (tr >= tau)
         inc = present & (tr < tau)
         f = present & (hf > 0.5)
         unsafe = go & inc
-        rows.append(dict(tau=tau, n_ep=int(m.sum()), n_capable=int(cap_.sum()), n_incapable=int(inc.sum()),
+        rows.append(dict(tau=tau, n_ep=int(m.sum()), n_dec=int(present.sum()), n_capable=int(cap_.sum()), n_incapable=int(inc.sum()),
                          cert_frac=_r(go & cap_, cap_), cert_frac_faulted=_r(go & cap_ & f, cap_ & f),
                          n_capable_faulted=int((cap_ & f).sum()),
                          unsafe_commit_rate=_r(unsafe, inc), n_unsafe=int(unsafe.sum()),

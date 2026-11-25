@@ -61,8 +61,16 @@ rented 3090s. All numbers below are smoke tests or estimates, and all are explor
 - When the outputs are back, run:
   `$PY scripts/baselines_pilot.py from-runs --runs ~/.cache/vast-out --hardware "RTX 3090"`.
   It writes `results/baselines/pilot_metrics.csv` (cert_frac, cert_frac_faulted, unsafe_commit_rate, ep_any_unsafe
-  per τ and shape), `pilot_timing.csv` (s per decision, peak VRAM, sims per episode), and the paper contract files
+  per τ, shape and stratum), `pilot_timing.csv` (s per decision, peak VRAM, sims per episode), and the paper contract files
   `results/baselines/paper/dec_baselines.csv.gz` and `latency_baselines.csv`.
+
+- **Strata.** Only 2.3 % of labels are below 0.8 (coordinator). Every baseline is therefore reported on two strata:
+  - `all`;
+  - `decision`: entries of candidates that contain a faulted module, with |ρ_dec − τ| < 0.1. This is the paper
+    headline. It is per τ, and the bounds are still calibrated on all entries.
+
+  The dec rows carry `has_fault` (= `contains_fault`, also written) and the ρ_dec `truth`, so the paper can form the
+  stratum itself.
 
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on

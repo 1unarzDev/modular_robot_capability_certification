@@ -265,7 +265,9 @@ def load_runs(runs):
 
 
 def cmd_from_runs(a):
-    """Pilot table, latency and the paper contract files straight from rented `smc` outputs:
+    """Pilot table, latency and the paper contract files straight from rented `smc` outputs. Metrics per baseline,
+    shape and stratum: "all" entries, and "decision" = candidates containing a faulted module with |rho_dec - tau| <
+    0.1 (the paper headline stratum; dec rows carry has_fault / contains_fault and the rho_dec truth to form it):
     results/baselines/pilot_metrics.csv, pilot_timing.csv, paper/dec_baselines.csv.gz, paper/latency_baselines.csv.
     Simultaneous route: 2-fold cross-fit SimultaneousLower (alpha 0.1) within the split, folds alternating by eid
     within each parent shape (the pilot bank has no separate cal split; exploratory)."""
@@ -298,9 +300,10 @@ def cmd_from_runs(a):
         for vname, (lower, q) in variants.items():
             for shp in ("all",) + tuple(np.unique(shapes)):
                 m = np.ones(len(eids), bool) if shp == "all" else shapes == shp
-                for r in base.metrics(lower, truth, hf, ep_mask=m):
-                    rows.append(dict(baseline=vname, shape=shp, alpha=ALPHA, q_fold0=q.get(0, np.nan),
-                                     q_fold1=q.get(1, np.nan), **r))
+                for stratum, band in (("all", None), ("decision", 0.1)):
+                    for r in base.metrics(lower, truth, hf, ep_mask=m, band=band):
+                        rows.append(dict(baseline=vname, shape=shp, stratum=stratum, alpha=ALPHA,
+                                         q_fold0=q.get(0, np.nan), q_fold1=q.get(1, np.nan), **r))
             if vname.endswith("_q05raw"):
                 continue
             route = "raw" if vname == "capxfer_raw" else "simultaneous"
@@ -309,7 +312,8 @@ def cmd_from_runs(a):
                 x["method"], x["route"], x["lower"] = vname, route, lower[i, :len(x)]
                 if meth == "capxfer":
                     x["point"], x["scale"] = np.nan, np.nan
-                dec.append(x[list(DEC_COLS)])
+                x["contains_fault"] = x["has_fault"]
+                dec.append(x[list(DEC_COLS) + ["contains_fault"]])
         sec = np.array([g[e]["seconds"].iloc[0] for e in eids])
         for s_ in np.unique(shapes):
             m = shapes == s_
@@ -328,8 +332,8 @@ def cmd_from_runs(a):
     lat = tm.assign(n_wheels=tm["shape"].map(nw), hardware=a.hardware, status="exploratory")
     lat[["method", "shape", "n_wheels", "sec_per_decision", "hardware", "status", "n"]].to_csv(
         RES / "paper" / "latency_baselines.csv", index=False)
-    cols = ["baseline", "tau", "n_ep", "cert_frac", "cert_frac_faulted", "unsafe_commit_rate", "ep_any_unsafe",
-            "ep_miscover"]
+    cols = ["baseline", "stratum", "tau", "n_dec", "cert_frac", "cert_frac_faulted", "unsafe_commit_rate",
+            "ep_any_unsafe", "ep_miscover"]
     print(met[met["shape"] == "all"][cols].round(4).to_string(index=False))
     print(tm.round(3).to_string(index=False))
 
