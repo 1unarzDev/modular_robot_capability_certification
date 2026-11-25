@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import pathlib
 
 import numpy as np
 import pytest
@@ -147,3 +148,44 @@ def test_conf_block_bounds():
         B.seeds("conf-ID", 300 * B.CONF_MISSIONS_PER_BUILDING)
     kf, b, bs, ms = B.seeds("conf-E-H2", 0)
     assert kf == "E-H2" and b == 450 and bs == [92599, 23, 450]
+
+
+@needs_stats
+def test_env_score_carries_runner_shard(tmp_path, monkeypatch):
+    """env_score writes the runner shard on every mission row: from the row column, else the run manifest; never -1."""
+    import importlib.util
+    import json
+    import pandas as pd
+    from cfcap.env import task as T
+    from cfcap.gen import simrun as SR
+
+    def stub(items, **kw):
+        n = len(items)
+        mu = np.array([it["mu"] for it in items], np.float32)[:, None]
+        return dict(rho=np.repeat(mu, M.L, 1), rho_ref=np.ones((n, M.L), np.float32), rho_dec=np.repeat(mu, M.L, 1))
+
+    monkeypatch.setattr(SR, "label_conditions", stub)
+    spec = importlib.util.spec_from_file_location("env_score", pathlib.Path(__file__).parents[1] / "scripts/env_score.py")
+    ES = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ES)
+    for k, (fam, with_col) in enumerate([("test", True), ("E-H1", False)]):
+        rows = T.flatten(M.label_missions([B.make_mission(fam, i) for i in range(2)]))
+        shard = 3 + k
+        if with_col:
+            rows["shard"] = np.full(rows["req"].size, shard, np.int16)
+        u = tmp_path / f"run{k}" / "units"
+        u.mkdir(parents=True)
+        np.savez(u / f"env-{fam}-000000-000002.npz", **rows)
+        (tmp_path / f"run{k}" / "manifest.json").write_text(json.dumps({"shard": shard}))
+    out = tmp_path / "m.csv"
+    ES.main([str(tmp_path / "run0"), str(tmp_path / "run1"), "--out", str(out)])
+    df = pd.read_csv(out)
+    assert len(df) and (df.shard >= 0).all()
+    assert set(df[df.family == "test"].shard) == {3} and set(df[df.family == "E-H1"].shard) == {4}
+    # a unit without a shard column or manifest is refused
+    bad = tmp_path / "bad" / "units"
+    bad.mkdir(parents=True)
+    rows.pop("shard", None)
+    np.savez(bad / "env-test-000000-000002.npz", **rows)
+    with pytest.raises(SystemExit):
+        ES.load_rows([str(tmp_path / "bad")])

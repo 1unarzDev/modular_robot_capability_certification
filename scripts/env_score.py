@@ -39,12 +39,34 @@ CODE2FAM = {v: k for k, v in B.FAM_CODE.items()}
 EXCLUDE = {("conf-ID", 1499)}      # docs/CONFIRMATORY.md A-ENV: constructed before scoring; ID = conf-ID 0-1,498
 
 
+def _manifest_shard(unit_file):
+    """Runner shard id of a unit file: the run directory's manifest.json (units/../manifest.json)."""
+    import json
+    m = os.path.join(os.path.dirname(os.path.dirname(unit_file)), "manifest.json")
+    if os.path.exists(m):
+        v = json.load(open(m)).get("shard")
+        if v is not None:
+            return int(v)
+    return None
+
+
 def load_rows(dirs):
+    """Runner rows of every unit under dirs. Every row carries the runner `shard` (the row column written by
+    cfcap.env.task, else the run manifest); a unit whose shard cannot be determined is an error, never -1, so the
+    scorer's canary-shard exclusion is verifiable."""
     parts = []
     for d in dirs:
         for f in sorted(glob.glob(os.path.join(d, "**", "units", "*.npz"), recursive=True)):
             z = np.load(f)
-            parts.append(pd.DataFrame({k: z[k] for k in z.files}))
+            df = pd.DataFrame({k: z[k] for k in z.files})
+            ms = _manifest_shard(f)
+            if "shard" not in df:
+                if ms is None:
+                    raise SystemExit(f"{f}: no shard column and no manifest.json shard")
+                df["shard"] = ms
+            elif ms is not None and len(df) and not (df["shard"] == ms).all():
+                raise SystemExit(f"{f}: row shard {sorted(df['shard'].unique())} != manifest shard {ms}")
+            parts.append(df)
     return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
 
@@ -127,13 +149,20 @@ def load_lower(path):
     return {k: v[["cand", "seg", "lower"]].to_numpy(float) for k, v in df.groupby(["family", "mission"])}
 
 
-def main():
+def _one_shard(g):
+    sh = g["shard"].unique()
+    if len(sh) != 1:
+        raise SystemExit(f"mission {int(g.mission.iloc[0])}: rows from shards {sorted(sh)}")
+    return int(sh[0])
+
+
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument("--lower", action="append", default=[])
     ap.add_argument("--claim", default=None, help="keep rows of this claim only (C-ENV / exploratory)")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     df = load_rows(a.dirs)
     if a.claim is not None and "claim" in df:
         df = df[df["claim"] == a.claim]
@@ -147,7 +176,7 @@ def main():
             b = int(g.building.iloc[0])
             out.append(dict(claim=str(g["claim"].iloc[0]) if "claim" in g else "exploratory", family=FAMNAME.get(fname, fname),
                             building=f"{fname}-{b}", mission=int(mis),
-                            shard=int(g["shard"].iloc[0]) if "shard" in g else -1,
+                            shard=_one_shard(g),
                             status=str(g["status"].iloc[0]) if "status" in g else "exploratory", **r))
     res = pd.DataFrame(out)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
