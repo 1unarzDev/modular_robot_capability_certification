@@ -26,13 +26,14 @@ TAUS = (0.6, 0.7, 0.8)
 ALPHA = 0.1
 
 
-def run(arm, shard, pairs=250, limit=None, device="cuda"):
+def run(arm, shard, pairs=250, limit=None, device="cuda", start=0, stop=None):
     import torch
     from cfcap.baselines import compose as CO
     from cfcap.baselines.episode import DUTY_NOISE, lat_to, ref_table
     from cfcap.t1 import params as P, plant
     par = P.base_params("plated")
     recs = A4.run(arm, pairs, shard, export=[])
+    recs = recs[start:stop]
     if limit:
         recs = recs[:limit]
     z = np.load(A4.OUT / f"A4_{arm}_s{shard}.npz")
@@ -70,7 +71,7 @@ def run(arm, shard, pairs=250, limit=None, device="cuda"):
             out["enum_abstain"].append(int(not np.isfinite(pe.lower[ci]).all()))
         if ri % 25 == 0:
             print(arm, shard, ri, f"{time.time() - t0:.0f}s", flush=True)
-    np.savez_compressed(A4.OUT / f"N4_{arm}_s{shard}.npz", **{k: np.asarray(v) for k, v in out.items()})
+    np.savez_compressed(A4.OUT / f"N4_{arm}_s{shard}_{start:03d}.npz", **{k: np.asarray(v) for k, v in out.items()})
 
 
 def _conf_q(short, pairs):
@@ -163,5 +164,7 @@ if __name__ == "__main__":
     ap.add_argument("--arm", default="P0")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--start", type=int, default=0)
+    ap.add_argument("--stop", type=int, default=None)
     a = ap.parse_args()
-    run(a.arm, a.shard, limit=a.limit) if a.cmd == "run" else analyze()
+    run(a.arm, a.shard, limit=a.limit, start=a.start, stop=a.stop) if a.cmd == "run" else analyze()

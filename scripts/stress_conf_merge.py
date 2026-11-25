@@ -40,7 +40,12 @@ def _methods(z, i, arm, M):
                             np.full(L, np.nan), np.full(L, np.nan), "raw", "oracle")}
 
 
-def main(runs):
+def main(runs, mock=False):
+    import datetime
+    if not mock and datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2026, 11, 26, 1, 45,
+                                                                                     tzinfo=datetime.timezone.utc):
+        raise SystemExit("refusing: confirmatory labels are not opened before 2026-11-26 01:45Z (use --mock on "
+                         "non-confirmatory runs)")
     M = json.loads((RES / "N4_margins.json").read_text())
     (RES / "confirmatory").mkdir(parents=True, exist_ok=True)
     out = RES / "confirmatory" / "dec_conf_merge.csv.gz"
@@ -51,8 +56,9 @@ def main(runs):
         # confirmatory rows
         for d in runs:
             for f in sorted(glob.glob(os.path.join(d, "**/units/merge-*.npz"), recursive=True)):
-                shard = int(pathlib.Path(f).parts[-3].replace("shard", "")) if "shard" in pathlib.Path(f).parts[-3] \
-                    else json.loads((pathlib.Path(f).parents[1] / "manifest.json").read_text()).get("shard", -1)
+                if f.endswith("-spare.npz"):
+                    continue                                      # shard 0 timing spare: exploratory, never scored
+                shard = int(json.loads((pathlib.Path(f).parents[1] / "manifest.json").read_text())["shard"])
                 z = np.load(f)
                 for i in range(len(z["pair"])):
                     arm = str(z["arm"][i])
@@ -88,4 +94,6 @@ def main(runs):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", nargs="+", required=True)
-    main(ap.parse_args().runs)
+    ap.add_argument("--mock", action="store_true", help="non-confirmatory runs only (smoke tests)")
+    a = ap.parse_args()
+    main(a.runs, a.mock)

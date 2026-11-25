@@ -1,0 +1,75 @@
+{
+ "campaign": "cfcap-stress-conf-merge",
+ "lineage": "cfcap-stress",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when both arms' 1000 C-MERGE pairs are scored (40 units each) or the owner cap is reached. Nobody opens labels before 2026-11-26 01:45Z.",
+ "_doc": "Role stress, lineage cfcap-stress. Task stress_merge (cfcap/t2/merge_task.py) with --task-spec. Margins are applied by scripts/stress_conf_merge.py from the frozen exploratory results/stress/N4_margins.json (q_cf from E2's exploratory pairs, q_pert_by_nmod from E2's T1 perturbations), which must be committed before any confirmatory unit is read. Shard 0 = an exploratory spare (pairs 100000+, root 92599/99).",
+ "groups": [
+  {
+   "name": "conf-merge-P0",
+   "task": "stress_merge",
+   "stage": 1,
+   "lane": "rented",
+   "shards": 9,
+   "units_per_shard": 5,
+   "unit_s": 250,
+   "overhead_s": 300,
+   "priority": 10,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.merge_task:TASK",
+    "--arm",
+    "P0",
+    "--pairs",
+    "1000",
+    "--per-unit",
+    "25",
+    "--spare-shard0",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh --gpu python -m cfcap.runner stress_merge --task-spec cfcap.t2.merge_task:TASK --shard 0 --n-shards 1 --out /tmp/mtest --arm P5 --pairs 2 --per-unit 2 --root 1,1 (4070, numba 4 threads): 23 s for 2 pairs incl. ~10 s first-call compile (T1 truth + composition on GPU, T2 truth numba, enum_known per assembly + copy_parent + detector_gated); ~6 s/pair warm, 25-pair unit ~150-250 s; RSS < 2 GB, VRAM < 4 GB.",
+   "role": "stress",
+   "purpose": "Confirmatory C-MERGE, arm P0: 1000 never-co-assembled assembly pairs (seed root 92599/21), truths in T1 and T2 with the fixed reference, the composed enum_known certificate, copy_parent, detector_gated and the oracle composition; shard 0 is an unscored exploratory timing spare.",
+   "profile": "torch",
+   "vram_gb": 4
+  },
+  {
+   "name": "conf-merge-P5",
+   "task": "stress_merge",
+   "stage": 1,
+   "lane": "rented",
+   "shards": 9,
+   "units_per_shard": 5,
+   "unit_s": 250,
+   "overhead_s": 300,
+   "priority": 10,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.merge_task:TASK",
+    "--arm",
+    "P5",
+    "--pairs",
+    "1000",
+    "--per-unit",
+    "25",
+    "--spare-shard0",
+    "--backend",
+    "auto"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
+   ],
+   "pilot": "stress 2026-11-25: scripts/heavy.sh --gpu python -m cfcap.runner stress_merge --task-spec cfcap.t2.merge_task:TASK --shard 0 --n-shards 1 --out /tmp/mtest --arm P5 --pairs 2 --per-unit 2 --root 1,1 (4070, numba 4 threads): 23 s for 2 pairs incl. ~10 s first-call compile (T1 truth + composition on GPU, T2 truth numba, enum_known per assembly + copy_parent + detector_gated); ~6 s/pair warm, 25-pair unit ~150-250 s; RSS < 2 GB, VRAM < 4 GB.",
+   "role": "stress",
+   "purpose": "Confirmatory C-MERGE, arm P5: 1000 never-co-assembled assembly pairs (seed root 92599/21), truths in T1 and T2 with the fixed reference, the composed enum_known certificate, copy_parent, detector_gated and the oracle composition; shard 0 is an unscored exploratory timing spare.",
+   "profile": "torch",
+   "vram_gb": 4
+  }
+ ]
+}

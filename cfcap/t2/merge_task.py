@@ -27,10 +27,19 @@ def _args(p):
     p.add_argument("--device", default="cuda")
     p.add_argument("--backend", default="auto")
     p.add_argument("--root", default="92599,21", help="seed root; anything but 92599,21 is a smoke/exploratory run")
+    p.add_argument("--spare-shard0", action="store_true",
+                   help="shard 0 = one exploratory spare unit (pairs 100000+, root 92599,99), the rest over shards 1..N-1")
+
+
+SPARE0 = 100000      # --spare-shard0: shard 0 runs pairs 100000+ on an exploratory root (timing canary, never scored)
 
 
 def _units(a, shard, n_shards):
     nu = -(-a.pairs // a.per_unit)
+    if a.spare_shard0:
+        if shard == 0:
+            return [f"merge-{a.arm}-spare"]
+        return [f"merge-{a.arm}-u{j:04d}" for j in shard_range(nu, shard - 1, n_shards - 1)]
     return [f"merge-{a.arm}-u{j:04d}" for j in shard_range(nu, shard, n_shards)]
 
 
@@ -38,10 +47,14 @@ def _run(unit, ctx):
     from cfcap.t1 import params as P
     from cfcap.t2 import merge as MG
     a = ctx.args
-    j = int(unit.rsplit("-u", 1)[1])
     par = P.base_params("plated")
     dr = P.theta_dr(P.load_theta("plated"))
-    pairs = list(range(j * a.per_unit, min(a.pairs, (j + 1) * a.per_unit)))
+    root = tuple(int(x) for x in a.root.split(","))
+    if unit.endswith("-spare"):
+        pairs, root = list(range(SPARE0, SPARE0 + a.per_unit)), (92599, 99)
+    else:
+        j = int(unit.rsplit("-u", 1)[1])
+        pairs = list(range(j * a.per_unit, min(a.pairs, (j + 1) * a.per_unit)))
     st = ctx.load_state() or {"done": [], "rows": []}
     for k, p in enumerate(pairs):
         if p in st["done"]:
@@ -49,7 +62,7 @@ def _run(unit, ctx):
         if ctx.should_stop():
             ctx.save_state(st)
             raise Stop("stress_merge checkpoint")
-        rec = MG.gen_pair(tuple(int(x) for x in a.root.split(",")), a.arm, p, par, dr)
+        rec = MG.gen_pair(root, a.arm, p, par, dr)
         o = MG.score_pair(rec, par, a.device, t2_seed=92599 * 1000 + 21 * 10 + int(a.arm == "P5"), backend=a.backend)
         for i in range(len(o["merge"])):
             r = dict(arm=a.arm, pair=p, merge=int(o["merge"][i]), n_mod=int(o["n_mod"][i]), n_fault=int(o["n_fault"][i]))
