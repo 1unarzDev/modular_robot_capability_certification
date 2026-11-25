@@ -3,6 +3,8 @@
 **Status (2026-11-25):** round 1 done. Four results stated and checked on T0 (`docs/theory/THEORY_cfcap.md`). All
 numbers are exploratory, from simulation only.
 
+**Headline candidate: probing matters exactly where the motor law could be wrong (v2 does not load the torque side); T2/A5 tests this.**
+
 ## Summary
 - **Why A2 is 0.02 % ambiguous (Lemma 1 + Prop. 2).** In T0/T1 a driven wheel is fully described by two inverse motor
   constants (α torque, β speed). A weak fault and motor spread are the same kind of object. v2 runs at almost zero

@@ -1,0 +1,72 @@
+{
+ "campaign": "cfcap-theory",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after both groups complete: they give the Prop. 2/3 phase diagram (ambiguity by probe set, envelope class, delta, parent size N<=8) and the envelope-misspecification check of board prediction S1 (docs/board/theory.md).",
+ "_doc": "Role theory, lane free. Tasks cfcap/theory_task.py:PHASE (episode code scripts/theory_nuisance.py run_episode: parametric box image under motor-spread / mu boxes at delta 0.04/0.08/0.16 and the speed-only nonparametric class for probe sets v2, v2+clamp, v2+22.5deg oblique, v2+2x yaw, v2+clamp+2x yaw; 4-8-module parents, 1-2 faults weak/coast/brake) and :ENVELOPE (knee-envelope truth vs two-constant oracle fitted at the parent's probes, v2 and v2+clamp, 4-6-module parents). CPU only, torch at 1 thread, outputs = runner npz units (no parquet). Analysis: results/theory (theory_nuisance.py analyze style; envelope: unsafe-go and |rho_hat - rho_true| by dominance class).",
+ "groups": [
+  {
+   "name": "phase",
+   "task": "theory_phase",
+   "stage": 1,
+   "lane": "free",
+   "profile": "cpu",
+   "shards": 15,
+   "units_per_shard": 20,
+   "unit_s": 150,
+   "overhead_s": 60,
+   "priority": 40,
+   "seed": 0,
+   "task_args": [
+    "--task-spec",
+    "cfcap.theory_task:PHASE",
+    "--seeds",
+    "0:3000",
+    "--per-unit",
+    "10",
+    "--sizes",
+    "4,5,6,7,8",
+    "--faults",
+    "mix",
+    "--np-sets",
+    "v2,v2clamp,v2obl,v2yawhi,v2clampyawhi",
+    "--deltas",
+    "0.04,0.08,0.16",
+    "--threads",
+    "1"
+   ],
+   "pilot": "theory 2026-11-25, local i7 host, 1 thread (OMP=1), python -m cfcap.runner theory_phase --task-spec cfcap.theory_task:PHASE --seeds 0:1 --sizes 4 (runner smoke ok, npz units) and run_episode at 1 thread: N=6 parent 4.0 s, N=8 parent 14.5 s (390 rows), N=4-6 mean 2.5 s at 4 threads (results/theory, 200 parents); unit of 10 episodes at sizes 4-8 estimated 100 s, set to 150 s for the large-polyomino tail and slower worker cores",
+   "role": "theory",
+   "purpose": "Quasi-static phase diagram of counterfactual decision ambiguity by probe set, envelope class and motor spread over 4-8-module polyomino parents (theory Prop. 2 and 3)."
+  },
+  {
+   "name": "envelope",
+   "task": "theory_envelope",
+   "stage": 1,
+   "lane": "free",
+   "profile": "cpu",
+   "shards": 10,
+   "units_per_shard": 15,
+   "unit_s": 100,
+   "overhead_s": 60,
+   "priority": 41,
+   "seed": 0,
+   "task_args": [
+    "--task-spec",
+    "cfcap.theory_task:ENVELOPE",
+    "--seeds",
+    "0:3000",
+    "--per-unit",
+    "20",
+    "--sizes",
+    "4,5,6",
+    "--threads",
+    "1"
+   ],
+   "pilot": "theory 2026-11-25, local i7 host, 1 thread: python -m cfcap.runner theory_envelope --task-spec cfcap.theory_task:ENVELOPE --seeds 0:2 --per-unit 2 -> 2 episodes 8.6 s (4.3 s/episode, 550 rows, exit 0); unit of 20 episodes = 86 s, set to 100 s",
+   "role": "theory",
+   "purpose": "Envelope-misspecification check: knee motor truth against the two-constant oracle, unsafe commits by operating-point dominance class (theory prediction S1)."
+  }
+ ]
+}

@@ -37,18 +37,47 @@ K_SIG = 3.0
 H = 1e-3
 
 
-def run_episode(seed, P, th):
+NP_SETS = {"v2": ("v2",), "v2clamp": ("v2", "clamp"), "v2obl": ("v2", "obl"), "v2yawhi": ("v2", "yawhi"),
+           "v2clampyawhi": ("v2", "clamp", "yawhi")}
+
+
+def extra_legs(plant, kind):
+    """Probe kinds beyond cfcap.t0.probesets: obl = +-22.5 deg translations at 0.30 m/s (capxfer Prop. 4 heading);
+    yawhi = +-2x the v2 yaw rate (reaches the yaw operating points of smaller children; saturating is allowed)."""
+    from cfcap.t0 import probesets as PS
+    if kind in ("v2", "clamp", "moddiff", "tug"):
+        return PS.probe_legs(plant, kind)
+    if kind == "obl":
+        c, s_ = 0.3 * math.cos(math.pi / 8), 0.3 * math.sin(math.pi / 8)
+        xis = [[c, s_, 0], [-c, -s_, 0], [c, -s_, 0], [-c, s_, 0]]
+    elif kind == "yawhi":
+        w = 2 * PS.v2_twists(plant.asm)[4, 2]
+        xis = [[0, 0, w], [0, 0, -w]]
+    else:
+        raise ValueError(kind)
+    om = plant.ik(np.asarray(xis, float))
+    return [(f"{kind}{k}", om[k], np.full(plant.asm.n, np.nan)) for k in range(len(om))]
+
+
+def run_episode(seed, P, th, sizes=(4, 5, 6), faults="weak1", np_sets=("v2", "v2clamp"), n_merge=4, deltas=None):
+    """faults: 'weak1' (healthy if seed % 4 == 0, else one weak wheel g ~ U(0.3, 1)) or 'mix' (healthy if seed % 5 == 0,
+    else 1-2 faults, weak g ~ U(0.3, 1) / coast / brake w.p. 0.5 / 0.25 / 0.25). Defaults reproduce results/theory."""
     from cfcap.t0 import qs, stagea, candidates as C, probesets as PS, observe as O
-    from capxfer.sim import WEAK
+    from capxfer.sim import WEAK, COAST, BRAKE
+    DELTAS_ = DELTAS if deltas is None else tuple(deltas)
     rng = np.random.default_rng(10_000 + seed)
-    parent = stagea.random_parent(rng, P, (4, 5, 6))
+    parent = stagea.random_parent(rng, P, tuple(sizes))
     n = parent.n
     st, nl, mu = O.sample_het(rng, parent, True)
     tm, tg = np.zeros(n, np.int64), np.ones(n)
-    healthy_parent = seed % 4 == 0
-    if not healthy_parent:
-        w = int(rng.integers(n))
-        tm[w], tg[w] = WEAK, float(rng.uniform(0.3, 1.0))
+    if faults == "weak1":
+        if seed % 4 != 0:
+            w = int(rng.integers(n))
+            tm[w], tg[w] = WEAK, float(rng.uniform(0.3, 1.0))
+    elif seed % 5 != 0:
+        for w in rng.choice(n, int(rng.integers(1, 3)), replace=False):
+            md = int(rng.choice([WEAK, WEAK, COAST, BRAKE]))
+            tm[w], tg[w] = md, (float(rng.uniform(0.3, 1.0)) if md == WEAK else 1.0)
     other = stagea.random_parent(rng, P, (1, 2), name="other")
     ost, onl, omu = O.sample_het(rng, other, True)
     plant = qs.Plant(parent, P, th, stall=st, noload=nl, mu_f=mu)
@@ -56,17 +85,19 @@ def run_episode(seed, P, th):
     om0 = plant.nom["omega0"] * plant.d["noload_scale"]
     # ---- parent observations: v2 and clamp
     obs = {}
-    for kind in ("v2", "clamp"):
-        L = PS.probe_legs(plant, kind)
+    kinds = sorted({k for s_ in np_sets for k in NP_SETS[s_]} | {"v2", "clamp"})
+    for kind in kinds:
+        L = extra_legs(plant, kind)
         r = qs.solve(plant, tm[None], tg[None], np.stack([l[1] for l in L]), np.stack([l[2] for l in L]))
         obs[kind] = r
     u2, om2 = obs["v2"]["duty"][0], obs["v2"]["om"][0]                    # (6, n)
     speed_part = om2 / (om0 * nl * tg * vb)
     torque_share = np.where(np.abs(u2) > 1e-6, 1 - speed_part / u2, np.nan)
     sat = {k: (np.abs(obs[k]["duty"][0]) > 0.999).any(0) for k in obs}
-    vmax = {"v2": np.abs(om2).max(0)}
-    vmax["v2clamp"] = np.maximum(vmax["v2"], np.abs(obs["clamp"]["om"][0]).max(0))
-    sat["v2clamp"] = sat["v2"] | sat["clamp"]
+    vmax = {k: np.abs(obs[k]["om"][0]).max(0) for k in obs}
+    for s_ in set(np_sets) | {"v2clamp"}:
+        vmax[s_] = np.max([vmax[k] for k in NP_SETS[s_]], 0)
+        sat[s_] = np.any([sat[k] for k in NP_SETS[s_]], 0)
     umax = np.abs(u2).max(0)
     wheel_rows = [dict(seed=seed, wheel=i, fault=int(tm[i]), g=tg[i], umax_v2=umax[i],
                        torque_share_med=float(np.nanmedian(np.abs(torque_share[:, i]))),
@@ -76,7 +107,7 @@ def run_episode(seed, P, th):
     # per parent wheel: duty-noise box on log beta
     eps = {p: np.minimum(K_SIG * s / np.maximum(umax, 1e-3), 0.5) for p, s in sig_u.items()}
     omu_wheel = omu
-    cands = C.children(parent, P) + C.sample_merges(parent, other, P, rng, 4)
+    cands = C.children(parent, P) + C.sample_merges(parent, other, P, rng, n_merge)
     rows = []
     for cand in cands:
         src = cand.src
@@ -119,7 +150,7 @@ def run_episode(seed, P, th):
         src_par = np.where(src >= 0, src, 0)
         is_par = src >= 0
         variants = []
-        for d in DELTAS:
+        for d in DELTAS_:
             w = math.log((1 + d) / (1 - d))
             wmu = math.log((1 + 1.25 * d) / (1 - 1.25 * d))
             for p in ("sensor", "floor"):
@@ -141,19 +172,21 @@ def run_episode(seed, P, th):
             hi_c[:, li] = np.maximum(rr[0::2], rr[1::2])
         # speed-only (nonparametric ceiling) class
         np_rows = []
-        for key in ("v2", "v2clamp"):
+        for key in np_sets:
             gp = np.ones(nc)
             for j in range(nc):
-                if src[j] >= 0:
+                if src[j] >= 0 and cm[j] in (0, WEAK):
                     s = src[j]
                     gp[j] = tg[s] if sat[key][s] else min(1.0, vmax[key][s] / (om0 * nl[s] * vb))
             modes = np.where(gp < 1, WEAK, cm)
             np_rows.append((modes, gp))
         Mlo = np.stack([m for m, _ in np_rows]); Glo = np.stack([g for _, g in np_rows])
-        hr = (np.tile(cst, (2, 1)), np.tile(cnl, (2, 1)), np.tile(cmu, (2, 1)))
+        nk = len(np_sets)
+        hr = (np.tile(cst, (nk, 1)), np.tile(cnl, (nk, 1)), np.tile(cmu, (nk, 1)))
         rn = qs.solve(cpl, Mlo, Glo, omr, het_rows=hr)
         rho_np_lo = qs.rho_of(rn["xi"], xis, cand.asm.char_length())       # (2, 10)
-        rh = qs.solve(cpl, np.zeros((1, nc), np.int64), np.ones((1, nc)), omr,
+        passive = (cm == COAST) | (cm == BRAKE)                            # passive modes are identified (A2)
+        rh = qs.solve(cpl, np.where(passive, cm, 0)[None], np.ones((1, nc)), omr,
                       het_rows=(cst[None], cnl[None], cmu[None]))
         rho_np_hi = np.maximum(qs.rho_of(rh["xi"], xis, cand.asm.char_length())[0], rho_t)
         has_fault = bool((cm != 0).any())
@@ -161,8 +194,10 @@ def run_episode(seed, P, th):
             row = dict(seed=seed, cand=cand.name, kind=cand.kind, cand_size=cand.size, has_fault=has_fault, leg=li,
                        rho_t=float(rho_t[li]), S_alpha=float(np.abs(grad[:nc, li]).sum()),
                        S_beta=float(np.abs(grad[nc:2 * nc, li]).sum()), S_mu=float(np.abs(grad[2 * nc:, li]).sum()),
-                       np_lo_v2=float(rho_np_lo[0, li]), np_lo_v2clamp=float(rho_np_lo[1, li]),
-                       np_hi=float(rho_np_hi[li]))
+                       np_hi=float(rho_np_hi[li]), n_faults=int((tm != 0).sum()),
+                       parent_size=len(parent.modules))
+            for ki, key in enumerate(np_sets):
+                row[f"np_lo_{key}"] = float(rho_np_lo[ki, li])
             for vi, (vn, d, _) in enumerate(variants):
                 row[f"lo_{vn}_{d}"] = lo_c[vi, li]; row[f"hi_{vn}_{d}"] = hi_c[vi, li]
                 row[f"lolin_{vn}_{d}"] = lo_l[vi, li]; row[f"hilin_{vn}_{d}"] = hi_l[vi, li]
