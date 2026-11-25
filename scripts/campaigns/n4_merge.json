@@ -1,0 +1,37 @@
+{
+ "campaign": "cfcap-stress-n4",
+ "lineage": "cfcap-stress",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop when the 19 remaining N4 units (60 E2 pairs each) are done.",
+ "_doc": "Role stress, lineage cfcap-stress, EXPLORATORY (E2 seeds 907000; no confirmatory stream). Task stress_n4 (cfcap/t2/n4_task.py). Inputs: crane_ml and a4_e2 (the E2 outputs A4_<arm>_s<shard>.npz). Pull back, then `scripts/stress_N4.py import --runs DIR` and `analyze` write N4_margins.json.",
+ "groups": [
+  {
+   "name": "n4-merge",
+   "task": "stress_n4",
+   "stage": 1,
+   "lane": "rented",
+   "shards": 19,
+   "units_per_shard": 1,
+   "unit_s": 600,
+   "overhead_s": 300,
+   "priority": 1,
+   "task_args": [
+    "--task-spec",
+    "cfcap.t2.n4_task:TASK",
+    "--exclude",
+    "n4-P0-s0-000"
+   ],
+   "extra_inputs": [
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml",
+    "~/.cache/modular-runs/2026-11/cfcap/compute/stage/a4_e2"
+   ],
+   "pilot": "stress 2026-11-25: local chain scripts/stress_N4.py run --arm P0 --shard 0 --start 0 --stop 60 on the 4070 (heavy.sh --gpu): 25 pairs in 226 s, ~9 s/pair (two v2 probes in T1 + enum_known per assembly + composition), a 60-pair unit ~540 s; VRAM < 4 GB, RSS < 2 GB. Unit n4-P0-s0-000 ran locally and is excluded.",
+   "role": "stress",
+   "purpose": "EXPLORATORY N4: the composed enum_known merge certificate (each assembly's own v2 probe, inferred latents) on the 500 E2 pairs per payload arm, for the frozen C-MERGE margins that must be committed before 01:45Z.",
+   "profile": "torch",
+   "vram_gb": 4
+  }
+ ]
+}

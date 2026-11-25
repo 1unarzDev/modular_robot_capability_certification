@@ -257,7 +257,7 @@ def analyze():
                                         cand=int(z["meta_merge"][i]), kind="merge", cand_size=int(z["meta_n_mod"][i]),
                                         has_fault=int(z["meta_n_fault"][i] > 0), leg=l, truth=float(tr[i, l]),
                                         point=float(z["T1_comp"][i, l]), scale=np.nan, lower=float(lower[i, l]),
-                                        alpha=ALPHA, seconds=np.nan))
+                                        alpha=ALPHA, seconds=np.nan, status="exploratory"))
         # size-aware misspecification margin from T1 perturbations (never T2): q_pert(n_mod) = conformal (1 - alpha)
         # quantile over pairs of max(comp - T1_pert)_+ per merge size; certificate comp_sizeaware: lower = comp - q_pert(n_mod) (
         # q_pert(n_mod)); miscov_pair on T1 and T2 truth over every pair (the calibration never saw either truth).
@@ -294,7 +294,7 @@ def analyze():
                                         cand=int(z["meta_merge"][i]), kind="merge", cand_size=int(z["meta_n_mod"][i]),
                                         has_fault=int(z["meta_n_fault"][i] > 0), leg=l, truth=float(tr[i, l]),
                                         point=float(z["T1_comp"][i, l]), scale=np.nan, lower=float(lower[i, l]),
-                                        alpha=ALPHA, seconds=np.nan))
+                                        alpha=ALPHA, seconds=np.nan, status="exploratory"))
     RES.mkdir(parents=True, exist_ok=True)
     (RES / "paper").mkdir(exist_ok=True)
     with open(RES / "paper" / "dec_merge.csv", "w", newline="") as fh:

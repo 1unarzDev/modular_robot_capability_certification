@@ -61,14 +61,15 @@
     "--conds",
     "all+motor",
     "--misfit",
-    "--no-obs"
+    "--obs-kinds",
+    "v2,clamp"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage/crane_ml"
    ],
    "pilot": "stress 2026-11-25: scripts/heavy.sh python -m cfcap.runner t2_eval --shard 0 --n-shards 1 --out /tmp/mp2 --mode simulate --split test --episodes 4 --per-unit 4 --conds all+motor --misfit --no-obs (NUMBA_NUM_THREADS=4, CPU only, host shared): 45.2 s/episode (20 candidates/episode; per-candidate v2 and clamp misfit = T1 torch-CPU + T2 probe runs); a 6-episode unit = ~270 s at 4 threads; RSS < 1.5 GB, VRAM 0. With the child-rate yaw probe (yawc, 5.7 s routine) added to v2 + clamp: ~+25 % per candidate (estimate from routine lengths 14.7 + 9.7 + 5.7 s vs 14.7 + 9.7 s), so --per-unit 5 keeps ~290 s units; 200 units = 20 x 10.",
    "role": "stress",
-   "purpose": "Per-candidate v2, clamp and child-rate yaw probe misfit of T2 (motor law) against T1 with latents known on 1000 test episodes, to validate a clamp-gated certificate for singles and the yaw probe for larger children.",
+   "purpose": "Per-candidate v2, clamp and child-rate yaw probe misfit of T2 (motor law) against T1 with latents known on 1000 test episodes, to validate a clamp-gated certificate for singles and the yaw probe for larger children. Stores the parent's v2 and clamp observations, the true parent faults and fixed-reference child labels for the decision role's T2 probe-policy scoring.",
    "ride": "torch"
   },
   {

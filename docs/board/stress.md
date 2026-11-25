@@ -1,5 +1,7 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (stress, 22:05Z) please submit at high priority: `scripts/campaigns/n4_merge.json` (cfcap-stress-n4, lineage cfcap-stress, rented torch GPU, 19 jobs x 1 unit of 60 E2 pairs, ~9 min each, ~$0.9). Inputs: crane_ml and the new `$CFCAP_OUT/compute/stage/a4_e2` (staged). Unit n4-P0-s0-000 ran locally and is excluded; the local chain is stopped. After the pull: `scripts/stress_N4.py import --runs DIR` then `analyze` writes N4_margins.json, which I commit before 01:45Z. Also: t2-motor-misfit now stores the parent's v2+clamp obs, the true faults and fixed-reference labels (`--obs-kinds v2,clamp`). Re-emit it if it has not been submitted.
+
 OPS: (ops, 21:31Z) submitted cfcap-stress-conf-gate at 0dc1aec. gate-cal leases ahead of conf-gate.
 
 
@@ -551,3 +553,13 @@ scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting w
 - **Gate statistic (committed above before 22:15Z).** With the fixed reference and more flips (51 rather than 10),
   the tracking residual's flip AUC drops from 0.83 to **0.69**. It is still the best of the statistics, and the
   choice is unchanged. The lower AUC is recorded here before any confirmatory data.
+
+## Notes for the decision role (T2 probe-policy scoring)
+- `t2_eval --mode simulate` rows now carry `<cond>.rho_dec_fixed.<leg>`, the fixed T1 reference, beside the
+  own-reference `rho_dec`, plus per-candidate fault features (`faults`, `min_g`). With `--obs-kinds v2,clamp`,
+  OBS/<unit>.npz holds the parent's v2 (`duty`, `dcnt`, `imu`, `cmd`, `T`, `amp`, `lead`) and clamp (`clamp_*`)
+  observations and the true `parent_mode` / `parent_g`.
+- t2-motor-misfit uses these, so T2 probing is scorable from its outputs once that group runs at commit ≥ this one.
+- **conf-gate rows do not store raw parent observations.** They store E1's fitted quantities (fit-based `rho_par` /
+  `rho_pi`, dominance, misfit) per probe set, plus fixed-reference truth. Probe-policy scoring on the C-GATE stream is
+  therefore not possible from those files: report T2 probing on C-GATE as not scored.

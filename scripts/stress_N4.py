@@ -26,7 +26,7 @@ TAUS = (0.6, 0.7, 0.8)
 ALPHA = 0.1
 
 
-def run(arm, shard, pairs=250, limit=None, device="cuda", start=0, stop=None):
+def run(arm, shard, pairs=250, limit=None, device="cuda", start=0, stop=None, a4_file=None, save=True):
     import torch
     from cfcap.baselines import compose as CO
     from cfcap.baselines.episode import DUTY_NOISE, lat_to, ref_table
@@ -36,7 +36,7 @@ def run(arm, shard, pairs=250, limit=None, device="cuda", start=0, stop=None):
     recs = recs[start:stop]
     if limit:
         recs = recs[:limit]
-    z = np.load(A4.OUT / f"A4_{arm}_s{shard}.npz")
+    z = np.load(a4_file or (A4.OUT / f"A4_{arm}_s{shard}.npz"))
     key = {(int(p), int(m)): i for i, (p, m) in enumerate(zip(z["meta_pair"], z["meta_merge"]))}
     out = {k: [] for k in ("pair", "merge", "n_mod", "n_fault", "truth_T1", "truth_T2", "enum_point", "enum_lower",
                            "enum_scale", "copy_parent", "detector_gated", "enum_abstain")}
@@ -71,7 +71,10 @@ def run(arm, shard, pairs=250, limit=None, device="cuda", start=0, stop=None):
             out["enum_abstain"].append(int(not np.isfinite(pe.lower[ci]).all()))
         if ri % 25 == 0:
             print(arm, shard, ri, f"{time.time() - t0:.0f}s", flush=True)
-    np.savez_compressed(A4.OUT / f"N4_{arm}_s{shard}_{start:03d}.npz", **{k: np.asarray(v) for k, v in out.items()})
+    out = {k: np.asarray(v) for k, v in out.items()}
+    if save:
+        np.savez_compressed(A4.OUT / f"N4_{arm}_s{shard}_{start:03d}.npz", **out)
+    return out
 
 
 def _conf_q(short, pairs):
@@ -135,7 +138,7 @@ def analyze():
                                         has_fault=int(faulted[i]), leg=l, truth=float(tr[i, l]),
                                         point=float(z["enum_point"][i, l]) if m.startswith("comp") else float(low[i, l]),
                                         scale=float(z["enum_scale"][i, l]) if m.startswith("comp") else np.nan,
-                                        lower=float(low[i, l]), alpha=ALPHA, seconds=np.nan))
+                                        lower=float(low[i, l]), alpha=ALPHA, seconds=np.nan, status="exploratory"))
         g = {(r["plant"], r["method"]): r for r in rows if r["arm"] == arm}
         ce1, cs2, cp1 = g[("T1", "comp_enum")], g[("T2", "comp_enum_size")], g[("T1", "copy_parent")]
         verdict[arm] = dict(cf_stratum_T1=ce1["cf_stratum"], unsafe_T1=ce1["unsafe"], miscov_T1=ce1["miscov_pair"],
@@ -158,13 +161,36 @@ def analyze():
     print(json.dumps(verdict, indent=1))
 
 
+def from_runs(runs):
+    """Runner units of cfcap.t2.n4_task -> N4_<arm>_s<shard>_<start>.npz under $CFCAP_OUT/stress (for analyze)."""
+    import glob
+    L = 10
+    for d in runs:
+        for f in sorted(glob.glob(os.path.join(d, "**/units/n4-*.npz"), recursive=True)):
+            z = np.load(f)
+            name = pathlib.Path(f).stem.split("-")                       # n4-P0-s0-060
+            arm, shard, start = name[1], int(name[2][1:]), int(name[3])
+            out = {k: z[k] for k in ("pair", "merge", "n_mod", "n_fault", "enum_abstain")}
+            for k in ("truth_T1", "truth_T2", "enum_point", "enum_lower", "enum_scale", "copy_parent",
+                      "detector_gated"):
+                out[k] = np.stack([z[f"{k}.{l}"] for l in range(L)], 1)
+            np.savez_compressed(A4.OUT / f"N4_{arm}_s{shard}_{start:03d}.npz", **out)
+            print("imported", f)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("run", "analyze"))
+    ap.add_argument("cmd", choices=("run", "analyze", "import"))
+    ap.add_argument("--runs", nargs="*", default=[])
     ap.add_argument("--arm", default="P0")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--stop", type=int, default=None)
     a = ap.parse_args()
-    run(a.arm, a.shard, limit=a.limit, start=a.start, stop=a.stop) if a.cmd == "run" else analyze()
+    if a.cmd == "run":
+        run(a.arm, a.shard, limit=a.limit, start=a.start, stop=a.stop)
+    elif a.cmd == "import":
+        from_runs(a.runs)
+    else:
+        analyze()

@@ -47,6 +47,7 @@ def _args(p):
     p.add_argument("--backend", default="auto", choices=("auto", "numba", "jax", "numpy"),
                    help="auto: numba if importable, else jax, else numpy (no torch.compile anywhere in T2)")
     p.add_argument("--no-obs", action="store_true", help="skip the parent's v2 probe observation")
+    p.add_argument("--obs-kinds", default="v2", help="parent probes stored in OBS (v2, clamp; decision role)")
     p.add_argument("--misfit", action="store_true",
                    help="per-candidate v2, clamp and child-rate yaw (yawc) misfit T2 vs T1 with latents known "
                         "(cfcap.t2.misfit; ~8x cost)")
@@ -99,7 +100,7 @@ def candidate_features(asm, lat, par, seed, effects):
                 drag_neg=json.dumps(np.round(S["mufn"][0] / cr, 3).tolist()))
 
 
-def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False):
+def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False, obs_kinds=("v2",)):
     """T2 labels (per condition) for every candidate of a generator episode, and the parent's v2 probe."""
     from cfcap.gen import episode as E
     from cfcap.gen import simrun as SR
@@ -145,13 +146,25 @@ def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False):
     ob = None
     if obs:
         a = ep.parent
-        rng = E.episode_rng(ep.plate, ep.split, ep.index, stream=1 + 16 * a.role + SR.PROBE_KINDS.index("v2"))
-        cmd, _, info = SR.probe_tables("v2", a.asm, par, rng)
         lat = E.plant_latents(ep, [(a.role, k) for k in range(a.m)], a.load_z, E.parent_payload(ep),
                               gyro=(a.gyro_bias, a.acc_bias))
-        T = SR.probe_T("v2")
-        R = cap2.simulate(a.asm, lat, par, cmd, T, build.ABLATIONS[conds[0]], backend=backend, seed=seed)   # obs under the first condition
-        ob = dict(_observe_np(R, lat, rng), cmd=cmd[:R["t"].shape[0]], **info)
+        for kind in obs_kinds:                     # parent probes under the first condition (generator rng streams)
+            rng = E.episode_rng(ep.plate, ep.split, ep.index, stream=1 + 16 * a.role + SR.PROBE_KINDS.index(kind))
+            cmd, _, info = SR.probe_tables(kind, a.asm, par, rng)
+            R = cap2.simulate(a.asm, lat, par, cmd, SR.probe_T(kind), build.ABLATIONS[conds[0]], backend=backend,
+                              seed=seed)
+            o = dict(_observe_np(R, lat, rng), cmd=cmd[:R["t"].shape[0]], **info)
+            if kind == "v2":
+                ob = dict(ob or {}, **o)
+            else:
+                ob = dict(ob or {}, **{f"{kind}_{k}": v for k, v in o.items()})
+        ob["parent_mode"], ob["parent_g"] = np.asarray(a.mode), np.asarray(a.g, float)      # true faults (scoring)
+    # fixed T1 reference (board decision 2026-11-25): rho_dec_fixed = rho_abs^T2 / rho_ref^T1
+    from cfcap.t1.reference import rho_ref_many
+    ref1 = rho_ref_many([c.asm for c in ep.cands], ep.plate, "cpu")
+    for cond in conds:
+        out[cond]["rho_ref_T1"] = ref1
+        out[cond]["rho_dec_fixed"] = out[cond]["rho"] / ref1
     return out, faulted, ob
 
 
@@ -233,12 +246,13 @@ def _run_simulate(unit, ctx):
             ctx.save_state(st)
             raise Stop("t2_eval checkpoint")
         ep = E.make_episode(a.plate, a.split, ei)
-        lab, faulted, ob = simulate_episode(ep, conds, a.backend, obs=not a.no_obs, misfit=a.misfit)
+        lab, faulted, ob = simulate_episode(ep, conds, a.backend, obs=not a.no_obs, misfit=a.misfit,
+                                            obs_kinds=tuple(a.obs_kinds.split(",")))
         for ci, c in enumerate(ep.cands):
             r = dict(plate=E.PLATES.index(a.plate), split=E.SPLITS[a.split], ep_index=ei, cand=ci, kind=c.kind,
                      n_mod=len(c.modules), n_wheel=c.asm.n, n_fault=int(faulted[ci]), **lab["_features"][ci])
             for cond in conds:
-                for key in ("rho", "rho_healthy", "rho_rel", "rho_ref", "rho_dec"):
+                for key in ("rho", "rho_healthy", "rho_rel", "rho_ref", "rho_dec", "rho_ref_T1", "rho_dec_fixed"):
                     for li, v in enumerate(lab[cond][key][ci]):
                         r[f"{cond}.{key}.{li}"] = float(v)
             st["rows"].append(r)
@@ -251,12 +265,20 @@ def _run_simulate(unit, ctx):
     if st["obs"]:
         buf = io.BytesIO()
         o = st["obs"]
-        np.savez_compressed(buf, ep_index=np.array([e for e, _ in o]),
-                            T=np.array([x["duty"].shape[0] for _, x in o]), n=np.array([x["duty"].shape[1] for _, x in o]),
-                            amp=np.array([x["amp"] for _, x in o]), lead=np.array([x["lead"] for _, x in o]),
-                            duty=np.concatenate([x["duty"].ravel() for _, x in o]),
-                            dcnt=np.concatenate([x["dcnt"].ravel() for _, x in o]),
-                            imu=np.concatenate([x["imu"] for _, x in o]), cmd=np.concatenate([x["cmd"] for _, x in o]))
+        arrs = dict(ep_index=np.array([e for e, _ in o]), n=np.array([x["duty"].shape[1] for _, x in o]),
+                    parent_mode=np.concatenate([x["parent_mode"] for _, x in o]),
+                    parent_g=np.concatenate([x["parent_g"] for _, x in o]))
+        for pre in [""] + [f"{k}_" for k in a.obs_kinds.split(",") if k != "v2"]:
+            if f"{pre}duty" not in o[0][1]:
+                continue
+            arrs.update({f"{pre}T": np.array([x[f"{pre}duty"].shape[0] for _, x in o]),
+                         f"{pre}amp": np.array([x[f"{pre}amp"] for _, x in o]),
+                         f"{pre}lead": np.array([x[f"{pre}lead"] for _, x in o]),
+                         f"{pre}duty": np.concatenate([x[f"{pre}duty"].ravel() for _, x in o]),
+                         f"{pre}dcnt": np.concatenate([x[f"{pre}dcnt"].ravel() for _, x in o]),
+                         f"{pre}imu": np.concatenate([x[f"{pre}imu"] for _, x in o]),
+                         f"{pre}cmd": np.concatenate([x[f"{pre}cmd"] for _, x in o])})
+        np.savez_compressed(buf, **arrs)
         atomic_bytes(ctx.out_dir / "obs" / f"{unit}.npz", buf.getvalue())
     rows = st["rows"]
     if not rows:
