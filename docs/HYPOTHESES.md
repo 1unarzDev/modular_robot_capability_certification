@@ -355,3 +355,16 @@ unmeasured: the small SMC campaign plus models eval2.
 - Contribution statement: *a screen calibrated on misspecified-law episodes, plus end-to-end calibration, gives a
   posterior that stays useful when the motor law is wrong; decision-aware probing then saves 3–4× probe time over
   fixed or heuristic probing at equal usefulness.*
+
+**Held-out severity + task-relevant share (decision, 11-25 ~23:30Z; pre-written bars; exploratory T0):**
+- **Robustness to an unseen motor law: SUPPORTED.**
+  - Screen K fitted on severities 0–2 (26.9) and the certificate calibrated on 0–2 only; tested on 267 fresh
+    severity-3 episodes.
+  - Empty screens 2.6 %, EVOI episode-unsafe 1.1 % (α 0.10), useful 88.5 % (pooled 93.1 %). Paired regret: EVOI −5.9
+    vs clamp, −1.7 vs dominance.
+  - K's exact value doesn't matter once it doesn't empty the screen.
+- **Task-relevant certified share is not equal:** EVOI 81.4 %, clamp 85.8 %, dominance 85.5 %, v2 72.0 %. EVOI
+  serves tasks through other certified plans (useful 93.1 vs 93.5 %). Clamp bought net utility in 13/585 episodes
+  (2.2 %); EVOI did better in 458.
+  - Honest framing: EVOI certifies slightly fewer of the oracle's own pairs, but loses ≤ 0.4 pt of usefulness while
+    saving 7 s of probing.
