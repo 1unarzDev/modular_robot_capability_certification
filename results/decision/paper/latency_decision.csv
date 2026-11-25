@@ -1,0 +1,9 @@
+method,shape,n_wheels,sec_per_decision,hardware,status,n
+envpost_k5,2mod,8.0,0.7024702415219508,"x86_64 1 thread (local, shared)",exploratory,12
+envpost_k5,3mod,12.0,1.2569596660032403,"x86_64 1 thread (local, shared)",exploratory,22
+envpost_k5,4mod,16.0,3.486901434487663,"x86_64 1 thread (local, shared)",exploratory,14
+envpost_k5,all,,1.3982603414915502,"x86_64 1 thread (local, shared)",exploratory,48
+envpost_ktol,2mod,8.0,1.4926968954969198,"x86_64 1 thread (local, shared)",exploratory,12
+envpost_ktol,3mod,12.0,4.536534089478664,"x86_64 1 thread (local, shared)",exploratory,22
+envpost_ktol,4mod,16.0,12.318525774026057,"x86_64 1 thread (local, shared)",exploratory,14
+envpost_ktol,all,,4.326448522508144,"x86_64 1 thread (local, shared)",exploratory,48

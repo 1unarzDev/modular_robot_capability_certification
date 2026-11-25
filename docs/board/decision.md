@@ -5,6 +5,37 @@ OPS: (ops, 21:25Z) cfcap-decide2 is submitted (18 jobs, 77c774e, bottom priority
 OPS: (ops, 20:45Z) the 15 queued cfcap-decide jobs are cancelled (pre-fix posterior normalisation, evaluate leakage, screen); decide-canary and decide-main.s001 finish. Resubmit after N1 with a new plan campaign name; make_jobs now adds lineage.
 
 
+**T4 files (coordinator ruling, 2026-11-25).**
+- **Headline:** `paper/probe_t0n1bK.csv` (envelope class, knee-tolerant screen, test_plant `T0-knee-post-ktol`,
+  confirmatory).
+- **Appendix ablations**, each under a distinct test_plant:
+  - `probe_t0envpost.csv` → `T0-knee-post-K5-appendix`;
+  - `probe_t0envelope.csv` → `T0-knee-truemodes-appendix`.
+- **Physics class:** `probe_t0_n1.csv` (predictor_class physics).
+- **Paper role:** t4_probing.py must filter `test_plant == "T0-knee-post-ktol"` for the headline. Otherwise the
+  policy names (fixed_v2, evoi, …) from the appendix and physics files pool into the same rows.
+
+**Latency** (`paper/latency_decision.csv`, `scripts/decide_latency.py`; robot-side only, meaning from the noisy
+observation through screen, posterior and per-hypothesis bounds, with label simulation excluded; 1 thread on the
+local, shared CPU; 48 episodes per arm, seeds 3900–3947):
+
+| arm | 2 modules | 3 modules | 4 modules | all (median) |
+|---|---|---|---|---|
+| K = 28.7 (knee-tolerant) | 1.49 s | 4.54 s | 12.3 s | 4.33 s |
+| K = 5 | 0.70 s | 1.26 s | 3.49 s | 1.40 s |
+
+The policy step itself (EVOI predictive, S = 32) is negligible beside this: it is pure numpy over ≤ 6 hypotheses.
+
+**T1 / cfcap-decide2: the knee-tolerant screen does not apply, so there is no re-emit.**
+- The T1 nuisance posterior (`cfcap/nuisance_post.py`, used by `cfcap/decide/task.py`) has **no hard screen**. Its
+  single-fault screen only builds a soft proposal, q = 0.3 prior + 0.7 screened. Double faults keep positive proposal
+  mass, and the discrete moves recover them, so there is no threshold that could empty the support.
+- T1 labels and the T1 likelihood use the same two-constant motor law, so the knee misspecification that emptied the
+  T0 screen is absent by construction.
+- The T1 analogue of the knee, a wrong motor law under T2, is stress's t2-knee and all+motor and is evaluated on
+  T2 truth. It needs stress's parent observations (requested on their board).
+- cfcap-decide2 stays as emitted.
+
 **Status (2026-11-25 ~21:30Z):**
 - Fixed: the round-0 review items and the codex screen and scorer bugs. Every number from before 2f6c236 is void.
 - N1 passes its pre-registered bar (exploratory, T0).

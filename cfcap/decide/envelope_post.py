@@ -114,6 +114,8 @@ def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None, k_screen=N
     sig = O.signals(dict(xi=obs["xi"][None], om=obs["om"][None], duty=obs["duty"][None]))[0]   # (10, 1 + 2n)
     y = sig + O.sigma(sig, "floor", False) * nrng.standard_normal(sig.shape)
     obs_n = dict(om=y[:, 1:1 + n], duty=np.clip(y[:, 1 + n:], -1, 1))
+    import time as _time
+    t_robot = _time.perf_counter()                              # robot-side compute starts at the noisy observation
     HM, HG = stagea.hypotheses(n)
     lp = TD.log_prior(HM, n)
     cands = C.children(parent, P)
@@ -179,6 +181,8 @@ def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None, k_screen=N
                     cache[(key, int(h))] = _bounds(parent, cands, P, th, st, nl, mu, HM[h], HG[h], obs_n, sl, plant)
                 bl.append(cache[(key, int(h))])
             res[key] = (bl, wk)
+    meta["robot_s"] = _time.perf_counter() - t_robot           # screen + posterior + per-hypothesis bounds (no labels)
+    meta["parent_size"] = len(parent.modules)
     out = {k: [] for k in ("seed", "law", "cand", "cand_size", "has_fault", "leg", "rho_true", "conv")}
     for key in TT.PROBE_IDX:
         for c in ("rho_par", "rho_pi", "rho_par_hi", "undom_speed"):
