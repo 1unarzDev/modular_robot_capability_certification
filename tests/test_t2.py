@@ -140,3 +140,15 @@ def test_adv_space_and_score(setup):
     sc, leg, tau, r1, r2, lat = adv.score_members(sp, z, par, refs, 1, "numba")
     assert np.isfinite(sc).all() and r1.shape == r2.shape == (6, 10)
     assert ((lat["mode"].numpy() > 0).sum(1) <= 2).all()
+
+
+def test_motor_mode_backends_agree_and_is_off_by_default(setup):
+    par, th, dr = setup
+    asm = P.named_assembly("pair", par)
+    lat = _latents(asm, 3, 7, dr)
+    assert not build.ALL.motor and not build.NONE.motor
+    a = cap2.capability([(asm, lat)], par, build.ABLATIONS["all+motor"], relative=True, backend="numpy")[0]
+    b = cap2.capability([(asm, lat)], par, build.ABLATIONS["all+motor"], relative=True, backend="numba")[0]
+    c = cap2.capability([(asm, lat)], par, build.ALL, relative=True, backend="numba")[0]
+    assert np.allclose(a["rho"], b["rho"], atol=1e-10)
+    assert np.abs(b["rho"] - c["rho"]).max() > 1e-3          # the motor law changes the plant

@@ -43,6 +43,7 @@ G0 = 9.81
 NSUB = 4                         # plant steps per 50 Hz tick at dt = 5 ms
 DT = 0.005
 ROT_SMOOTH = 2e-4                # rad: hook-play sign smoothing
+MOTOR_TAU_TH = 30.0              # s: thermal time constant of the misspecified motor (build.MOTOR)
 IWc = K.IW
 I_EX, I_EY, I_TX, I_TY, I_MUT, I_MUF, I_N = (IWc[k] for k in ("ex", "ey", "tx", "ty", "mu_t", "mu_f", "N"))
 I_IMX, I_IMY = K.IB['imu_x'], K.IB['imu_y']
@@ -183,7 +184,33 @@ def _command(S, tables, which, k, xp):
 def init_state(S, xp=np):
     E, W = S["px0"].shape
     z = xp.zeros((E, W))
-    return dict(x=xp.zeros((E, K.S0 + K.PER * W)), integ=z, thc=z, u=z, rot=z, vf=z)
+    return dict(x=xp.zeros((E, K.S0 + K.PER * W)), integ=z, thc=z, u=z, rot=z, vf=z, tau=z,
+                eth=xp.zeros((E, W)) + S["eth0"])
+
+
+def _motor_cmd(S, st, xp):
+    """Misspecified motor (build.MOTOR): this step's true torque at the previous step's wheel speed and torque, as the
+    crane speed command cmd = w + tau / K (the kernel's local slope -K around w is kept)."""
+    E, W = S["px0"].shape
+    om = st["x"][:, K.S0:].reshape(E, W, K.PER)[..., 1]
+    ts, wnl = S["ts"], S["wnl"]
+    Kg = ts / wnl
+    load = (S["Amod"] * (xp.abs(st["tau"]) / ts)[:, None, :]).sum(-1)
+    vb = S["vb"] * xp.maximum(1.0 - S["ksag"] * load, 0.5)
+    nl = wnl * xp.maximum(0.4, 1.0 - S["cw"] * xp.maximum(xp.abs(om) / S["omk"] - 1.0, 0.0))
+    se = ts * xp.maximum(0.4, 1.0 - S["ct"] * xp.maximum(xp.abs(st["tau"]) / S["tauk"] - 1.0, 0.0)) \
+        * xp.maximum(0.4, 1.0 - S["cth"] * st["eth"])
+    tau = se * (st["u"] * S["gw"] * vb - om / nl)
+    tau = xp.minimum(xp.maximum(tau, -S["ilim"]), S["ilim"])
+    return om + tau / Kg
+
+
+def _motor_after(S, st, cmd, om_new, xp):
+    Kg = S["ts"] / S["wnl"]
+    tau = xp.minimum(xp.maximum(Kg * (cmd - om_new), -S["ilim"]), S["ilim"])
+    tau = xp.where(S["driven"] > 0, tau, 0.0)
+    eth = st["eth"] + DT * ((tau / S["ts"]) ** 2 - st["eth"] / MOTOR_TAU_TH)
+    return tau, eth
 
 
 def tick(S, st, tables, which, j, xp=np):
@@ -196,7 +223,7 @@ def tick(S, st, tables, which, j, xp=np):
             if s == 0:
                 u, integ, thc = _firmware(S, st, u_tw, xp)
                 st = dict(st, u=u, integ=integ, thc=thc)
-            cmd = st["u"] * S["gw"] * S["vb"] * S["wnl"]
+            cmd = _motor_cmd(S, st, xp) if S["mm_on"] else st["u"] * S["gw"] * S["vb"] * S["wnl"]
         else:
             cmd = K.firmware(K._wheels(p, xp), u_tw, xp)
         pe = _effective_p(p, S, st, xp)
@@ -213,6 +240,9 @@ def tick(S, st, tables, which, j, xp=np):
                 rel = (S["Mrot"] * z[:, None, :]).sum(-1)
                 rot = rel + S["play"][:, None] * xp.tanh(rel / ROT_SMOOTH)
         st = dict(st, x=x_new, rot=rot, vf=vf)
+        if S["mm_on"]:
+            tau, eth = _motor_after(S, st, cmd, om, xp)
+            st = dict(st, tau=tau, eth=eth)
     return st
 
 
@@ -246,7 +276,7 @@ def run_jax(S, tables, which, n_ticks, dtype="float32"):
     """JAX backend: lax.scan over ticks (one compile per shape and effect flags)."""
     from engine.jaxconf import jax, jnp
     f = jnp.float32 if dtype == "float32" else jnp.float64
-    flags = ("lt_on", "cp_on", "an_on", "fw_robot")
+    flags = ("lt_on", "cp_on", "an_on", "fw_robot", "mm_on")
     arr = {k: v for k, v in S.items() if k not in flags}
     fl = {k: bool(S[k]) for k in flags}
     key = (tuple(sorted(fl.items())), dtype, n_ticks)
@@ -329,7 +359,8 @@ def _nb_step_cmd(x, p, dt, cmd, om, scratch, Wr, A, r):
 
 @numba.njit(cache=True, parallel=True)
 def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp, ki, cpr, vb, gw, wnl, driven, lat_ticks, delay,
-            fw_robot, lt_on, N0, GN, h, cp_on, Mrot, play, an_on, mufp, mufn, tables, which, n_ticks,
+            fw_robot, lt_on, N0, GN, h, cp_on, Mrot, play, an_on, mufp, mufn, mm_on, ts, ilim, omk, tauk, cw, ct,
+            cth, eth0, ksag, Amod, tables, which, n_ticks,
             o_twist, o_pose, o_duty, o_speed, o_angle, o_gz, o_ax, o_ay):
     E = p.shape[0]
     W = (p.shape[1] - K.G) // K.Q
@@ -342,6 +373,7 @@ def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp,
             np.zeros((3, 3)), np.zeros(3)
         integ, thc, u = np.zeros(W), np.zeros(W), np.zeros(W)
         rot, vf, z = np.zeros(W), np.zeros(W), np.zeros(nz)
+        taum, eth = np.zeros(W), eth0[e].copy()
         m = which[e]
         kc = cpr[e] / (2 * math.pi)
         Ntot = 0.0
@@ -381,7 +413,20 @@ def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp,
                                 integ[jw] = integ[jw] + er * (NSUB * DT)
                             u[jw] = min(max(raw, -1.0), 1.0)
                             thc[jw] = ang
-                        cmd[jw] = u[jw] * gw[e, jw] * vb[e, jw] * wnl[e, jw]
+                        if mm_on:
+                            omw = x[K.S0 + K.PER * jw + 1]
+                            ld = 0.0
+                            for q in range(W):
+                                ld += Amod[e, jw, q] * abs(taum[q]) / ts[e, q]
+                            vbe = vb[e, jw] * max(1.0 - ksag[e, jw] * ld, 0.5)
+                            nle = wnl[e, jw] * max(0.4, 1.0 - cw[e, jw] * max(abs(omw) / omk[e, jw] - 1.0, 0.0))
+                            se = ts[e, jw] * max(0.4, 1.0 - ct[e, jw] * max(abs(taum[jw]) / tauk[e, jw] - 1.0, 0.0)) \
+                                * max(0.4, 1.0 - cth[e, jw] * eth[jw])
+                            tq = se * (u[jw] * gw[e, jw] * vbe - omw / nle)
+                            tq = min(max(tq, -ilim[e, jw]), ilim[e, jw])
+                            cmd[jw] = omw + tq / (ts[e, jw] / wnl[e, jw])
+                        else:
+                            cmd[jw] = u[jw] * gw[e, jw] * vb[e, jw] * wnl[e, jw]
                     else:
                         pb = p[e]
                         if pb[o + 6] == K.BALL or pb[o + 22] <= 0:
@@ -423,6 +468,12 @@ def _nb_run(p, px0, py0, ex0, ey0, tx0, ty0, fex, fey, ftx, fty, r_nom, kff, kp,
                             0.5 * (mufp[e, jw] - mufn[e, jw]) * sg
                 xv0, xv1, xv2 = x[3], x[4], x[5]
                 _nb_step_cmd(x, pe, DT, cmd, om, scratch, Wr, A, r)
+                if mm_on:
+                    for jw in range(W):
+                        kg = ts[e, jw] / wnl[e, jw]
+                        tq = min(max(kg * (cmd[jw] - om[jw]), -ilim[e, jw]), ilim[e, jw])
+                        taum[jw] = tq if driven[e, jw] > 0 else 0.0
+                        eth[jw] = eth[jw] + DT * ((taum[jw] / ts[e, jw]) ** 2 - eth[jw] / MOTOR_TAU_TH)
                 if cp_on or an_on:
                     for jw in range(W):
                         o = K.G + jw * K.Q
@@ -471,6 +522,8 @@ def run_numba(S, tables, which, n_ticks):
             f("ki"), f("cpr"), f("vb"), f("gw"), f("wnl"), f("driven"), f("lat_ticks"),
             np.ascontiguousarray(S["delay"], np.int64), bool(S["fw_robot"]), bool(S["lt_on"]), f("N0"), f("GN"),
             f("h"), bool(S["cp_on"]), f("Mrot"), f("play"), bool(S["an_on"]), f("mufp"), f("mufn"),
+            bool(S.get("mm_on", False)), f("ts"), f("ilim"), f("omk"), f("tauk"), f("cw"), f("ct"), f("cth"), f("eth0"),
+            f("ksag"), f("Amod"),
             np.ascontiguousarray(tables, np.float64), np.ascontiguousarray(which, np.int64), int(n_ticks),
             out["twist"], out["pose"], out["duty"], out["speed"], out["angle"], out["gz"], out["ax"], out["ay"])
     return out

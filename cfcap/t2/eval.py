@@ -47,6 +47,8 @@ def _args(p):
     p.add_argument("--backend", default="auto", choices=("auto", "numba", "jax", "numpy"),
                    help="auto: numba if importable, else jax, else numpy (no torch.compile anywhere in T2)")
     p.add_argument("--no-obs", action="store_true", help="skip the parent's v2 probe observation")
+    p.add_argument("--misfit", action="store_true",
+                   help="per-candidate v2 and clamp misfit T2 vs T1 with latents known (cfcap.t2.misfit; ~2x cost)")
     p.add_argument("--episodes-dir", default=None)
     p.add_argument("--predictor", default=None, help="module:function (evaluate)")
     p.add_argument("--models", default=None)
@@ -72,7 +74,31 @@ def episode_seed(plate, split, index):
     return int(zlib.crc32(f"t2|{plate}|{split}|{int(index)}".encode()))
 
 
-def simulate_episode(ep, conds, backend="numba", obs=True):
+FEAT_COLS = ("faults", "min_g", "payload_kg", "mu_fac", "mu_fac_min", "mu_fac_max", "drag_pos", "drag_neg",
+             "D_imu_v2", "D_imu_clamp", "D_duty_v2", "D_duty_clamp")
+
+
+def candidate_features(asm, lat, par, seed, effects):
+    """Per-candidate features for the decision rows: faults [[wheel, mode, g]], min g, payload, the T2 per-wheel
+    roller-friction factors (aniso_mu) and roller-drag factors (aniso) of `effects` with this candidate's seed."""
+    from cfcap.t2 import build
+    from engine.kernels import mecanum as K
+    mode, g = build._np(lat["mode"])[0], build._np(lat["g"])[0]
+    S = build.episode_specs(asm, lat, par, effects, seed)
+    wp = S["p"][:, K.G:].reshape(1, -1, K.Q)
+    d = lat["dom"]
+    base = float(build._np(d["mu"])[0]) * build._np(lat["mu_mod"])[0][np.asarray(asm.wheel_module)]
+    muf = wp[0, :, K.IW["mu_t"]] / base
+    cr = float(build._np(d["c_roller"])[0]) * build.V_REF / S["N0"][0]
+    pl = lat.get("payload")
+    return dict(faults=json.dumps([[int(w), int(mode[w]), round(float(g[w]), 3)] for w in np.nonzero(mode)[0]]),
+                min_g=float(g.min()), payload_kg=float(build._np(pl["mass"])[0]) if pl is not None else 0.0,
+                mu_fac=json.dumps(np.round(muf, 3).tolist()), mu_fac_min=float(muf.min()), mu_fac_max=float(muf.max()),
+                drag_pos=json.dumps(np.round(S["mufp"][0] / cr, 3).tolist()),
+                drag_neg=json.dumps(np.round(S["mufn"][0] / cr, 3).tolist()))
+
+
+def simulate_episode(ep, conds, backend="numba", obs=True, misfit=False):
     """T2 labels (per condition) for every candidate of a generator episode, and the parent's v2 probe."""
     from cfcap.gen import episode as E
     from cfcap.gen import simrun as SR
@@ -99,6 +125,20 @@ def simulate_episode(ep, conds, backend="numba", obs=True):
                 rh[i] = o[k]["rho_healthy"][0] if rel else o[k]["rho"][0]
         ref = np.stack([cap2.rho_ref(c.asm, par, ep.plate, eff, n_draws=1, backend=backend) for c in ep.cands])
         out[cond] = dict(rho=rho, rho_healthy=rh, rho_rel=rho / rh, rho_ref=ref, rho_dec=rho / ref)
+    eff0 = build.ABLATIONS[conds[0]]
+    feats = []
+    for i, c in enumerate(ep.cands):
+        f = candidate_features(c.asm, lats[i], par, seed + 7919 * i, eff0)
+        if misfit:
+            from cfcap.t2 import misfit as MF
+            mf = MF.probe_misfit(c.asm, lats[i], par, eff0, seed + 7919 * i, backend=backend,
+                                 rng=E.episode_rng(ep.plate, ep.split, ep.index, stream=200 + i))
+            f.update(D_imu_v2=float(mf["v2"][0][0]), D_duty_v2=float(mf["v2"][1][0]),
+                     D_imu_clamp=float(mf["clamp"][0][0]), D_duty_clamp=float(mf["clamp"][1][0]))
+        else:
+            f.update(D_imu_v2=np.nan, D_duty_v2=np.nan, D_imu_clamp=np.nan, D_duty_clamp=np.nan)
+        feats.append(f)
+    out["_features"] = feats
     ob = None
     if obs:
         a = ep.parent
@@ -190,10 +230,10 @@ def _run_simulate(unit, ctx):
             ctx.save_state(st)
             raise Stop("t2_eval checkpoint")
         ep = E.make_episode(a.plate, a.split, ei)
-        lab, faulted, ob = simulate_episode(ep, conds, a.backend, obs=not a.no_obs)
+        lab, faulted, ob = simulate_episode(ep, conds, a.backend, obs=not a.no_obs, misfit=a.misfit)
         for ci, c in enumerate(ep.cands):
             r = dict(plate=E.PLATES.index(a.plate), split=E.SPLITS[a.split], ep_index=ei, cand=ci, kind=c.kind,
-                     n_mod=len(c.modules), n_wheel=c.asm.n, n_fault=int(faulted[ci]))
+                     n_mod=len(c.modules), n_wheel=c.asm.n, n_fault=int(faulted[ci]), **lab["_features"][ci])
             for cond in conds:
                 for key in ("rho", "rho_healthy", "rho_rel", "rho_ref", "rho_dec"):
                     for li, v in enumerate(lab[cond][key][ci]):
@@ -297,6 +337,11 @@ def _run_evaluate(unit, ctx):
                                 alpha=float(d.get("alpha", np.nan)), seconds=sec)
                     for key in DEC_COLS:
                         rows[key].append(vals[key])
+                    for key in FEAT_COLS:
+                        if key in z.files:
+                            rows.setdefault(key, []).append(z[key][m][k])
+                    for t in taus:
+                        rows.setdefault(f"margin_{t}", []).append(float(rr[k, l] - t))
                     for t in taus:
                         go, tr = lower[ci, l] >= t, rr[k, l] >= t
                         st["n"] += 1
@@ -319,10 +364,13 @@ def export_dec_csv(out_dirs, path):
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(DEC_COLS)
+        cols = None
         for f in files:
             z = np.load(f)
-            for r in zip(*[z[k] for k in DEC_COLS]):
+            if cols is None:
+                cols = list(DEC_COLS) + [k for k in z.files if k not in DEC_COLS]   # + features, margins
+                w.writerow(cols)
+            for r in zip(*[z[k] for k in cols]):
                 w.writerow([x.item() if hasattr(x, "item") else x for x in r])
     return len(files)
 

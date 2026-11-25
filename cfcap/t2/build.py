@@ -59,9 +59,10 @@ class Effects:
     aniso_mu: bool = False
     hook_play: float = 1.1e-3
     firmware: str = "robot"       # robot | crane (crane only for the reproduction test)
+    motor: bool = False           # misspecified motor law (OFF by default; see MOTOR below)
 
     def name(self):
-        on = [k for k in ("compliance", "load_transfer", "aniso", "aniso_mu") if getattr(self, k)]
+        on = [k for k in ("compliance", "load_transfer", "aniso", "aniso_mu", "motor") if getattr(self, k)]
         return "+".join(on) or "base"
 
 
@@ -69,7 +70,21 @@ NONE = Effects()
 ALL = Effects(True, True, True, True)
 ABLATIONS = {"base": NONE, "compliance": Effects(compliance=True), "load_transfer": Effects(load_transfer=True),
              "aniso": Effects(aniso=True), "aniso_mu": Effects(aniso_mu=True), "all": ALL,
-             "all-aniso_mu": Effects(True, True, True, False)}
+             "all-aniso_mu": Effects(True, True, True, False),
+             # misspecified motor law (flagged; not part of `all`)
+             "motor": Effects(motor=True), "all+motor": Effects(True, True, True, True, motor=True)}
+
+# Misspecified motor (Effects.motor; T1 and the identified theta assume the linear DC law tau = ts (g v_b u - w/w_nl)).
+# Per wheel (draws from their own stream, so the other effects' draws are unchanged), each relative to that wheel's
+# nominal tau_s / w_nl:
+#   current limit   |tau| <= c_I tau_s, c_I ~ U(0.5, 0.9)               (driver current limiting below stall)
+#   speed knee      w_nl_eff = w_nl max(0.4, 1 - c_w (|w|/w_k - 1)_+), w_k = U(0.55, 0.95) v_b w_nl, c_w ~ U(0.5, 1.5)
+#   torque knee     tau_s_eff = tau_s max(0.4, 1 - c_t (|tau|/tau_k - 1)_+), tau_k = U(0.1, 0.4) tau_s, c_t ~ U(0.5,1.5)
+#                   (the theory ENVELOPE form, cfcap/theory_task.py)
+#   thermal derate  tau_s_eff x max(0.4, 1 - c_th E), dE/dt = (tau/tau_s)^2 - E / 30 s, E0 ~ U(0, 1) (prior use),
+#                   c_th ~ U(0.1, 0.3)
+#   voltage sag     v_b_eff = v_b (1 - k_sag mean_module(|tau|/tau_s)), k_sag ~ U(0.05, 0.2) per module
+MOTOR_TAU_TH = 30.0
 
 
 def _np(v):
@@ -178,7 +193,7 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
     m_mod = np.asarray(asm.module_mass, float)
     side = float(asm.side)
     rows, fw = [], {k: [] for k in ("px0", "py0", "ex0", "ey0", "tx0", "ty0", "fex", "fey", "ftx", "fty", "vb", "gw", "wnl",
-                                     "driven", "N0",
+                                     "driven", "N0", "ts", "ilim", "omk", "tauk", "cw", "ct", "cth", "eth0", "ksag", "Amod",
                                      "GN", "Mrot", "mufp", "mufn")}
     sc = {k: [] for k in ("r_nom", "kff", "kp", "ki", "cpr", "lat_ticks", "h", "play", "delay")}
     for b in range(B):
@@ -257,6 +272,16 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
         fw["driven"].append(((mode[b] != K.COAST) & (mode[b] != K.BRAKE)).astype(float))
         fw["N0"].append(N); fw["GN"].append(GN)
         fw["mufp"].append(mufp); fw["mufn"].append(mufn)
+        fw["ts"].append(ts)
+        mr = np.random.default_rng([int(seed), b, 7178])
+        mv = dict(ilim=mr.uniform(0.5, 0.9, n) * ts, omk=mr.uniform(0.55, 0.95, n), tauk=mr.uniform(0.1, 0.4, n) * ts,
+                  cw=mr.uniform(0.5, 1.5, n), ct=mr.uniform(0.5, 1.5, n), cth=mr.uniform(0.1, 0.3, n),
+                  eth0=mr.uniform(0.0, 1.0, n), ksag=mr.uniform(0.05, 0.2, len(m_mod))[wm])
+        mv["omk"] = mv["omk"] * fw["vb"][-1] * wnl
+        for k, v in mv.items():
+            fw[k].append(v)
+        Am = (wm[:, None] == wm[None, :]).astype(float)
+        fw["Amod"].append(Am / Am.sum(1, keepdims=True))
         ks = [(rng.uniform(2e4, 2e5), rng.uniform(5e3, 5e4), rng.uniform(50.0, 1000.0)) for _ in _couplings(asm)]
         if effects.compliance:
             Imod = mm * (2 * side * side) / 12.0
@@ -277,11 +302,11 @@ def episode_specs(asm, lat, params, effects=NONE, seed=0, clear_faults=False):
     S.update({k: np.asarray(v, np.int64 if k == "delay" else np.float64) for k, v in sc.items()})
     S["p"] = np.stack(rows)
     S.update(lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso,
-             fw_robot=effects.firmware == "robot")
+             fw_robot=effects.firmware == "robot", mm_on=effects.motor)
     return S
 
 
-FLAGS = ("lt_on", "cp_on", "an_on", "fw_robot")
+FLAGS = ("lt_on", "cp_on", "an_on", "fw_robot", "mm_on")
 
 
 def repeat(S, r):
@@ -298,4 +323,4 @@ def concat(specs):
 
 
 def with_effects(S, effects):
-    return dict(S, lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso)
+    return dict(S, lt_on=effects.load_transfer, cp_on=effects.compliance, an_on=effects.aniso, mm_on=effects.motor)
