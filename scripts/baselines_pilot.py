@@ -2,10 +2,12 @@
 
   python scripts/baselines_pilot.py gen  [--per-shape 100]           # episodes -> $CFCAP_OUT/baselines/episodes.pt
   python scripts/baselines_pilot.py run  --baseline NAME [--max-min 14] [--shapes pair,square,2x3]
+  python scripts/baselines_pilot.py ingest --runs DIR                 # rented `smc` runner outputs -> pred_*.pt
   python scripts/baselines_pilot.py eval                              # -> results/baselines/*.csv
+  python scripts/baselines_pilot.py export                            # -> results/baselines/paper/ (paper contract)
 
 Episodes: parents pair / square / 2x3 (plated, heterogeneity HET_FULL, 0-2 faults), candidates = every connected
-proper child, labels = T1 closed-loop rho_rel on 10 decision legs (cfcap.baselines.episode).
+proper child, labels = rho_dec (T1 closed-loop rho over the nominal healthy reference) on 10 decision legs (cfcap.baselines.episode).
 Baselines (cfcap.baselines): nominal, rls_interval, capxfer, enum_known, nuisance_smc, oracle.
 Evaluation: 2-fold cross-fit split conformal (folds alternate within each shape), alpha = 0.1 simultaneous over every
 (candidate, leg) of an episode; decisions commit iff lower >= tau, tau in {0.6, 0.7, 0.8}. capxfer's raw certificate
@@ -54,13 +56,99 @@ def make(name):
 
 
 def cmd_gen(a):
+    """Episodes j = 0..3*per_shape-1 of split `pilot`, exactly as the runner task `smc` regenerates them on a box
+    (cfcap.baselines.smc.episode), so rented SMC rows join these episodes by eid."""
     OUT.mkdir(parents=True, exist_ok=True)
-    eps = []
-    for si, s in enumerate(SHAPES):
-        t0 = time.time()
-        eps += E.generate(s, a.per_shape, seed=9000 + si, eid0=len(eps))
-        print(s, len(eps), f"{time.time() - t0:.1f}s", flush=True)
+    t0 = time.time()
+    eps = [E.pilot_episode(a.split, j) for j in range(len(SHAPES) * a.per_shape)]
+    print(len(eps), f"{time.time() - t0:.1f}s", flush=True)
     E.save(eps, OUT / "episodes.pt")
+
+
+def cmd_ingest(a):
+    """Runner `smc` outputs (dec-schema units/*.npz under --runs, any number of shard dirs) -> pred_<method>.pt keyed
+    by eid, for the episodes of the local bank (truth is checked against the bank)."""
+    import glob
+    eps = {e.eid: e for e in E.load(OUT / "episodes.pt")}
+    preds = {}
+    for f in sorted(glob.glob(os.path.join(os.path.expanduser(a.runs), "**", "units", "*.npz"), recursive=True)):
+        z = np.load(f)
+        if "method" not in z:
+            continue
+        for meth in np.unique(z["method"]):
+            for eid in np.unique(z["eid"][z["method"] == meth]):
+                m = (z["method"] == meth) & (z["eid"] == eid)
+                e = eps.get(int(eid))
+                if e is None or str(z["split"][m][0]) != a.split:
+                    continue
+                C = e.n_cand
+                assert m.sum() == C * base.L and np.allclose(z["truth"][m], e.truth.ravel(), atol=2e-3), (f, eid)
+                preds.setdefault(str(meth), {})[int(eid)] = dict(
+                    point=z["point"][m].reshape(C, base.L), scale=z["scale"][m].reshape(C, base.L),
+                    lower=z["lower"][m].reshape(C, base.L), seconds=float(z["seconds"][m][0]),
+                    info=dict(peak_vram_gb=float(z["peak_vram_gb"][m][0]), sims=float(z["sims"][m][0])))
+    for name, d in preds.items():
+        torch.save(d, OUT / f"pred_{name}{a.suffix}.pt")
+        print(name, len(d))
+
+
+POSTERIOR = dict(nominal="none", rls_interval="none", capxfer="none", enum_known="enum", nuisance_smc="smc",
+                 oracle="oracle")
+
+
+def cmd_export(a):
+    """results/baselines/paper/dec_baselines.csv.gz (docs/board/paper.md 1a) and latency_baselines.csv (1e) from the
+    local bank's pred_*.pt. Routes: "simultaneous" = 2-fold cross-fit SimultaneousLower at alpha (the pilot has no
+    separate cal split; status exploratory), "raw" = the method's own bound (capxfer's certificate; the posterior
+    5 % quantile for enum/SMC)."""
+    import pandas as pd
+    out = RES / "paper"
+    out.mkdir(parents=True, exist_ok=True)
+    eps_all = E.load(OUT / "episodes.pt")
+    frames, lat = [], []
+    for name in POSTERIOR:
+        f = OUT / f"pred_{name}.pt"
+        if not f.exists():
+            continue
+        preds = torch.load(f, weights_only=False)
+        eps = [e for e in eps_all if e.eid in preds]
+        W = max(e.n_cand for e in eps) * base.L
+        truth = base.pad([e.truth for e in eps], W)
+        point = np.where(np.isnan(truth), np.nan, base.pad([preds[e.eid]["point"] for e in eps], W))
+        scale = base.pad([preds[e.eid]["scale"] for e in eps], W)
+        shapes = np.array([e.shape for e in eps])
+        folds = np.zeros(len(eps), int)
+        for s_ in np.unique(shapes):
+            idx = np.flatnonzero(shapes == s_)
+            folds[idx] = np.arange(len(idx)) % 2
+        sim_lo, _ = base.cross_fit_lower(point, scale, truth, folds, ALPHA)
+        routes = {"simultaneous": sim_lo}
+        if name in ("capxfer", "enum_known", "nuisance_smc"):
+            routes["raw"] = base.pad([preds[e.eid]["lower"] for e in eps], W)
+        for route, lower in routes.items():
+            mname = "capxfer_raw" if (name == "capxfer" and route == "raw") else name
+            for i, e in enumerate(eps):
+                C = e.n_cand
+                k = C * base.L
+                hf = e.cand_has_fault()
+                frames.append(pd.DataFrame(dict(
+                    method=mname, route=route, posterior=POSTERIOR[name], train="T1", test_plant="T1",
+                    split=e.split, status="exploratory", eid=e.eid, shape=e.shape,
+                    cand=np.repeat(np.arange(C), base.L), kind=np.repeat([c.kind for c in e.cands], base.L),
+                    cand_size=np.repeat([c.size for c in e.cands], base.L),
+                    has_fault=np.repeat(hf.astype(int), base.L), leg=np.tile(np.arange(base.L), C),
+                    truth=e.truth.ravel(), point=point[i, :k], scale=scale[i, :k], lower=lower[i, :k],
+                    alpha=ALPHA, seconds=preds[e.eid]["seconds"])))
+        for s_ in np.unique(shapes):
+            m = shapes == s_
+            sec = np.array([preds[e.eid]["seconds"] for e in eps])[m]
+            lat.append(dict(method=name, shape=s_, n_wheels=int(eps[int(np.flatnonzero(m)[0])].parent_asm.n),
+                            sec_per_decision=float(np.median(sec)), hardware=a.hardware, status="exploratory",
+                            n=int(m.sum())))
+    df = pd.concat(frames, ignore_index=True)
+    df.to_csv(out / "dec_baselines.csv.gz", index=False)
+    pd.DataFrame(lat).to_csv(out / "latency_baselines.csv", index=False)
+    print(len(df), "dec rows;", len(lat), "latency rows")
 
 
 def cmd_run(a):
@@ -114,7 +202,7 @@ def cmd_eval(a):
         preds = torch.load(f, weights_only=False)
         eps = [e for e in eps_all if e.eid in preds]
         W = max(e.n_cand for e in eps) * base.L
-        truth = base.pad([e.rho_rel for e in eps], W)
+        truth = base.pad([e.truth for e in eps], W)
         hf = base.pad([np.repeat(e.cand_has_fault()[:, None], base.L, 1).astype(float) for e in eps], W)
         point = base.pad([preds[e.eid]["point"] for e in eps], W)
         scale = base.pad([preds[e.eid]["scale"] for e in eps], W)
@@ -156,7 +244,11 @@ def cmd_eval(a):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["gen", "run", "eval"])
+    ap.add_argument("cmd", choices=["gen", "run", "eval", "ingest", "export"])
+    ap.add_argument("--split", default="pilot")
+    ap.add_argument("--runs", default="~/.cache/vast-out")
+    ap.add_argument("--suffix", default="")
+    ap.add_argument("--hardware", default="RTX 4070 Ti SUPER (shared)")
     ap.add_argument("--per-shape", type=int, default=100)
     ap.add_argument("--baseline")
     ap.add_argument("--max-min", type=float, default=14.0)
@@ -165,7 +257,7 @@ def main():
     a = ap.parse_args()
     if a.cmd == "run" and a.per_shape == 100:
         a.per_shape = 0
-    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval)[a.cmd](a)
+    dict(gen=cmd_gen, run=cmd_run, eval=cmd_eval, ingest=cmd_ingest, export=cmd_export)[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,8 @@ gives k_i and its standard error. The effective gain is relative to the assembly
 band of g_hat on healthy wheels with heterogeneity on (exploratory check on 64 square episodes: 0.77-1.28).
 A passive wheel's speed does not follow its duty (k ~ 0): g_hat_i < PASSIVE_G flags it as possibly coast/brake.
 
-Propagation (T0, `cfcap.t0.qs`, nominal theta, no heterogeneity): for every candidate, rho_rel = rho_QS(h) /
+Propagation (T0, `cfcap.t0.qs`, nominal theta, no heterogeneity): for every candidate, the QS analogue of rho_dec,
+rho_QS(h) /
 rho_QS(healthy) on the 10 decision legs, where
   point: weak(clip(g_hat, 0.3, 1)) on unflagged wheels (ok if >= 0.97), flagged wheels at the worse of coast / brake;
   lower: weak(g_lo) on unflagged wheels (rho is monotone in a wheel's gain), flagged wheels at the worst combination
@@ -26,7 +27,6 @@ from cfcap.t1 import capability as cap
 from cfcap.t1 import plant
 
 from .base import L, Baseline, Prediction
-from .episode import context
 
 Z_SE = 2.0
 H_SPREAD = 0.20
@@ -74,9 +74,12 @@ class RLSInterval(Baseline):
         self._plants = {}
 
     def _plant(self, cand, par):
-        if cand.name not in self._plants:
-            self._plants[cand.name] = qs.Plant(cand.asm, par, self.theta)
-        return self._plants[cand.name]
+        key = (cand.name, id(cand.asm))
+        if key not in self._plants:
+            if len(self._plants) > 4096:
+                self._plants.clear()
+            self._plants[key] = qs.Plant(cand.asm, par, self.theta)
+        return self._plants[key]
 
     def _rho_rel(self, pl, modes, gs):
         modes = np.asarray(modes)
@@ -87,7 +90,8 @@ class RLSInterval(Baseline):
         return r[1:] / np.where(np.abs(r[0:1]) > 1e-9, r[0:1], 1e-9)
 
     def predict(self, ep):
-        par, asm, cands = context(ep.shape, ep.plate)
+        par, asm, cands = ep.params, ep.parent_asm, ep.cands
+        truth_c = ep.cand_true_modes()  # used only for merge-partner wheels (known)
         gh, se, _ = rls_gains(asm, ep.cmd, ep.obs)
         flag = gh < PASSIVE_G
         g_pt = np.clip(gh, G_MIN, 1.0)
@@ -96,22 +100,26 @@ class RLSInterval(Baseline):
         point, lower = np.zeros((C, L)), np.full((C, L), -np.inf)
         for ci, c in enumerate(cands):
             src = np.asarray(c.src)
+            own = src >= 0
+            sp = np.where(own, src, 0)
             pl = self._plant(c, par)
-            fl = [j for j, w in enumerate(src) if flag[w]]
-            base_m_pt = np.where(g_pt[src] < 0.97, plant.WEAK, plant.OK)
-            base_m_lo = np.where(g_lo[src] < 1.0, plant.WEAK, plant.OK)
+            fl = [j for j, w in enumerate(src) if w >= 0 and flag[w]]
+            tm, tg = truth_c[ci]                     # merge-partner wheels: known (already certified partner)
+            gp, gl = np.where(own, g_pt[sp], tg), np.where(own, g_lo[sp], tg)
+            base_m_pt = np.where(own, np.where(gp < 0.97, plant.WEAK, plant.OK), tm)
+            base_m_lo = np.where(own, np.where(gl < 1.0, plant.WEAK, plant.OK), tm)
             if len(fl) > MAX_FLAGGED:
                 point[ci] = 0.0
                 continue
             rows_m, rows_g, tag = [], [], []
             for combo in itertools.product((plant.COAST, plant.BRAKE), repeat=len(fl)):
-                m, g = base_m_pt.copy(), g_pt[src].copy()
+                m, g = base_m_pt.copy(), gp.copy()
                 for j, mm in zip(fl, combo):
                     m[j], g[j] = mm, 1.0
                 rows_m.append(m), rows_g.append(g), tag.append(0)
             for combo in itertools.product(((plant.COAST, 1.0), (plant.BRAKE, 1.0), (plant.WEAK, G_MIN)),
                                            repeat=len(fl)):
-                m, g = base_m_lo.copy(), g_lo[src].copy()
+                m, g = base_m_lo.copy(), gl.copy()
                 for j, (mm, gg) in zip(fl, combo):
                     m[j], g[j] = mm, gg
                 rows_m.append(m), rows_g.append(g), tag.append(1)

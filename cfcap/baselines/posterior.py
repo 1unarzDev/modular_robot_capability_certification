@@ -334,11 +334,10 @@ def summarise(rho, w):
     return m, sd, wquantile(rho, w, 0.05)
 
 
-def propagate(par, cands, lat_rows, w, device="cuda"):
-    """rho_rel (P, C, L) of every particle row (lat_rows, P rows on device) on every candidate."""
-    targets = [(c.asm, plant.subset(lat_rows, c.modules)) for c in cands]
-    outs = cap.capability(targets, par, relative=True, device=device)
-    return np.stack([o["rho_rel"].cpu().numpy() for o in outs], 1)
+def propagate(par, cands, lat_rows, w, device="cuda", plate="plated"):
+    """rho_dec (P, C, L) of every particle row (lat_rows, P rows on device) on every candidate."""
+    from .episode import candidate_rho
+    return candidate_rho(par, cands, lat_rows, device, relative=False, plate=plate)[2]
 
 
 def top_mass(w, cover=0.999, cap_=32):

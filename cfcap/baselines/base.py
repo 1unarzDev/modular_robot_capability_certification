@@ -3,7 +3,7 @@
 Interface. A baseline is any object with `name` and `predict(ep: Episode) -> Prediction`:
   input  = one Episode (parent observations, parent morphology, candidate set; privileged latents only for the
            oracle-type baselines that say so);
-  output = per (candidate, leg): a point rho_rel `point` and a `scale` (> 0), optionally a raw lower bound `lower`
+  output = per (candidate, leg): a point rho_dec `point` and a `scale` (> 0), optionally a raw lower bound `lower`
            (the baseline's own certificate, e.g. capxfer's), all (C, L).
 Conformal layer: `conformal.core.SimultaneousLower` on (point, scale) with one max-normalised score per episode, so
 the lower bounds hold for every candidate and leg of an episode at once (P(any entry under-covered) <= alpha).

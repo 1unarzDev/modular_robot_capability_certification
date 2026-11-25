@@ -1,0 +1,30 @@
+{
+ "campaign": "cfcap-baselines-pilot",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the 300-episode baselines pilot bank (pilot split, episodes 0-299) has rows for all six baselines: it gives the pilot certified-fraction / unsafe-commit / latency table and the measured SMC s/episode that sizes the full-scale SMC-T1 test-split run (docs/board/baselines.md).",
+ "_doc": "Role baselines. Task `smc` = cfcap/baselines/smc.py:TASK (runner contract). Episodes are regenerated on the box from (split, index): --source pilot = the baselines pilot bank (pair / square / 2x3 cycled by index, plated, HET_FULL, 0-2 faults, T1 labels rho_dec = rho / nominal healthy reference). One unit = per-unit episodes; per episode every listed method runs and writes dec-schema rows (docs/board/paper.md 1a; diagnostics sims/beta/stages/peak_vram_gb as extra npz columns, dropped by `scripts/baselines_pilot.py ingest/export`). nuisance_smc = role nuisance's sampler (cfcap/nuisance_post.py smc, 256 particles, <= 150 stages) wrapped by cfcap/baselines/bayes.py:NuisanceSMC. capxfer needs its v2 self-model weights + simulated calibration probabilities, pushed as extra input capxfer_v2 (5.7 MB). unit_s are ESTIMATES (local 4070 queue was blocked): local 4070 smokes (shared GPU, 2026-11-25) gave nuisance-SMC-IS 15-34 s/episode, enum_known 1.8-4.4 s posterior + 2.6 s propagation (2x3, compile), rls 1.4 s (CPU), capxfer ~3 s; role nuisance's estimate for its sampler is 20/40/70 s per pair/square/2x3 episode at 192 particles x 100 stages, scaled x1.33 for 256 particles plus ~10 s for the other methods -> ~67 s/episode mean, 200 s per 3-episode unit on a 3090. The canary measures it (unit sidecar meta *_s_mean) before the main group is trusted.",
+ "groups": [
+  {"name": "bl-canary", "task": "smc", "stage": 1, "lane": "rented", "profile": "torch", "shards": 1,
+   "units_per_shard": 2, "unit_s": 300, "overhead_s": 180, "vram_gb": 10, "priority": 4, "seed": 0,
+   "task_args": ["--source", "pilot", "--split", "pilot", "--episodes", "6", "--index0", "0", "--per-unit", "3",
+                 "--methods", "nuisance_smc,enum_known,capxfer,rls_interval,nominal,oracle",
+                 "--particles", "256", "--max-stages", "150", "--n-prop", "32",
+                 "--capxfer-dir", "/workspace/in/capxfer_v2"],
+   "extra_inputs": ["~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"],
+   "pilot": "ESTIMATE: local 4070 smokes /tmp/bl_try*.log (2026-11-25, shared GPU) + role nuisance's per-episode estimate (scripts/campaigns/nuisance_pilot.json); this canary is the measurement (units/*.json meta nuisance_smc_s_mean etc.)",
+   "role": "baselines",
+   "purpose": "Canary for the baselines runner task on a rented 3090: six baselines on two pilot episodes per parent shape, measuring seconds per episode of nuisance-SMC and the enumeration."},
+  {"name": "bl-pilot", "task": "smc", "stage": 1, "lane": "rented", "profile": "torch", "shards": 8,
+   "units_per_shard": 13, "unit_s": 200, "overhead_s": 180, "vram_gb": 10, "priority": 12, "seed": 0,
+   "task_args": ["--source", "pilot", "--split", "pilot", "--episodes", "294", "--index0", "6", "--per-unit", "3",
+                 "--methods", "nuisance_smc,enum_known,capxfer,rls_interval,nominal,oracle",
+                 "--particles", "256", "--max-stages", "150", "--n-prop", "32",
+                 "--capxfer-dir", "/workspace/in/capxfer_v2"],
+   "extra_inputs": ["~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"],
+   "pilot": "ESTIMATE as bl-canary (~67 s/episode mean over pair/square/2x3, 3 episodes per unit); replace with the canary's measured *_s_mean",
+   "role": "baselines",
+   "purpose": "Baselines pilot: nominal, RLS intervals, capxfer certificate, known-nuisance enumeration, nuisance-SMC and oracle on 294 pilot episodes, for the certified-fraction table at simultaneous alpha 0.1."}
+ ]
+}

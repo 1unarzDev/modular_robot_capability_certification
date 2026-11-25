@@ -1,21 +1,23 @@
-"""Runner task `smc` (cfcap.runner contract): GPU nuisance-SMC baseline (and optionally the known-nuisance enumeration)
+"""Runner task `smc` (cfcap.runner contract): GPU nuisance-SMC baseline (role nuisance's sampler cfcap.nuisance_post,
+wrapped by cfcap.baselines.bayes.NuisanceSMC) (and optionally the known-nuisance enumeration)
 over T1 episodes generated from seeds on the box.
 
     python -m cfcap.runner smc --shard K --n-shards N --split test --episodes 500 [--per-unit 2] [--with-enum]
+    python -m cfcap.runner smc ... --source pilot --split pilot --episodes 300     # the baselines pilot bank
 
-Episodes. Episode j of a split is a pure function of (split, j): parent shape SHAPES[j % 3], seed
-unit_seed("cfcap-baselines-episode", split, j), generated with `cfcap.baselines.episode.generate` (T1, plated,
-HET_FULL heterogeneity, 0-2 faults, v2 probe, connected children as candidates, T1 rho_rel labels). The same (split, j)
-gives the same episode on any host, so the local pilot's conformal calibration split can be regenerated anywhere.
-Splits: "test" and "cal" use disjoint seed streams (the split name is part of the seed).
+Episodes (pure functions of (split, index), identical on any host):
+  * --source gen (default): the generator's `cfcap.gen.episode.make_episode(plate, split, index)`, observed and
+    labelled with the generator's own `simrun.probe_episodes` / `label_episodes` (baselines `episode.from_gen`);
+    eid = the generator index, so these rows join every other method's rows for the same episode.
+  * --source pilot: the baselines pilot bank (`episode.pilot_episode`: pair / square / 2x3 cycled).
+One unit = `per_unit` consecutive episodes of the shard's slice; the finished episodes' rows are checkpointed after
+every episode, and ctx.should_stop() is checked between episodes.
 
-One unit = `per_unit` consecutive episodes of this shard's slice. Within a unit the state (finished episodes' rows)
-is checkpointed after every episode; ctx.should_stop() is checked between episodes.
-
-Rows (columnar, one per episode x candidate x leg): eid, shape_id (0 pair, 1 square, 2 2x3), cand, leg, truth
-(rho_rel), has_fault, smc_point, smc_scale, smc_q05 (+ enum_point, enum_scale, enum_q05 with --with-enum), and
-per-episode columns repeated on each row: smc_s, smc_sims, smc_beta, smc_stages, enum_s, peak_vram_gb.
-The conformal layer (SimultaneousLower) is applied offline (scripts/baselines_pilot.py) to these columns.
+Rows: docs/board/paper.md 1a `dec` schema, one per (method, episode, candidate, leg): method, route, posterior,
+train, test_plant, split, status, eid, shape, cand, kind, cand_size, has_fault, leg, truth, point, scale, lower,
+alpha, seconds; plus per-episode diagnostics repeated on the episode's rows: sims, beta, stages, peak_vram_gb.
+`lower` here is the method's raw posterior 5 % quantile (route "raw"); the simultaneous conformal bound needs the
+cal split and is added offline by `scripts/baselines_pilot.py export` (route "simultaneous").
 """
 from __future__ import annotations
 
@@ -23,97 +25,156 @@ import time
 
 import numpy as np
 
-from cfcap.runner import Stop, Task, chunk_units, shard_range, unit_seed
+from cfcap.runner import Stop, Task, chunk_units, parse_chunk, shard_range
 
-SHAPES = ("pair", "square", "2x3")
+ALPHA = 0.1
 
 
 def _args(p):
+    p.add_argument("--source", default="gen", choices=["gen", "pilot"])
+    p.add_argument("--plate", default="plated")
     p.add_argument("--split", default="test")
     p.add_argument("--episodes", type=int, default=500, help="episodes in the split (all shards)")
+    p.add_argument("--index0", type=int, default=0, help="first episode index of the split")
     p.add_argument("--per-unit", type=int, default=2)
-    p.add_argument("--shapes", default=",".join(SHAPES))
-    p.add_argument("--K", type=int, default=96, help="fault hypotheses kept after the screen")
-    p.add_argument("--M", type=int, default=24, help="nuisance draws per kept hypothesis")
-    p.add_argument("--N", type=int, default=128, help="particles after resampling")
-    p.add_argument("--mh-steps", type=int, default=2)
-    p.add_argument("--max-stages", type=int, default=12)
+    p.add_argument("--status", default="exploratory", choices=["exploratory", "confirmatory"])
+    p.add_argument("--particles", type=int, default=256, help="SMC particles (cfcap.nuisance_post.smc)")
+    p.add_argument("--max-stages", type=int, default=150)
     p.add_argument("--n-prop", type=int, default=32, help="particles pushed to the candidates")
     p.add_argument("--with-enum", action="store_true", help="also the known-nuisance exact enumeration")
+    p.add_argument("--methods", default="nuisance_smc",
+                   help="comma list of nuisance_smc, enum_known, capxfer, rls_interval, nominal, oracle")
+    p.add_argument("--capxfer-dir", default=None,
+                   help="dir with capxfer rung_v2 models/ and sim_probs_<plate>.csv (default: the local cache)")
 
 
 def _units(a, shard, n_shards):
-    return chunk_units(f"{a.split}", shard_range(a.episodes, shard, n_shards), a.per_unit)
+    r = shard_range(a.episodes, shard, n_shards)
+    return chunk_units(a.split, range(a.index0 + r.start, a.index0 + r.stop), a.per_unit)
 
 
-def episode(split, j, shapes=SHAPES, device="cuda"):
+def episode(a, j):
     from cfcap.baselines import episode as E
-    shape = shapes[j % len(shapes)]
-    seed = unit_seed("cfcap-baselines-episode", split, j) % (1 << 62)
-    return E.generate(shape, 1, seed=seed, device=device, eid0=j)[0]
+    if a.source == "pilot":
+        return E.pilot_episode(a.split, j)
+    return E.from_gen(a.plate, a.split, j)
 
 
-def _one(ep, a, shapes):
-    import torch
-    from cfcap.baselines.bayes import Enumeration, NuisanceSMC
-    torch.cuda.reset_peak_memory_stats()
-    smc = NuisanceSMC(K=a.K, M=a.M, N=a.N, mh_steps=a.mh_steps, n_prop=a.n_prop, seed=unit_seed("smc", ep.eid))
-    smc.kw["max_stages"] = a.max_stages
-    t0 = time.perf_counter()
-    p = smc(ep)
-    torch.cuda.synchronize()
-    smc_s = time.perf_counter() - t0
-    C, L = ep.rho_rel.shape
-    hf = np.repeat(ep.cand_has_fault()[:, None], L, 1)
-    rows = dict(eid=np.full(C * L, ep.eid), shape_id=np.full(C * L, shapes.index(ep.shape)),
-                cand=np.repeat(np.arange(C), L), leg=np.tile(np.arange(L), C), truth=ep.rho_rel.ravel(),
-                has_fault=hf.ravel().astype(np.int8), smc_point=p.point.ravel(), smc_scale=p.scale.ravel(),
-                smc_q05=p.lower.ravel())
-    per = dict(smc_s=smc_s, smc_sims=p.info.get("n_sims", 0), smc_beta=p.info.get("beta", np.nan),
-               smc_stages=p.info.get("n_stages", 0), enum_s=np.nan)
-    if a.with_enum:
-        t0 = time.perf_counter()
-        q = Enumeration()(ep)
-        torch.cuda.synchronize()
-        per["enum_s"] = time.perf_counter() - t0
-        rows.update(enum_point=q.point.ravel(), enum_scale=q.scale.ravel(), enum_q05=q.lower.ravel())
-    per["peak_vram_gb"] = torch.cuda.max_memory_reserved() / 1e9
-    for k, v in per.items():
-        rows[k] = np.full(C * L, float(v))
+def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):
+    """dec-schema columns of one method on one episode."""
+    C, L = ep.truth.shape
+    n = C * L
+    hf = ep.cand_has_fault()
+    rows = dict(method=np.full(n, method), route=np.full(n, "raw"), posterior=np.full(n, posterior),
+                train=np.full(n, "T1"), test_plant=np.full(n, "T1"), split=np.full(n, split),
+                status=np.full(n, status), eid=np.full(n, ep.eid, np.int64), shape=np.full(n, ep.shape),
+                cand=np.repeat(np.arange(C), L), kind=np.repeat([c.kind for c in ep.cands], L),
+                cand_size=np.repeat([c.size for c in ep.cands], L), has_fault=np.repeat(hf.astype(np.int8), L),
+                leg=np.tile(np.arange(L), C), truth=ep.truth.ravel().astype(np.float64),
+                point=pred.point.ravel().astype(np.float64), scale=pred.scale.ravel().astype(np.float64),
+                lower=pred.lower.ravel().astype(np.float64), alpha=np.full(n, ALPHA), seconds=np.full(n, seconds))
+    for k, v in (extra or {}).items():
+        rows[k] = np.full(n, float(v))
     return rows
 
 
+POSTERIOR = dict(nuisance_smc="smc", enum_known="enum", capxfer="none", rls_interval="none", nominal="none",
+                 oracle="oracle")
+_B = {}
+
+
+def _baseline(name, a):
+    if name not in _B:
+        if name == "nominal":
+            from cfcap.baselines.simple import Nominal as K
+            _B[name] = K()
+        elif name == "oracle":
+            from cfcap.baselines.simple import Oracle as K
+            _B[name] = K()
+        elif name == "rls_interval":
+            from cfcap.baselines.rls import RLSInterval as K
+            _B[name] = K(a.plate)
+        elif name == "capxfer":
+            import pathlib
+            from cfcap.baselines import capxfer_cert as CX
+            if a.capxfer_dir:
+                CX.BASE = pathlib.Path(a.capxfer_dir)
+            _B[name] = CX.CapxferCert(alpha=ALPHA, plate=a.plate)
+        elif name == "enum_known":
+            from cfcap.baselines.bayes import Enumeration as K
+            _B[name] = K()
+        elif name == "nuisance_smc":
+            from cfcap.baselines.bayes import NuisanceSMC as K
+            _B[name] = K(particles=a.particles, max_stages=a.max_stages, n_prop=a.n_prop)
+        else:
+            raise ValueError(name)
+    return _B[name]
+
+
+def _one(ep, a):
+    import torch
+    from cfcap.runner import unit_seed
+    methods = a.methods.split(",") + (["enum_known"] if a.with_enum and "enum_known" not in a.methods else [])
+    parts = []
+    for name in methods:
+        b = _baseline(name, a)
+        if name == "nuisance_smc":
+            b.seed = unit_seed("smc", a.split, ep.eid) % (1 << 31)
+        cuda = torch.cuda.is_available()
+        if cuda:
+            torch.cuda.reset_peak_memory_stats()
+        t0 = time.perf_counter()
+        p = b(ep)
+        if cuda:
+            torch.cuda.synchronize()
+        sec = time.perf_counter() - t0
+        rows = dec_rows(ep, name, POSTERIOR[name], p, sec, a.split, a.status,
+                        dict(sims=p.info.get("n_sims", 0), beta=p.info.get("beta", np.nan),
+                             stages=p.info.get("n_stages", 0),
+                             peak_vram_gb=torch.cuda.max_memory_reserved() / 1e9 if cuda else 0.0))
+        if name == "capxfer":
+            rows["point"] = np.full_like(rows["point"], np.nan)     # capxfer has a bound only
+            rows["scale"] = np.full_like(rows["scale"], np.nan)
+        parts.append(rows)
+    return {k: np.concatenate([x[k] for x in parts]) for k in parts[0]}
+
+
 def _run(unit, ctx):
-    from cfcap.runner import parse_chunk
     a = ctx.args
-    shapes = tuple(a.shapes.split(","))
     r = parse_chunk(unit)
-    lo, hi = r.start, r.stop
     st = ctx.load_state() or {"done": {}}
-    for j in range(lo, hi):
+    for j in r:
         if j in st["done"]:
             continue
         if ctx.should_stop():
             ctx.save_state(st)
             raise Stop()
-        ctx.progress((j - lo) / max(hi - lo, 1), phase=f"smc episode {j}")
-        ep = episode(a.split, j, shapes)
-        st["done"][j] = _one(ep, a, shapes)
+        ctx.progress((j - r.start) / max(len(r), 1), phase=f"smc episode {j}")
+        st["done"][j] = _one(episode(a, j), a)
         ctx.save_state(st)
     parts = [st["done"][j] for j in sorted(st["done"])]
     out = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
-    ctx.meta.update(episodes=len(parts), smc_s_mean=float(np.mean([p["smc_s"][0] for p in parts])),
-                    peak_vram_gb=float(max(p["peak_vram_gb"][0] for p in parts)))
+    meta = dict(episodes=len(parts), peak_vram_gb=float(out["peak_vram_gb"].max()))
+    for meth in np.unique(out["method"]):
+        sm = out["method"] == meth
+        first = np.unique(out["eid"][sm], return_index=True)[1]
+        meta[f"{meth}_s_mean"] = float(out["seconds"][sm][first].mean())
+        meta[f"{meth}_sims_mean"] = float(out["sims"][sm][first].mean())
+    ctx.meta.update(meta)
     return out
 
 
 def _summary(recs, a):
     m = [r.get("meta", {}) for r in recs]
     n = sum(x.get("episodes", 0) for x in m)
-    return {"smc.episodes": n,
-            "smc.s_per_episode_mean": sum(x.get("smc_s_mean", 0) * x.get("episodes", 0) for x in m) / max(n, 1),
-            "smc.peak_vram_gb": max([x.get("peak_vram_gb", 0) for x in m] or [0])}
+    w = lambda k: sum(x.get(k, 0) * x.get("episodes", 0) for x in m) / max(n, 1)
+    out = {"smc.episodes": n, "smc.peak_vram_gb": max([x.get("peak_vram_gb", 0) for x in m] or [0])}
+    for meth in POSTERIOR:
+        if any(f"{meth}_s_mean" in x for x in m):
+            out[f"smc.{meth}.s_per_episode_mean"] = w(f"{meth}_s_mean")
+            out[f"smc.{meth}.sims_per_episode_mean"] = w(f"{meth}_sims_mean")
+    return out
 
 
 TASK = Task("smc", _units, _run, _args, _summary, ("numpy", "torch", "capxfer"),
-            "nuisance-SMC (+ optional known-nuisance enumeration) baseline over seeded T1 episodes")
+            "nuisance-SMC (+ optional known-nuisance enumeration) baseline over seeded T1 episodes, dec-schema rows")

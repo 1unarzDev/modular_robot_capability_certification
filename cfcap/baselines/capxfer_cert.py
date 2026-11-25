@@ -16,7 +16,8 @@ How it is adapted to a multi-module child B of a parent G (Theorem 5(a) construc
      outside B) faults (a wheel is forced faulted when its set excludes ok); weak wheels at their gain corner g_lo,
      floored to capxfer's 0.05 table grid (all of 0.30..0.90 allowed below the grid, i.e. 0.30);
      more than MAX_VECTORS vectors -> refuse (capxfer's composition cost cap);
-  3. per-mode band b_m(leg): the floor((M2+1) alpha2)-th smallest rho_rel of the child at mode vector m over M2 fresh
+  3. per-mode band b_m(leg): the floor((M2+1) alpha2)-th smallest rho_dec (= rho / nominal healthy reference, the
+     study's primary label; capxfer's own z is relative to the same draw's healthy rollout) of the child at mode vector m over M2 fresh
      plant draws (v2 self-model DR x HET_FULL heterogeneity prior), simulated with T1 on the child's own decision legs
      (capxfer used a lone-module lookup table with z = min over directions; here the table is per child shape and per
      leg, cached across episodes since the draws are independent of the episode);
@@ -42,7 +43,6 @@ from cfcap.t1 import params as P
 from cfcap.t1 import plant
 
 from .base import L, Baseline, Prediction
-from .episode import context
 
 BASE = pathlib.Path.home() / ".cache/modular-runs/2026-11/capxfer/rung_v2"
 P_COLS = ["p_ok", "p_weak", "p_coast", "p_brake"]
@@ -110,15 +110,20 @@ def corner(g_lo):
     return max([g for g in TABLE_GRID if g <= g_lo + 1e-9], default=TABLE_GRID[0])
 
 
-def child_vectors(sets, g_lo, child_wheels, n_parent, k=K_FAULTS, cap_=MAX_VECTORS):
-    """S|_B as a list of (mode tuple, g tuple) over the child's wheels; [] = empty (refuse); None = over the cap."""
+def child_vectors(sets, g_lo, child_wheels, n_parent, k=K_FAULTS, cap_=MAX_VECTORS, fixed=None):
+    """S|_B as a list of (mode tuple, g tuple) over the child's wheels; [] = empty (refuse); None = over the cap.
+    child_wheels: parent wheel index per candidate wheel, or -1 for a merge partner's wheel, whose (mode, g) is
+    taken from `fixed` (known partner; it does not use the parent's fault budget)."""
     forced = [w for w in range(n_parent) if 0 not in sets[w]]
     outside = sum(1 for w in forced if w not in set(child_wheels))
     budget = k - outside
     if budget < 0:
         return []
     opts = []
-    for w in child_wheels:
+    for j, w in enumerate(child_wheels):
+        if w < 0:
+            opts.append([(("P", int(fixed[0][j])), float(fixed[1][j]))])
+            continue
         o = []
         for c in sorted(sets[w]):
             o.append((c, corner(g_lo[w]) if c == plant.WEAK else 1.0))
@@ -127,8 +132,8 @@ def child_vectors(sets, g_lo, child_wheels, n_parent, k=K_FAULTS, cap_=MAX_VECTO
         opts.append(o)
     out = []
     for combo in itertools.product(*opts):
-        if sum(1 for c, _ in combo if c != 0) <= budget:
-            out.append((tuple(c for c, _ in combo), tuple(g for _, g in combo)))
+        if sum(1 for c, _ in combo if not isinstance(c, tuple) and c != 0) <= budget:
+            out.append((tuple(c[1] if isinstance(c, tuple) else c for c, _ in combo), tuple(g for _, g in combo)))
             if len(out) > cap_:
                 return None
     return out
@@ -158,7 +163,7 @@ class CapxferCert(Baseline):
 
     @staticmethod
     def _shape_key(cand):
-        cells = [(i, j, y) for _, i, j, y in cand.asm.modules]
+        cells = [(int(i), int(j), int(y)) for _, i, j, y in cand.asm.modules]
         x0, y0 = min(c[0] for c in cells), min(c[1] for c in cells)
         return tuple((i - x0, j - y0, y) for i, j, y in cells)
 
@@ -177,14 +182,17 @@ class CapxferCert(Baseline):
                 lat["mode"] = torch.tensor([m] * self.M2, device=self.device).long()
                 lat["g"] = torch.tensor([g] * self.M2, device=self.device).float()
                 targets.append((cand.asm, lat))
-            outs = cap.capability(targets, par, relative=True, device=self.device)
-            for (k, *_), o in zip(need, outs):
-                r = np.sort(o["rho_rel"].cpu().numpy(), 0)
+            from cfcap.t1.reference import rho_ref_many
+            outs = cap.capability(targets, par, device=self.device)
+            ref = rho_ref_many([x[1].asm for x in need], self.plate, self.device)
+            for (k, *_), o, rf in zip(need, outs, ref):
+                r = np.sort(o["rho"].cpu().numpy() / rf[None], 0)
                 self._bands[k] = r[self.k_band - 1]
         return np.stack([self._bands[k] for k in keys]) if keys else np.zeros((0, L))
 
     def predict(self, ep):
-        par, asm, cands = context(ep.shape, ep.plate)
+        par, asm, cands = ep.params, ep.parent_asm, ep.cands
+        truth_c = ep.cand_true_modes()  # used only for merge-partner wheels (known)
         n = asm.n
         if n not in self._thr:
             self._thr[n] = thresholds(n, self.alpha, self.plate)
@@ -199,7 +207,7 @@ class CapxferCert(Baseline):
         lower = np.full((len(cands), L), -np.inf)
         items, owner, n_vec = [], [], []
         for ci, c in enumerate(cands):
-            vecs = child_vectors(sets, g_lo, list(c.src), n)
+            vecs = child_vectors(sets, g_lo, list(c.src), n, fixed=truth_c[ci])
             n_vec.append(-1 if vecs is None else len(vecs))
             if not vecs:
                 continue                       # empty or over the cap -> refuse (-inf)

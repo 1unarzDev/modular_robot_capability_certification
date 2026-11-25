@@ -20,7 +20,7 @@ def _fake_episodes(n_ep=60, C=5, seed=0, empty=False):
         cm = [] if empty else [(k,) for k in range(C)]
         rr = np.clip(1 - rng.exponential(0.1, (len(cm), base.L)), 0, 1.2)
         eps.append(E.Episode(eid=i, shape="fake", plate="plated", cmd=np.zeros((2, 3)), T=0.0, obs={},
-                             cand_modules=cm, lat=None, rho_rel=rr, rho=rr))
+                             cand_modules=cm, lat=None, rho_rel=rr, rho=rr, rho_dec=rr))
     return eps
 
 
@@ -100,13 +100,23 @@ def test_hypothesis_count_and_prior():
 
 
 def test_nominal_on_healthy_is_exact():
-    eps = E.generate("pair", 2, seed=4, p_none=1.0, device=DEV)
-    for e in eps:
-        assert not e.faults()[0].any()
-        p = Nominal()(e)
-        assert np.allclose(p.point, e.rho_rel, atol=1e-5)
-        rows = _evaluate(Nominal(), [e] * 20)
-        assert all(r["n_unsafe"] == 0 for r in rows)
+    """A healthy nominal body (identified theta as a point domain, no spread): rho_dec = 1 on every candidate and leg,
+    which is exactly the nominal baseline's prediction; zero unsafe commits."""
+    from cfcap.t1 import params as P
+    from cfcap.t1 import plant
+    par, asm, cl = E.context("pair")
+    lat = plant.sample_latents(asm, 1, np.random.default_rng(0), plant.HET_OFF,
+                               domain=P.point_domain(P.load_theta("plated"), 1, device=DEV), device=DEV)
+    lat["yaw_err"] = torch.zeros_like(lat["yaw_err"])
+    ep = E.Episode(eid=0, shape="pair", plate="plated", cmd=np.zeros((2, 3)), T=0.0, obs={},
+                   cand_modules=[tuple(c.modules) for c in cl], lat=E.lat_to(lat, "cpu"))
+    rr, rho, rd = E.candidate_rho(par, ep.cands, lat, DEV)
+    ep.rho_rel, ep.rho, ep.rho_dec = rr[0], rho[0], rd[0]
+    p = Nominal()(ep)
+    assert np.allclose(p.point, ep.truth, atol=1e-5)
+    assert np.allclose(rr[0], 1.0, atol=1e-6)
+    rows = _evaluate(Nominal(), [ep] * 20)
+    assert all(r["n_unsafe"] == 0 for r in rows)
 
 
 def test_smc_task_units_cover_split():

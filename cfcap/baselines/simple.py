@@ -7,8 +7,8 @@ from .base import L, Baseline, Prediction
 
 
 class Nominal(Baseline):
-    """Every candidate is assumed healthy: rho_rel = 1 on every leg (relative capability of a fault-free body),
-    unit scale (the conformal q is then an additive margin)."""
+    """Every candidate is assumed healthy and nominal: rho_dec = 1 on every leg (rho_dec = rho / nominal healthy
+    reference), unit scale (the conformal q is then an additive margin)."""
     name = "nominal"
 
     def predict(self, ep):
@@ -26,5 +26,5 @@ class Oracle(Baseline):
         self.eps_scale = eps_scale
 
     def predict(self, ep):
-        t = np.asarray(ep.rho_rel, float)
+        t = np.asarray(ep.truth, float)
         return Prediction(t.copy(), np.full(t.shape, self.eps_scale), t.copy())
