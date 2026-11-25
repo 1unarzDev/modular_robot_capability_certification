@@ -409,3 +409,18 @@ def test_any_worker_drops_rented_and_push(staged):
     assert "--require-inputs" not in run and "$S/cfcap/data/theta" in run and "$S/capxfer/theta" in run
     jobs2, _ = MJ.group_jobs(PLAN, group(_any_worker=True, extra_inputs=[str(staged / "theta")]), INFO, draft=False)
     assert "rented" not in jobs2[0]["needs"]["tags"]      # group_jobs alone; emit() keeps extra_inputs groups rented
+
+
+def test_complete_run_mirrors_outputs_to_artifacts(tmp_path, monkeypatch):
+    out, run = tmp_path / "workspace_out" / "job", tmp_path / "run"
+    run.mkdir()
+    assert run_main([*ST, "--out", str(out)], monkeypatch, {"CRANE_RUN_DIR": str(run)}) == 0
+    art = run / "artifacts" / "out"
+    assert (art / "manifest.json").is_file()
+    src = sorted(p.relative_to(out) for p in out.rglob("*.npz"))
+    assert src and sorted(p.relative_to(art) for p in art.rglob("*.npz")) == src
+    monkeypatch.setattr(R, "ARTIFACT_MAX_FILE", 10)     # big files are skipped, never an error
+    out2, run2 = tmp_path / "o2", tmp_path / "r2"
+    run2.mkdir()
+    assert run_main([*ST, "--out", str(out2)], monkeypatch, {"CRANE_RUN_DIR": str(run2)}) == 0
+    assert not list((run2 / "artifacts" / "out").rglob("*.npz"))

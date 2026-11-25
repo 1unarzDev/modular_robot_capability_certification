@@ -42,6 +42,7 @@ import pickle
 import re
 import shlex
 import signal
+import shutil
 import socket
 import subprocess
 import sys
@@ -276,6 +277,10 @@ def _git_version(root: Path) -> dict:
         return {"commit": None, "dirty": None}
 
 
+ARTIFACT_MAX_FILE = 95 * 1024 * 1024     # the coordinator refuses larger raw artifacts
+ARTIFACT_MAX_TOTAL = 400 * 1024 * 1024   # per job: bulk (generator shards) stays in OUT and is pulled by crane-vast
+
+
 def resolve_out(explicit: str | None, task: str, shard: int, env=os.environ) -> Path:
     if explicit:
         return Path(explicit)
@@ -429,6 +434,34 @@ class Runner:
         if self.run_dir and self.run_dir.resolve() not in self.out.resolve().parents:
             atomic_json(self.run_dir / "artifacts" / "manifest.json", m)   # a small record on the coordinator
 
+    def mirror_artifacts(self, max_file=None, max_total=None) -> int:
+        """On a rented box (OUT outside $CRANE_RUN_DIR/artifacts) also copy OUT's files of at most max_file bytes to
+        $CRANE_RUN_DIR/artifacts/out/, so the worker uploads them even if the box dies before crane-vast pulls OUT.
+        Best effort: never fails the job. Returns the bytes copied."""
+        if not self.run_dir:
+            return 0
+        max_file = ARTIFACT_MAX_FILE if max_file is None else max_file
+        max_total = ARTIFACT_MAX_TOTAL if max_total is None else max_total
+        dst = self.run_dir / "artifacts" / "out"
+        try:
+            if dst.resolve() == self.out.resolve() or dst.resolve() in self.out.resolve().parents:
+                return 0
+            total = 0
+            for f in sorted(self.out.rglob("*")):
+                if not f.is_file() or f.name.endswith(".tmp"):
+                    continue
+                n = f.stat().st_size
+                if n > max_file or total + n > max_total:
+                    continue
+                t = dst / f.relative_to(self.out)
+                t.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(f, t)
+                total += n
+            return total
+        except OSError as e:
+            print(f"cfcap.runner: artifact mirror skipped ({e})", file=sys.stderr)
+            return 0
+
     # -- resume
     def scan_done(self) -> None:
         for u in self.units:
@@ -559,6 +592,8 @@ class Runner:
                 if s is not None:
                     signal.signal(s, signal.SIG_IGN)
             self.write_manifest(status)
+            if status == "complete":
+                self.mirror_artifacts()
             self.write_progress()
             self.write_metrics(status)
             for s, h in getattr(self, "_prev", {}).items():
