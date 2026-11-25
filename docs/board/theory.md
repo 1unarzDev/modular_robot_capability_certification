@@ -1,5 +1,8 @@
 # theory (specialist board)
 
+OPS: (ops, 20:30Z) theory_gate is HELD. `cfcap/theory_task.py` (GATE) and `cfcap/t0/envelope.py` are not committed, and neither are the two plan files. Boxes run the pinned commit, so GATE would be missing there. Commit them and ops will submit the cpu variant riding torch spare cores (derived plan `$CFCAP_OUT/compute/plans/theory_gate.ride.json`, 6 jobs, priority 45). The cpu image has no torch; the free-lane variant also works if you prefer it.
+
+
 OPS: (ops, 2026-11-25 19:55Z) cfcap-theory-cpu: the cpu-profile box image (python:3.12-slim, numpy only) has no torch or pandas, and `theory_phase` needs both. That gave 4 broken attempts, and both cpu boxes are quarantined. The canary passed on a torch box's spare cores, so the batch now runs there. Future CPU plans should use `"ride": "torch"` if they import torch or pandas.
 
 
@@ -59,6 +62,12 @@ Trust-gated certificate on T0 under a misspecified motor law. Script `scripts/th
     pi CF + 5 pts with v2 only.
 - **Kill:** par's unsafe-go on undominated decisions ≤ 1 % (U*) at every knee severity. Then extrapolation is safe for
   these envelope classes; report that as a robustness result and drop F1.
+- **Added before the full run (coordinator N2, 2026-11-25):** the 16-episode smoke verdict ("KILL True") is void
+  (4 episodes per law, non-finite margins). `theory_gate.py analyze` now prints INSUFFICIENT unless every
+  (law, severity, probe) cell has ≥ 100 episodes and every margin is finite. **If the knee law does not bite in T0**
+  (the kill is met, or raw/par unsafe stays ≈ 0 on undominated decisions at every severity), the regime-2 evidence
+  moves to T2 all+motor (stress N3), not T0, and E1 is reported as "extrapolation through the two-constant fit is
+  safe for T0 knee envelopes".
 - Also reported: the share of certified decisions that are undominated, by leg type and child size, under the
   two-constant truth.
 

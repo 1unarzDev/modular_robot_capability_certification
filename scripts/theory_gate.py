@@ -83,7 +83,8 @@ def lower_bounds(cal, test, probe):
     """Dict certifier -> lower bound array on `test` (cal: calibration rows)."""
     par, pi = f"rho_par_{probe}", f"rho_pi_{probe}"
     out = {"raw": test[par].values, "pi": test[pi].values}
-    out["par"] = test[par].values - q_sim(cal, par, cal.law == 0)
+    qp = q_sim(cal, par, cal.law == 0)
+    out["par"] = test[par].values - qp
     out["par_pooled"] = test[par].values - q_sim(cal, par)
     out["pi_cal"] = test[pi].values - max(0.0, q_sim(cal, pi))
     cal = cal.assign(nom_l0=cal.rho_nom, det_l0=np.where(cal.has_fault == 1, -np.inf, cal.rho_nom))
@@ -107,7 +108,7 @@ def lower_bounds(cal, test, probe):
     qB = q_sim(B.assign(g_l0=l0B), "g_l0")
     l0T = np.where(test[f"dom_{probe}"] | (test[mis] <= best), test[par], test[pi])
     out["gate"] = l0T - qB
-    return out, dict(q_gate=best, q_gate_margin=qB)
+    return out, dict(q_gate=best, q_gate_margin=qB, q_par=qp)
 
 
 def cmd_analyze(a):
@@ -191,10 +192,24 @@ def cmd_analyze(a):
         print(f"--- stratum {st}: unsafe_rate")
         print(X.pivot_table(index=["probe", "certifier"], columns="severity", values="unsafe_rate").round(4))
     print(pd.DataFrame(qrows))
-    verdict(R)
+    verdict(R, pd.DataFrame(qrows))
 
 
-def verdict(R):
+MIN_EPISODES = 100
+
+
+def verdict(R, Q=None):
+    lines = []
+    cells = R[(R.stratum == "all") & (R.certifier == "par")]
+    small = cells[cells.n_episodes < MIN_EPISODES]
+    qbad = [] if Q is None else [r for r in Q.to_dict("records") if not np.isfinite([r["q_gate_margin"], r["q_par"]]).all()]
+    qinf = R[(R.stratum == "all")]
+    if len(small) or qbad:
+        lines.append(f"INSUFFICIENT: {len(small)} (law, severity, probe) cells have < {MIN_EPISODES} episodes; "
+                     f"{len(qbad)} fold/probe gate margins are not finite. No verdict.")
+        (RES / "gate_verdict.txt").write_text("\n".join(lines) + "\n(source: results/theory/gate_cert.csv; exploratory)\n")
+        print("\n".join(lines))
+        return
     d = R[R.stratum == "decision"]
     u = R[R.stratum == "undominated"]
     g = lambda X, probe, cert, sev, col: float(X[(X.probe == probe) & (X.certifier == cert) & (X.severity == sev)][col].iloc[0])
@@ -204,7 +219,7 @@ def verdict(R):
     worst = max(sev_bad) if sev_bad else None
     s2 = (worst is not None and g(d, "v2", "gate", worst, "unsafe_rate") <= 0.01 and
           g(d, "v2", "gate", worst, "cert_frac_capable") >= g(d, "v2", "pi", worst, "cert_frac_capable") + 0.05)
-    lines = [f"KILL (par unsafe on undominated <= 1 % at every knee severity, both probes): {kill}",
+    lines += [f"KILL (par unsafe on undominated <= 1 % at every knee severity, both probes): {kill}",
              f"SUCCESS-1 (two-constant: gate CF >= par CF - 2 pts, v2, decision stratum): {s1}",
              f"  worst knee severity with par unsafe > 2 % (v2, decision): {worst}",
              f"SUCCESS-2 (at that severity: gate unsafe <= 1 % and gate CF >= pi CF + 5 pts, v2): {s2}"]
