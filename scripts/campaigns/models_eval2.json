@@ -1,0 +1,32 @@
+{
+ "campaign": "cfcap-models-eval2",
+ "submitter": "09-cfcap",
+ "owner": "09-cfcap",
+ "project": "crane",
+ "stop": "Stop after the stage-2 evaluation of the cfcap-models-b1 n6 models on generator cal 0-1999, test 0-1999, H3/H4 0-499 (end-to-end timing) and, once role stress's T2 test episodes exist, the T2 evaluation of st-n6-1.",
+ "_doc": "Role models, review round 0 fix 5. PREREQUISITES: (1) cfcap-models-b1 outputs pulled to ~/.cache/vast-out; then `$PY scripts/models_export.py ~/.cache/vast-out/<b1 dirs> --stage-weights $CFCAP_OUT/compute/stage2/models-b1-weights` (manifest + weights.pt per grid entry, ~4 MB each). (2) For models-t2 only: stress's T2 simulate outputs at $CFCAP_OUT/compute/stage2/b1-t2eps, and $CFCAP_OUT/compute/stage2/models-t2-pred = weights.pt of st-n6-1 + calib.json (results/models/calib/calib_st-n6-1.json written by models_export from the models-eval2 cal rows; T1 cal only). models-eval2: task cfcap/models/eval2.py:TASK regenerates the generator episodes by (plate, split, index) (same eids as gen-ref2 shards and the baselines' rows), runs the 6 n6 models (st x3 seeds, bb, ds, stl) with batch-1 synchronised timing per episode (sec_direct), and for st-n6-1 the compositional route for every candidate of every episode (sec_comp = posterior + rollouts, end to end per decision). The export then writes dec_models.csv.gz (seconds = end-to-end), latency_models.csv (end_to_end = 1) and the calib JSONs. Matched-compute SMC and capxfer on the same eids are the baselines role's (cfcap-b1 smc groups). unit_s ESTIMATES: 50 episodes per unit, ~10 s generation, 6 x 5 ms direct, ~1.0 s/episode composition (20 candidates x S 16 x 10 legs = 3.2k leg trials at the generator's 3.8k leg-trials/s) -> ~65 s (H4 ~3x); 100 units -> 10 shards x 10 units x 90 s mean. models-t2: 4000 T2 test episodes x ~1.2 s (direct + composition of self/children; merges refused: only the parent's T2 observation exists).",
+ "groups": [
+  {"name": "models-eval2", "task": "models_eval2", "stage": 2, "lane": "rented", "profile": "torch", "shards": 10,
+   "units_per_shard": 10, "unit_s": 90, "overhead_s": 150, "vram_gb": 6, "priority": 40, "seed": 0,
+   "task_args": ["--task-spec", "cfcap.models.eval2:TASK", "--runs", "/workspace/in/models-b1-weights",
+                 "--select", "st-n6-1,st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1", "--compose-select", "st-n6-1",
+                 "--splits", "cal:2000,test:2000,H3:500,H4:500", "--per-unit", "50", "--compose-S", "16"],
+   "extra_inputs": ["~/.cache/modular-runs/2026-11/cfcap/compute/stage2/models-b1-weights"],
+   "canary_task_args": ["--task-spec", "cfcap.models.eval2:TASK", "--runs", "/workspace/in/models-b1-weights",
+                        "--select", "st-n6-1,bb-n6-1", "--compose-select", "st-n6-1", "--splits", "cal:4,test:4",
+                        "--per-unit", "4", "--compose-S", "4"],
+   "canary_est_s": 240,
+   "pilot": "ESTIMATE (see _doc): generator 17.9 episodes/s steady (docs/board/generator.md), label leg-trials 3.8k/s, own-data batch-1 inference 3.4 ms/episode (results/models/latency.csv); the canary measures sec_direct / sec_comp (unit meta)",
+   "role": "models",
+   "purpose": "Stage-2 evaluation of the trained amortized capability models on the generator cal, test, H3 and H4 episodes shared with the baselines, with end-to-end per-decision timing (posterior plus compositional rollouts) for the amortized-versus-SMC comparison."},
+  {"name": "models-t2", "task": "t2_eval", "stage": 3, "lane": "rented", "profile": "torch", "shards": 8,
+   "units_per_shard": 5, "unit_s": 150, "overhead_s": 180, "vram_gb": 6, "priority": 45, "seed": 0,
+   "task_args": ["--mode", "evaluate", "--predictor", "cfcap.models.predict:predict", "--models",
+                 "/workspace/in/models-t2-pred", "--episodes-dir", "/workspace/in/b1-t2eps"],
+   "extra_inputs": ["~/.cache/modular-runs/2026-11/cfcap/compute/stage2/models-t2-pred",
+                    "~/.cache/modular-runs/2026-11/cfcap/compute/stage2/b1-t2eps"],
+   "pilot": "ESTIMATE: ~1.2 s per T2 test episode for the predictor (direct + composition, GPU); unit = 100 episodes as role stress's simulate units",
+   "role": "models",
+   "purpose": "Evaluate the amortized capability model st-n6-1 on the T2 stress-plant test episodes, calibrated on T1 cal only, for the misspecified cell of the SMC versus amortized grid."}
+ ]
+}

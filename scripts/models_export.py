@@ -137,6 +137,72 @@ def pinball(q, y, taus=(0.05, 0.25, 0.5, 0.75, 0.95)):
     return float(np.mean(np.maximum(t * d, (t - 1) * d)))
 
 
+def load_eval2(roots):
+    """Stage-2 runs (task models_eval2): {tag: {split: DataFrame}} with end-to-end sec_direct / sec_comp per row."""
+    parts = {}
+    for r in roots:
+        for m in pathlib.Path(r).rglob("manifest.json"):
+            try:
+                man = json.loads(m.read_text())
+            except ValueError:
+                continue
+            if man.get("task") != "models_eval2":
+                continue
+            for f in sorted((m.parent / "units").glob("*.npz")):
+                meta = json.loads(f.with_suffix(".json").read_text()).get("meta", {})
+                tags = str(meta.get("models", "")).split(",")
+                with np.load(f) as z:
+                    df = pd.DataFrame({k: z[k] for k in z.files})
+                split = f.stem.split("-")[0]
+                for mi, g in df.groupby("model"):
+                    parts.setdefault(tags[int(mi)], {}).setdefault(split, []).append(
+                        g.drop(columns="model").assign(_hw=meta.get("hardware", "")))
+    return {t: {s: pd.concat(v, ignore_index=True) for s, v in d.items()} for t, d in parts.items()}
+
+
+def headline_from_eval2(e2, status, calib_out=None):
+    """dec + latency rows from stage-2 evaluations (end-to-end seconds), and the T1-cal conformal constants."""
+    dec, lat, calib = [], [], {}
+    order = ("cal", "test", "H3", "H4")
+    for tag, by in sorted(e2.items()):
+        if "cal" not in by:
+            continue
+        arch, div_, seed = tag.split("-")
+        evs = [(s, by[s]) for s in order if s in by]
+        cal = by["cal"]
+        sec_d = lambda split, df: df.sec_direct.to_numpy()
+        sec_c = lambda split, df: df.sec_comp.to_numpy()
+        sim_lo, q_sim = lowers(cal, [df for _, df in evs], direct, "simultaneous")
+        mar_lo, q_marg = lowers(cal, [df for _, df in evs], direct, "marginal")
+        calib[tag] = dict(alpha=ALPHA, q_sim=float(q_sim), q_marg=float(q_marg))
+        sfx = "" if seed == "1" else f"_s{seed}"
+        if arch == "bb":
+            dec += dec_rows(f"blackbox_gnn{sfx}", "simultaneous", "none", evs, sim_lo, direct, sec_d, status)
+            continue
+        name = "amortized" if arch == "st" else f"amortized_{arch}"
+        dec += dec_rows(f"{name}_marg{sfx}", "marginal", "amortized", evs, mar_lo, direct, sec_d, status)
+        dec += dec_rows(f"{name}_sim{sfx}", "simultaneous", "amortized", evs, sim_lo, direct, sec_d, status)
+        if np.isfinite(cal.cq50).any():
+            c_lo, q_comp = lowers(cal, [df for _, df in evs], comp, "compositional")
+            calib[tag]["q_comp"] = float(q_comp)
+            dec += dec_rows(f"{name}_comp{sfx}", "compositional", "amortized", evs, c_lo, comp, sec_c, status)
+        for s, df in evs:
+            ep = df.groupby("eid").first()
+            for (topo, n), g in ep.groupby(["parent_topo", "parent_n"]):
+                hw = str(g._hw.iloc[0])
+                for meth, col in ((f"{name}_sim{sfx}", "sec_direct"), (f"{name}_comp{sfx}", "sec_comp")):
+                    v = g[col].dropna()
+                    if len(v):
+                        lat.append(dict(method=meth, shape=shape_name(topo, n), n_wheels=int(4 * n),
+                                        sec_per_decision=float(v.median()), hardware=hw, status=status,
+                                        n=int(len(v)), split=s, end_to_end=1))
+    if calib_out:
+        pathlib.Path(calib_out).mkdir(parents=True, exist_ok=True)
+        for tag, c in calib.items():
+            (pathlib.Path(calib_out) / f"calib_{tag}.json").write_text(json.dumps(c, indent=1))
+    return dec, lat
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("roots", nargs="+")
@@ -144,11 +210,25 @@ def main():
     ap.add_argument("--status", default="exploratory")
     ap.add_argument("--hardware", default="RTX 3090 (vast)")
     ap.add_argument("--out", default=str(ROOT / "results/models/paper"))
+    ap.add_argument("--stage-weights", default=None,
+                    help="also copy each train run's manifest.json + weights.pt to DIR/<arch>-<div>-<seed>/ (stage-2 input)")
+    ap.add_argument("--calib-out", default=str(ROOT / "results/models/calib"),
+                    help="T1-cal conformal constants per stage-2 model (calib_<tag>.json, for cfcap.models.predict)")
     a = ap.parse_args()
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     runs = find_runs(a.roots)
     print(f"{len(runs)} train runs")
+    if a.stage_weights:
+        import shutil
+        for run in runs:
+            w = run["dir"] / "weights.pt"
+            if w.exists():
+                c = run["cfg"]
+                dst = pathlib.Path(a.stage_weights) / f"{c['arch']}-{c['div']}-{c['seed']}"
+                dst.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(w, dst / "weights.pt")
+                shutil.copy2(run["dir"] / "manifest.json", dst / "manifest.json")
     dec, div, lat, div_rel = [], [], [], []
     ens = {}
     for run in runs:
@@ -236,6 +316,14 @@ def main():
         e_lo, _ = lowers(base[0][1], [df for _, df in base], direct, "simultaneous")
         dec += dec_rows("ensemble", "simultaneous", "amortized", base, e_lo, direct,
                         lambda s, df: np.full(len(df), np.nan), a.status)
+    e2 = load_eval2(a.roots)
+    if e2:                                  # stage-2 (same eids, end-to-end timing) supersedes the train-run rows
+        print(f"stage-2 evaluations: {sorted(e2)}")
+        dec2, lat2 = headline_from_eval2(e2, a.status, a.calib_out)
+        if dec2:
+            ens_rows = [d_ for d_ in dec if len(d_) and d_.method.iloc[0] == "ensemble"]
+            dec = dec2 + ens_rows
+            lat = [r for r in lat if not str(r["method"]).startswith("amortized")] + lat2
     if dec:
         pd.concat(dec).to_csv(out / "dec_models.csv.gz", index=False)
     pd.DataFrame(div).to_csv(out / "diversity.csv", index=False)

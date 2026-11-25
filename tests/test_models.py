@@ -222,3 +222,37 @@ def test_export_and_summarize(tmp_path):
     assert set(div.metric) >= {"cert_frac", "unsafe_commit", "pinball", "cov90"}
     assert (tmp_path / "strata" / "diversity_relevant.csv").exists()
     assert (out / "latency_models.csv").exists()
+
+
+def test_export_eval2_end_to_end(tmp_path):
+    import json
+    import subprocess
+    import sys
+    import pandas as pd
+    rng = np.random.default_rng(1)
+    d = tmp_path / "e2"
+    (d / "units").mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=0, task_argv=[])))
+    for split in ("cal", "test"):
+        parts = []
+        for mi in (0, 1):
+            f = _fake_eval(rng)
+            n = len(f["eid"])
+            f.update(model=np.full(n, mi), sec_direct=np.full(n, 0.004, np.float32),
+                     sec_comp=np.full(n, 0.9, np.float32), sec_gen=np.full(n, 0.1, np.float32))
+            parts.append(f)
+        z = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+        u = f"{split}-0000000-0000030"
+        np.savez(d / "units" / f"{u}.npz", **z)
+        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1,bb-n6-1", hardware="X"))))
+    out, cal = tmp_path / "paper", tmp_path / "calib"
+    r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(out), "--calib-out",
+                        str(cal)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    dec = pd.read_csv(out / "dec_models.csv.gz")
+    assert {"amortized_sim", "amortized_comp", "blackbox_gnn"} <= set(dec.method)
+    assert np.allclose(dec[dec.method == "amortized_comp"].seconds, 0.9, atol=1e-5)
+    lat = pd.read_csv(out / "latency_models.csv")
+    assert (lat[lat.method == "amortized_comp"].sec_per_decision > 0.5).all()
+    c = json.loads((cal / "calib_st-n6-1.json").read_text())
+    assert {"q_sim", "q_marg", "q_comp", "alpha"} <= set(c)
