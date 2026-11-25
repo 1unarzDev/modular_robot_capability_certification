@@ -1,0 +1,13 @@
+method,shape,ms_per_episode
+amortized_n4_s1,pair,3.42
+amortized_n2_s1,pair,3.37
+amortized_n4_s1,square,3.5
+amortized_n2_s1,square,3.38
+amortized_n4_s1,2x3,3.53
+amortized_n2_s1,2x3,3.12
+compositional_S16,pair,17.7
+compositional_oracle_mode_S8,pair,14.16
+compositional_S16,square,22.79
+compositional_oracle_mode_S8,square,16.5
+compositional_S16,2x3,30.79
+compositional_oracle_mode_S8,2x3,21.72
