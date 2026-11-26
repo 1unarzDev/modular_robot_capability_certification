@@ -429,3 +429,28 @@ unchanged.
   3. `cfcap-nuis3` (F1 spread curve, Prop. 3 empirical). A figure, not a claim-changer.
   4. `cfcap-theory-ride` (cheap CPU).
   5. `cfcap-t2-extra` (ablation; low value).
+
+## 12. Amendment A-KIND (01:45Z, before any confirmatory label): no hidden failure by candidate kind
+**Reason.** Blind critic B (`docs/reviews/weakpoints_B.md` point 2, exploratory T1 rows) found that the *pooled*
+matched-1 % point hides unsafe merges: GNN 12.1 % on incapable merges and 17.4 % on bodies of ≥ 3 modules. That is
+possible because 88 % of incapable decisions are lone faulted modules.
+- **New validity bar, C-MAIN bar 1b** (not Holm; ours only, T1).
+  - At the pooled matched point (unchanged), E_dec per kind ∈ {merge, multi-module child (≥ 2 modules), lone
+    faulted child} must have a one-sided upper 95 % bound ≤ **3 %** (= 3 × U*).
+  - The bound is chosen so that the ~1.9k incapable merge decisions expected at 2,400 episodes are powered at
+    deff ≤ 4: the upper bound at a true 1 % is ≈ 1.8 %.
+  - A kind with < 1,000 incapable decisions is UNDERPOWERED for 1b. For that kind, E_ep (any unsafe commit of that
+    kind per episode, own bound) ≤ 0.10 decides.
+- **If bar 1b fails for merges**, the paper reports that the pooled operating point does not protect merges.
+  Claim (iii) then rests on C-MERGE (its own per-pair bars) and the per-kind Mondrian certifier only.
+- **Descriptive:** a per-kind Mondrian matched point (margin fitted per kind on cal) is reported beside the pooled
+  one, for every method.
+
+## 13. Disclosure D-CAL (01:45Z): confidence intervals condition on the calibration split
+- All bootstrap CIs in §0.3 resample test clusters with margins **frozen**. They are conditional on the realised
+  calibration set, i.e. the certificate a deployed robot would actually carry. They understate method-level
+  variability.
+- **Descriptive add-on**, if it takes the paper role ≤ 30 min: for C-MAIN E_ep and the P1/P2 differences, a nested
+  bootstrap that also resamples calibration episodes (B_cal = 200) and refits every margin. It is reported as a
+  "method-level CI" column. It never changes a verdict.
+- If it is not run, the paper's limitations state that the CIs are conditional on calibration.
