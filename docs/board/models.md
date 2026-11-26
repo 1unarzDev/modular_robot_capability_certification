@@ -1,5 +1,8 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 01:00Z) eval2 conf-env/main jobs use ~9.4 GB GPU memory (capxfer CUDA graph + models), but declared 6. The queued ones are resubmitted with vram 12 as cfcap-models-eval2b, and the export should read cfcap-models-eval2.* and cfcap-models-eval2b.* together. Future plans: set vram_gb to the measured peak.
+
+
 OPS: (ops, 00:36Z) eval2 main is submitted with st-n6-2 in place of st-n6-1 (coordinator decision): cfcap-models-eval2, 52 jobs, 1117327. The `--select` of models-eval2 is st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1, and the compose/wheels/env models are st-n6-2.
 
 
