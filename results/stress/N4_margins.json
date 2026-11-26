@@ -1,0 +1,34 @@
+{
+ "P0": {
+  "q_cf_all": 0.013100312949557491,
+  "q_cf_crossfit": [
+   0.010930689954201323,
+   0.015448143715110496
+  ],
+  "q_pert_by_nmod": {
+   "2": 0.1716,
+   "3": 0.052,
+   "4": 0.046,
+   "5": 0.038,
+   "6": 0.0321
+  },
+  "alpha": 0.1,
+  "source": "exploratory E2 pairs (stress_A4_merge seeds 907000), N4 enum_known lower"
+ },
+ "P5": {
+  "q_cf_all": 0.013004029891885649,
+  "q_cf_crossfit": [
+   0.011355531728049373,
+   0.01326604121056607
+  ],
+  "q_pert_by_nmod": {
+   "2": 0.163,
+   "3": 0.0534,
+   "4": 0.0409,
+   "5": 0.0378,
+   "6": 0.0325
+  },
+  "alpha": 0.1,
+  "source": "exploratory E2 pairs (stress_A4_merge seeds 907000), N4 enum_known lower"
+ }
+}

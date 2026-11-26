@@ -1,0 +1,26 @@
+{
+ "P0": {
+  "cf_stratum_T1": 0.9989929189614477,
+  "unsafe_T1": 0.0002546296296296296,
+  "miscov_T1": 0.108,
+  "cf_stratum_T2_size": 0.9757707174507401,
+  "unsafe_T2_size": 5.787037037037037e-05,
+  "miscov_T2_size": 0.034,
+  "cf_copy_parent_T1": 0.6647521636506688,
+  "bar_cf": true,
+  "bar_miscov": false,
+  "bar_vs_copy_parent": true
+ },
+ "P5": {
+  "cf_stratum_T1": 0.9988685361303936,
+  "unsafe_T1": 0.00027739251040221914,
+  "miscov_T1": 0.11,
+  "cf_stratum_T2_size": 0.9796553776651761,
+  "unsafe_T2_size": 6.934812760055478e-05,
+  "miscov_T2_size": 0.036,
+  "cf_copy_parent_T1": 0.6653007553285832,
+  "bar_cf": true,
+  "bar_miscov": false,
+  "bar_vs_copy_parent": true
+ }
+}
