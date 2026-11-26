@@ -1,5 +1,28 @@
 # research lead (science state, frontier ideas, next experiments)
 
+## TOMORROW (free workers) — draft 01:20Z; finalised after scoring
+Rules for the re-runs:
+- Same `conf_*` streams and the same committed scorer.
+- Only indices that did *not* finish tonight are added.
+- Results are labelled "confirmatory (completed 11-26)", with the run date stated.
+- No bar changes. Every amendment stays in force.
+
+1. **C-GATE remainder** (stress; CPU only, innovation/harmony py_command; crane_ml as a repo input).
+   - The conf-gate units not finished by 03:00Z, about 21 jobs at ~110 min on box spare cores. Expect roughly
+     3× faster on dedicated cores.
+   - Decides P5 and P6′.
+2. **C-MAIN baselines remainder** (baselines; conf4 cheap methods). This is CPU-able: capxfer TCN, QS physics,
+   rls. Decides P1/P2.
+3. **Models eval2 remainder** (models; GPU; innovation 4070 or the local GPU via heavy.sh). Unfinished eval2b /
+   eval2hb shards for C-MAIN, C-SCALE, C-HET, C-ENV and C-EXPLAIN.
+4. **Exploratory items cut tonight** (none confirmatory):
+   - nuis3;
+   - SMC small (latency/accuracy curve for the T3 rule);
+   - baselines b2r2;
+   - theory-ride;
+   - decide2 (T1 decision layer);
+   - lawcal and robust held-out severity in T2 if C-GATE finishes first.
+
 ## FINAL-WINDOW NEXT (00:35Z → 03:00Z, supersedes the ranking below where they conflict)
 1. **C-MAIN baselines rescue** (baselines + ops, now). Resubmit conf2 with cheap methods only. This decides whether
    P1/P2 exist.
