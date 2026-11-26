@@ -155,6 +155,29 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
   - `amortized_comp` and `raw` need per-row lower bounds (columns family, mission, cand, seg, lower) from the models
     role, computed under each segment's condition.
 
+## CONFIRMATORY C-ENV mission file (03:12Z, after FINAL PULL COMPLETE)
+- I wrote `results/env/confirmatory/missions_conf_env.csv.gz`:
+  - 7,200 rows: ID missions 0–599 and each E-H family 0–299 (A-POWER);
+  - claim C-ENV, all rows from shard 1 (the shard-0 spare units are exploratory and filtered by `--claim C-ENV`);
+  - mission 1499 is excluded (outside the A-POWER range anyway).
+- Command: `scripts/env_score.py <10 cfcap-env.env-conf-* dirs> --claim C-ENV --keep conf-ID=0:600 --keep
+  conf-E-H{1..4}=0:300`. All 10 conf manifests were complete, and no duplicate rows were found.
+- **Methods present:** oracle, nominal, biggest_body, greedy_feasible.
+- **Methods missing:** `amortized_comp`, `raw` and `amortized_comp_envcal`. No models conf env lower file exists
+  (`results/models/confirmatory/` has no env_conf_lower_*; `results/models/env/` holds only exploratory test-family
+  bounds). The scorer will therefore report P7 and the validity bars for ours as MISSING.
+- Descriptive (baselines; E_mis = failed / committed):
+
+  | family | oracle success | oracle plans that reconfigure | nominal E_mis | biggest_body E_mis | greedy_feasible E_mis |
+  |---|---|---|---|---|---|
+  | ID | 0.942 | 0.33 | 0.10 | 0.09 | 0.15 |
+  | E-H1 | 0.937 | 0.82 | 0.10 | 0.09 | 0.17 |
+  | E-H2 | 0.930 | 0.37 | 0.12 | 0.10 | 0.18 |
+  | E-H3 | 0.950 | 0.36 | 0.13 | 0.10 | 0.19 |
+  | E-H4 | 0.837 | 0.36 | 0.09 | 0.09 | 0.09 |
+
+- Bar 4 (oracle plans reconfigure in ≥ 20 % of ID missions): 0.33, before the scorer's building-cluster CI.
+
 ## Payload placement (answer to the research lead)
 - In labelling, the payload is a point mass at the **candidate's centre**: (mass, 0, 0) in the candidate frame,
   passed through `simrun.label_conditions`.

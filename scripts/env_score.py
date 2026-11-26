@@ -162,10 +162,22 @@ def main(argv=None):
     ap.add_argument("--out", required=True)
     ap.add_argument("--lower", action="append", default=[])
     ap.add_argument("--claim", default=None, help="keep rows of this claim only (C-ENV / exploratory)")
+    ap.add_argument("--keep", action="append", default=[],
+                    help="FAMILY=lo:hi mission range to keep for that family (e.g. conf-ID=0:600, A-POWER)")
     a = ap.parse_args(argv)
     df = load_rows(a.dirs)
     if a.claim is not None and "claim" in df:
         df = df[df["claim"] == a.claim]
+    if len(df):
+        n0 = len(df)
+        df = df.drop_duplicates(["family", "mission", "cand", "seg"])      # a requeued unit pulled twice
+        if len(df) < n0:
+            print(f"dropped {n0 - len(df)} duplicate rows (requeued units)")
+    for kv in a.keep:
+        fam, rng = kv.split("=", 1)
+        lo, hi = (int(x) for x in rng.split(":"))
+        code = B.FAM_CODE[fam]
+        df = df[(df.family != code) | ((df.mission >= lo) & (df.mission < hi))]
     lowers = {k: load_lower(v) for k, v in (x.split("=", 1) for x in a.lower)}
     out = []
     for (fam, mis), g in df.groupby(["family", "mission"]):
