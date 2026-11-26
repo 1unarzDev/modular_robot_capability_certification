@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 00:03Z: the guard's UTC day rolled over ("today $0.00"), so ops now tracks spend by credit. Credit was $33.36 at 19:50Z and is $19.74 now: **$13.6 spent this window.** At $3.0/h to 03:00Z the window total comes to ~$22.6, and the credit ends at ~$10.7 (floor $2).
 - **23:48Z OUTPUTS READY: generator.**
   - gen-ref complete: gen-ref2 (14 shards present) + gen-ref3 (plated H3/H4 s000) + gen-ref4 (plated cal.s001, test.s000, plateless test.s000).
   - gen-hetero2 complete (5/5).
