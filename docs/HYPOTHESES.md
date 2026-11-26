@@ -100,6 +100,36 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **01:50Z, status corrections for the paper (after blind critics A and B; `docs/reviews/weakpoints_{A,B}.md`).**
+  - **H12 → HYPOTHESIS-GENERATING.** The ≥ 3-module restriction was chosen after seeing N3 (pooled bar neither
+    met nor failed). It is tested only by C-GATE P5. If C-GATE is missing or partial, the paper may state H12 only
+    as an exploratory, mechanism-motivated finding.
+  - **H4 → "latency advantage established (3.4 ms vs ≥ 500 s/episode SMC); accuracy against SMC not established"**,
+    unless smc-small lands before scoring. The T3 rule cannot be evaluated without SMC rows.
+  - **H3 (probing) wording.** EVOI matches always-clamp usefulness at ~¼ of the probe time. Its regret gain is
+    probe-time accounting: decision regret without probe time is ~0.5 s *worse* than clamp (critic A §2). It is
+    not "better decisions". T0 only.
+  - **H11 held-out severity: SUSPENDED.** The K₀₋₂ and K_pool row files are byte-identical (critic A §1), so K may
+    never have reached the screen. The verdict stands only after the decision role's plumbing check.
+  - **Everything at decision level is T0** (decision, probing, screen, gate). T1/T2 evidence is certificate-level
+    only (critic A §3). This goes in the limitations.
+  - **Critic B points carried to the final ledger:**
+    - the trust gate is a negative result (dominated by `par_pooled` and `pi_cal`);
+    - held-out-family coverage is 85–88.9 % against the nominal 90 %, so C5 is weak;
+    - the diversity effect (C6 / F2) is null;
+    - the theory claims are Prop. 2(b)/(c), plus the measured Prop. 4 slack. Lemma 1 and Thm 5′ are tools.
+  - **Pooled matched point hides unsafe merges** (critic B §2) → new confirmatory bar 1b (A-KIND).
+- **01:50Z, forking paths (for the limitations section).** Exploratory arms tried and abandoned, in order:
+  - trust gate (E1: falsified; replaced by robust / lawcal before any conf data, A-GATE);
+  - child-rate yaw probe (A5y: missed 0.56 < 0.75) and its parent version (N5: failed);
+  - NEXT-1, the robust clamp likelihood (failed its useful bar). Then NEXT-1b, a knee-tolerant conformal screen
+    (passed after the screen change);
+  - N7, the size-aware single/pair margin (narrow miss);
+  - the own-reference T2 label (replaced by the fixed reference after N3 showed it hid the shift);
+  - budget abstention (replaced by Mondrian-by-difficulty, N1).
+
+  Each switch was pre-registered on a board before its own run, on fresh seeds. But the *sequence* is adaptive.
+  Only CONFIRMATORY.md cells, scored once, carry confirmatory weight.
 - **21:58Z H3 replication: SUPPORTED on 3 disjoint seed sets** (decision envpost / n1robust / n1bK).
   - T4 must headline task-level metrics. EVOI's lower candidate certified share (73.8 vs 84.0 %) lies entirely in
     episodes where it skipped a probe that did not matter for the task (342/342 pairs). It misses value in 13/585
