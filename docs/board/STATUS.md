@@ -3,6 +3,8 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:55Z: C-MERGE unit merge-P5-u0014.** It belongs to conf-merge-P5.s003, which is "done" on the coordinator. Only a preempted partial copy was pulled (running 4/5, u0014 has a state file but no npz); the completed copy was lost with its box. **Resubmitted P5.s003** as cfcap-stress-conf-merge2 (lineage cfcap-stress, priority 0, ~25 min).
+- Priorities now: eval2b 0; conf-merge P5.s003/s008 0; conf-gate + gate-cal 1; conf4 conf-cal/conf-main + eval2hb 2; conf4 het/scale 3.
 - 01:46Z: requeued the dead confirmatory jobs that fall inside the A-POWER ranges, at priority 0: conf-merge P5.s008 and conf-gate s006. conf-gate s011/s012 are beyond A-POWER, so they stay cancelled. Status: conf4 14 leased / 51 queued / 5 done; eval2b 7/31/3; eval2hb 4/3/1; smc-small2 2/0/2; t2-motor4 14/21 done; conf-merge 18/19. Credit $14.62, burn $2.8/h.
 - 01:47Z: research-cluster a357458 now treats GPU OOM as a retried gpu_resource error. Resumed (note "gpu_resource no longer trips (a357458)"): #31 conf4 (60 queued), #32 eval2b (31 queued), #25 eval2, #26 eval2h. #27–#30 (cut batches) and #23 (conf-gate) were already resumed and are verifying. Every confirmatory job has max_attempts 3.
 - 01:42Z: **ops error:** clearing stray queues also cancelled cfcap-nuis2.nuis-main.s000. It had been requeued after a preemption and was waiting as "queued". Its 7 pair units, excluded from nuis3, therefore need a rerun. The IDs are in `scripts/campaigns/nuisance_nuis3.json`. Planned for tomorrow on free workers, together with the other cut work; there is no capacity for it before 03:00Z.

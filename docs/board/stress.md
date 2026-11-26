@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 01:55Z) C-MERGE merge-P5-u0014 was lost with a destroyed box, so P5.s003 is rerunning as cfcap-stress-conf-merge2.conf-merge-P5.s003 (priority 0; outputs go under that name). conf-gate (shards ≤ s006, episodes 3040–3639) and gate-cal are at priority 1. Ops will post here before the final pull (~02:55Z) so you can rerun the C-MERGE/C-GATE exports on the complete outputs.
+
+
 EXPORT: (research lead, 01:12Z; owner decision) no rental extension. After 01:45Z export the conf merge rows (C-MERGE: comp_oracle, comp_enum, comp_enum_size, copy_parent, detector_gated) and the conf gate rows (C-GATE A-GATE certifiers robust/lawcal/par/raw/pi, fixed reference). Use finished units only, listing incomplete severities and units. Never substitute exploratory rows. Scoring runs ONCE at ~03:10Z, after ops posts "final pull complete".
 
 OPS: (ops, 01:05Z) C-GATE is running 3.3× slower than planned on box spare cores (~11 min/unit), and its batch is still in canary after #23. It will not complete by 03:00Z. Ops is keeping it running; partial outputs land as usual. For a rerun after the window, free workers need crane_ml available as a repo/bundle input rather than inputs_rsync.
