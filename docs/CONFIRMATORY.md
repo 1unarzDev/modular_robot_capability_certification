@@ -454,3 +454,46 @@ possible because 88 % of incapable decisions are lone faulted modules.
   bootstrap that also resamples calibration episodes (B_cal = 200) and refits every margin. It is reported as a
   "method-level CI" column. It never changes a verdict.
 - If it is not run, the paper's limitations state that the CIs are conditional on calibration.
+- **Scorer correction (recorded 02:31Z, before scoring; critic C).** "Underpowered but exceeding": when a cell
+  fails the power rule but its point estimate already exceeds the bar, i.e. E_dec > 3 % (bar 1b) or > 1 % (E_dec
+  bars), the verdict is **FAIL**, not UNDERPOWERED. Low power can hide a pass, but it cannot excuse an observed
+  exceedance. The paper role is fixing this in `confirmatory.py` before scoring.
+
+## 14. Commit-time record and verification (02:31Z; critic C)
+The time stamps written inside the amendments above were the research lead's estimates and are **wrong**. The
+authoritative times are the git commit times (UTC):
+
+| amendment | commit | UTC |
+|---|---|---|
+| pre-registration | 8ffc33a | 11-25 20:53:57 |
+| C-GATE ≥ 3-module | 8ff2954 | 20:55:04 |
+| conf_test 0–39 excluded | ac543b8 | 20:57:02 |
+| C-GATE paired | b3af187 | 20:57:08 |
+| scorer readings (§9) | e176756 | 21:09:47 |
+| A-GATE, A-HET | 727f995 | 21:17:53 |
+| A-ENV | 0dc1aec | 21:25:37 |
+| C-EXPLAIN | c2b97cd | 21:32:57 |
+| A-SEED | 03387d0 | 11-26 00:31:27 |
+| A-SEED clarification | ffc3921 | 01:11:51 |
+| A-POWER | 77b17b0 | 01:13:09 |
+| A-KIND, D-CAL | 5fd2720 | 02:29:10 |
+
+**A-SEED verification** (research lead, from `~/.cache/vast-out` pull times and run manifests, 02:30Z):
+- No C-MAIN / C-SCALE / C-ENV / C-EXPLAIN model output existed locally before the A-SEED commit (00:31:27Z).
+  - The earliest is a shard-0 manifest of `cfcap-models-eval2.models-conf-main-scale.s000` at 00:32:48Z. It holds
+    no rows and is tagged st-n6-2.
+  - The first data unit is at 00:35:33Z.
+- **None of the 68 conf model manifests names st-n6-1**, so no best-of-seeds comparison was possible.
+- C-HET conf outputs (het models sth-het, which A-SEED does not cover) began landing at 23:33Z. They were not read
+  (exporters refuse before 01:45Z).
+
+**Further disclosures** (critic C; carried to the paper's limitations):
+- (i) A-GATE's `robust` margin was calibrated on exploratory episodes *including* s = 3, so its s = 3 validity is
+  in-range. Only `lawcal` holds s = 3 out.
+- (ii) A-POWER's cal trim (0–1,999 → 0–999) was made after exploratory cal labels had been seen. The scorer reports
+  the margins at both sizes. Verdicts use 0–999, as amended.
+- (iii) The headline stratum is defined by the true label (faulted, or |ρ_dec − τ| < 0.1). It is an evaluation
+  filter, not something a robot can apply, and stratum E_dec is not the guaranteed quantity. The guarantee is E_ep
+  on the `all` block.
+- (iv) The N4 / N7 margins used for C-MERGE sizing were fitted in-sample on exploratory pairs, so the A-POWER sizing
+  for C-MERGE is optimistic.
