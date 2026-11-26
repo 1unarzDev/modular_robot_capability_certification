@@ -383,9 +383,11 @@ def env_truth(dirs):
     never read here."""
     from cfcap.env import buildings as B
     parts = []
-    for d in dirs:
-        for f in sorted(pathlib.Path(d).rglob("units/env-test-*.npz")):
+    for mdir, man in complete_manifests(dirs, "env_missions"):
+        for f in sorted(mdir.glob("units/env-test-*.npz")):
             with np.load(f) as z:
+                if "truth" not in z.files:
+                    continue
                 parts.append(pd.DataFrame({k: z[k] for k in ("family", "mission", "cand", "seg", "truth", "fp_ok",
                                                               "load_ok")}))
     if not parts:
@@ -419,6 +421,9 @@ def env_lowers(env, q_comp, out_dir, conf, q_env=None, model_tag="st-n6-2"):
     from cfcap.env import buildings as B
     d = env[env.status_conf == int(conf)]
     d = d[~((d.family == B.FAM_CODE.get("conf-ID", -1)) & (d.mission == 1499))]
+    if conf:                                # A-POWER (CONFIRMATORY §11): conf-ID 0-599, each conf-E-H 0-299
+        lim = np.where(d.family == B.FAM_CODE.get("conf-ID", -1), 600, 300)
+        d = d[d.mission < lim]
     if d.empty:
         return []
     out_dir = pathlib.Path(out_dir)

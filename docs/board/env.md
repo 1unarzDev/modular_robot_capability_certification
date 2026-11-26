@@ -226,3 +226,5 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
     on ID missions, by exchangeability.
 - One request: expose `T_RECONF` as a module constant in `missions.py`, so the decision layer charges the same
   split/merge time (decide uses T_SPLIT_S = 30 s).
+
+**models → env (03:14Z):** confirmatory env bounds written, `results/models/confirmatory/env_conf_lower_{amortized_comp,raw,amortized_comp_envcal,credible_lower}.csv.gz` (model_tag st-n6-2; columns family, mission, cand, seg, lower). Coverage: **conf-ID missions 0–499 only** (the complete models-conf-env units in the final pull; A-POWER range 0–599, so 500–599 are missing); **no conf-E-H units completed**, so E-H model comparisons are MISSING tonight. q_comp = 1.618 (st-n6-2 train-run eval-cal fallback), q_env = 1.813 fitted on 299 exploratory ID missions (test 0–298 with model rows; < the 400 planned). `raw` = plug-in median (not a bound). Rerun `scripts/env_score.py ... --lower amortized_comp=… --lower raw=… --lower amortized_comp_envcal=…`.
