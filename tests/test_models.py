@@ -206,7 +206,7 @@ def test_export_and_summarize(tmp_path):
     for shard in (16, 1):                                          # grid b1: 16 = st n6 s2 (A-SEED headline), 1 = bb n6 s1
         d = tmp_path / f"run{shard}"
         (d / "units").mkdir(parents=True)
-        (d / "manifest.json").write_text(json.dumps(dict(task="train", shard=shard, task_argv=["--grid", "b1"])))
+        (d / "manifest.json").write_text(json.dumps(dict(task="train", status="complete", shard=shard, task_argv=["--grid", "b1"])))
         for s in TR.EVAL_SPLITS:
             np.savez(d / "units" / f"eval-{s}.npz", **_fake_eval(rng))
             (d / "units" / f"eval-{s}.json").write_text(json.dumps(dict(unit=f"eval-{s}",
@@ -238,7 +238,7 @@ def test_export_eval2_end_to_end(tmp_path):
     rng = np.random.default_rng(1)
     d = tmp_path / "e2"
     (d / "units").mkdir(parents=True)
-    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=0, task_argv=[])))
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", status="complete", shard=0, task_argv=[])))
     for split in ("cal", "test"):
         parts = []
         for mi in (0, 1):
@@ -272,7 +272,7 @@ def test_scaling_curve(tmp_path):
     rng = np.random.default_rng(2)
     d = tmp_path / "e2"
     (d / "units").mkdir(parents=True)
-    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=0, task_argv=[])))
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", status="complete", shard=0, task_argv=[])))
     for split, n in (("cal", 4), ("test", 4), ("H4b", 12)):
         f = _fake_eval(rng)
         k = len(f["eid"])
@@ -298,7 +298,7 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
     rng = np.random.default_rng(3)
     d = tmp_path / "e2"
     (d / "units").mkdir(parents=True)
-    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=1, task_argv=[])))
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", status="complete", shard=1, task_argv=[])))
     for split, eid0 in (("cal", 0), ("conf_test", 30), ("conf_H4b", 0)):
         f = _fake_eval(rng, eid0=eid0)
         k = len(f["eid"])
@@ -354,7 +354,7 @@ def test_env_lower_export(tmp_path):
     import pandas as pd
     d = tmp_path / "e2"
     (d / "units").mkdir(parents=True)
-    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", shard=1, task_argv=[])))
+    (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", status="complete", shard=1, task_argv=[])))
     n = 40
     rows = dict(family=np.full(n, 2), mission=np.repeat(np.arange(4), 10), building=np.zeros(n, int),
                 cand=np.tile(np.arange(5), 8), seg=np.tile(np.repeat(np.arange(2), 5), 4), leg=np.zeros(n, int),
@@ -426,7 +426,7 @@ def test_ensemble_and_amortized_rows_distinct(tmp_path):
     for shard in (16, 32, 1):                       # st n6 s2 (headline), st n6 s3 (ensemble member), bb n6 s1
         d = tmp_path / f"run{shard}"
         (d / "units").mkdir(parents=True)
-        (d / "manifest.json").write_text(json.dumps(dict(task="train", shard=shard, task_argv=["--grid", "b1"])))
+        (d / "manifest.json").write_text(json.dumps(dict(task="train", status="complete", shard=shard, task_argv=["--grid", "b1"])))
         for s in ("cal", "test"):
             np.savez(d / "units" / f"eval-{s}.npz", **_fake_eval(rng))
             (d / "units" / f"eval-{s}.json").write_text(json.dumps(dict(meta=dict(infer_ms_per_episode=3.0))))
@@ -443,3 +443,39 @@ def test_ensemble_and_amortized_rows_distinct(tmp_path):
     t_e = ens[ens.split == "test"].sort_values(["eid", "cand", "leg"])
     t_s = dec[(dec.method == "amortized_sim") & (dec.split == "test")].sort_values(["eid", "cand", "leg"])
     assert not np.allclose(t_e.lower.to_numpy(), t_s.lower.to_numpy())
+
+
+def test_complete_copy_selection(tmp_path):
+    """Per job_id only the complete pulled copy is read (stale partial copies of preempted attempts are ignored),
+    units deduplicated; resubmissions of the same grid entry count once."""
+    import json
+    import sys
+    sys.path.insert(0, "scripts")
+    import models_export as X
+    rng = np.random.default_rng(7)
+
+    def put(box, job, status, units, eid0=0, upd="2026-11-26T02:00:00Z"):
+        d = tmp_path / box / job
+        (d / "units").mkdir(parents=True)
+        (d / "manifest.json").write_text(json.dumps(dict(task="models_eval2", status=status, shard=1, job_id=job,
+                                                         updated=upd, task_argv=[])))
+        for u in units:
+            f = _fake_eval(rng, n_ep=5, eid0=eid0)
+            k = len(f["eid"])
+            f.update(model=np.zeros(k, int), sec_direct=np.zeros(k, np.float32), sec_comp=np.zeros(k, np.float32),
+                     sec_gen=np.zeros(k, np.float32))
+            if status != "complete":
+                f["truth"] = np.full(k, -9.0, np.float32)        # poison: must never be read
+            np.savez(d / "units" / f"{u}.npz", **f)
+            (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-2"))))
+
+    put("boxA", "crane/x.models-eval2.s000", "failed", ["cal-0000000-0000005"])
+    put("boxB", "crane/x.models-eval2.s000", "complete", ["cal-0000000-0000005"])
+    put("boxC", "crane/x.models-eval2.s001", "interrupted", ["cal-0000005-0000010"], eid0=5)
+    put("boxD", "crane/xb.models-eval2.s000", "complete", ["cal-0000000-0000005"])     # resubmission, same eids
+    e2 = X.load_eval2([tmp_path])
+    cal = e2["st-n6-2"]["cal"]
+    assert (cal.truth > -1).all()                                   # no row from a non-complete copy
+    assert cal.eid.max() < 5                                        # the interrupted job s001 is skipped
+    assert not cal.duplicated(["eid", "cand", "leg"]).any()         # copies / resubmissions deduplicated
+    assert len(X.complete_manifests([tmp_path], "models_eval2")) == 2

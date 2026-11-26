@@ -117,6 +117,21 @@ Detection uses each detector's own threshold at 1 % false alarm on healthy episo
   - Re-exported from the pulled runs; tested.
   - The confirmatory export cannot have the same bug: its methods are a fixed (claim, method) → model-tag table, with
     no ensemble and only st-n6-2 under `amortized_comp`.
+- **Pulled-copy selection.** In both exploratory and confirmatory exports, each job_id uses only the copy with
+  manifest status `complete`. Rows are deduplicated by (job, unit) and then by (model, split, eid, cand, leg). Train
+  resubmissions (b1, b1x, b1w, ...) count once per grid entry. Tested.
+- **Confirmatory export, 02:44Z pull (provisional; rerun after the final pull)** →
+  `results/models/confirmatory/dec_conf_models.csv.gz` (114 MB, not committed) and `wheels_conf_models.npz` (3,000
+  conf_test episodes).
+  - C-MAIN: conf_test has 750 of 3,000 episodes so far.
+  - C-SCALE: conf_H4 has 300 episodes; conf_H4b has none yet.
+  - C-HET: 500 episodes each of conf_het_test, conf_H1 and conf_H2.
+  - **Calibration source:** no complete copy of the st-n6-2 exploratory stage-2 `cal` job exists, because every
+    models-eval2 copy failed. So C-MAIN and C-SCALE (and the C-ENV q_comp = 1.618) use the **train run's own eval-cal
+    rows**: 300 episodes, of which 100 were composed. Every row's `variant` records `cal=train-run-eval-cal` or
+    `cal=eval2`.
+  - C-HET uses the complete eval2 het_cal rows (1,352 episodes; q_comp 2.22).
+  - The type-blind constant is q = 60.3: blind composition is badly wrong on conventional modules.
 - **H5 with CIs** (`scripts/models_h5.py` → `results/models/paper/h5_ci.csv`).
   - Data: the Stage-B train runs' eval-test rows, ρ_dec, on the 100 composed episodes per run, paired.
   - Trained ≤ 4 (n4, seeds 1 and 3), on unseen parents N 5–6, faulted candidates: comp − direct 90 % coverage is

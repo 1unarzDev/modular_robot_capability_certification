@@ -40,22 +40,40 @@ def shape_name(topo, n):
     return NAMED.get((t, int(n)), f"{t}{int(n)}")
 
 
-def find_runs(roots):
-    runs = []
+def complete_manifests(roots, task):
+    """One manifest per job: among every pulled copy of a job_id (a job is pulled once per box it ran on, and
+    preempted attempts leave partial copies), only the copy whose manifest status is "complete" is used (the most
+    recently updated if several). Jobs without a complete copy are skipped. Returns [(dir, manifest)]."""
+    best = {}
     for r in roots:
         for m in pathlib.Path(r).rglob("manifest.json"):
             try:
                 man = json.loads(m.read_text())
             except ValueError:
                 continue
-            if man.get("task") != "train":
+            if man.get("task") != task or man.get("status") != "complete":
                 continue
-            argv = list(man.get("task_argv") or [])
-            grid_name = argv[argv.index("--grid") + 1] if "--grid" in argv else "b1"
-            shard = int(man.get("shard", 0))
-            cfg = TR.grid(grid_name)[shard]
-            runs.append(dict(dir=m.parent, cfg=cfg, grid=grid_name, host=man.get("host", "")))
-    return runs
+            key = man.get("job_id") or str(m.parent)
+            if key not in best or str(man.get("updated", "")) > str(best[key][1].get("updated", "")):
+                best[key] = (m.parent, man)
+    return list(best.values())
+
+
+def find_runs(roots):
+    """Complete train runs, one per grid entry (resubmissions b1 / b1x / b1w / ... of the same entry: the most
+    recently updated complete copy)."""
+    best = {}
+    for mdir, man in complete_manifests(roots, "train"):
+        argv = list(man.get("task_argv") or [])
+        grid_name = argv[argv.index("--grid") + 1] if "--grid" in argv else "b1"
+        shard = int(man.get("shard", 0))
+        if shard >= len(TR.grid(grid_name)):
+            continue
+        key = (grid_name, shard)
+        if key not in best or str(man.get("updated", "")) > str(best[key][1].get("updated", "")):
+            best[key] = (mdir, man)
+    return [dict(dir=d, cfg=TR.grid(k[0])[k[1]], grid=k[0], host=man.get("host", "")) for k, (d, man) in
+            sorted(best.items())]
 
 
 def load_unit(d, split):
@@ -138,28 +156,30 @@ def pinball(q, y, taus=(0.05, 0.25, 0.5, 0.75, 0.95)):
 
 
 def load_eval2(roots):
-    """Stage-2 runs (task models_eval2): {tag: {split: DataFrame}} with end-to-end sec_direct / sec_comp per row."""
-    parts = {}
-    for r in roots:
-        for m in pathlib.Path(r).rglob("manifest.json"):
-            try:
-                man = json.loads(m.read_text())
-            except ValueError:
+    """Stage-2 runs (task models_eval2, complete copies only, deduplicated by (job, unit) and then by (model, split,
+    episode) across resubmitted campaigns): {tag: {split: DataFrame}} with end-to-end sec_direct / sec_comp."""
+    parts, seen_units = {}, set()
+    for mdir, man in complete_manifests(roots, "models_eval2"):
+        job = man.get("job_id") or str(mdir)
+        for f in sorted((mdir / "units").glob("*.npz")):
+            if f.stem.startswith("env-") or (job, f.stem) in seen_units:
                 continue
-            if man.get("task") != "models_eval2":
-                continue
-            for f in sorted((m.parent / "units").glob("*.npz")):
-                if f.stem.startswith("env-"):
-                    continue
-                meta = json.loads(f.with_suffix(".json").read_text()).get("meta", {})
-                tags = str(meta.get("models", "")).split(",")
-                with np.load(f) as z:
-                    df = pd.DataFrame({k: z[k] for k in z.files})
-                split = f.stem.rsplit("-", 2)[0]
-                for mi, g in df.groupby("model"):
-                    parts.setdefault(tags[int(mi)], {}).setdefault(split, []).append(
-                        g.drop(columns="model").assign(_hw=meta.get("hardware", "")))
-    return {t: {s: pd.concat(v, ignore_index=True) for s, v in d.items()} for t, d in parts.items()}
+            seen_units.add((job, f.stem))
+            meta = json.loads(f.with_suffix(".json").read_text()).get("meta", {})
+            tags = str(meta.get("models", "")).split(",")
+            with np.load(f) as z:
+                df = pd.DataFrame({k: z[k] for k in z.files})
+            split = f.stem.rsplit("-", 2)[0]
+            for mi, g in df.groupby("model"):
+                parts.setdefault(tags[int(mi)], {}).setdefault(split, []).append(
+                    g.drop(columns="model").assign(_hw=meta.get("hardware", "")))
+    out = {}
+    for t, d in parts.items():
+        out[t] = {}
+        for s_, v in d.items():
+            df = pd.concat(v, ignore_index=True)
+            out[t][s_] = df.drop_duplicates(["eid", "cand", "leg"]).reset_index(drop=True)
+    return out
 
 
 def headline_from_eval2(e2, status, calib_out=None):
@@ -246,8 +266,8 @@ def confirmatory_wheels(roots, out_path, model=CONF_MODEL):
     posterior median rho_dec of each candidate is `point` of the amortized_comp rows in dec_conf_models. Truth is
     not stored (regenerate it from the episode index)."""
     parts = []
-    for r in roots:
-        for f in sorted(pathlib.Path(r).rglob("wheels/conf_test-*.npz")):
+    for mdir, man in complete_manifests(roots, "models_eval2"):
+        for f in sorted(mdir.glob("wheels/conf_test-*.npz")):
             with np.load(f) as z:
                 if str(z["model"]) != model:
                     continue
@@ -259,6 +279,8 @@ def confirmatory_wheels(roots, out_path, model=CONF_MODEL):
     out = {k: np.concatenate([p_[k] for p_ in parts]) for k in parts[0]}
     o = np.lexsort((out["ep_wheel"], out["eid"]))
     out = {k: v[o] for k, v in out.items()}
+    _, first = np.unique(np.stack([out["eid"], out["ep_wheel"]], 1), axis=0, return_index=True)   # dedup copies
+    out = {k: v[np.sort(first)] for k, v in out.items()}
     pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     out["model_tag"] = np.full(len(out["eid"]), model)
     np.savez_compressed(out_path, classes=np.array(["ok", "weak", "coast", "brake"]), model=np.array(model), **out)
@@ -291,11 +313,13 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None, fallback=No
     if not allow_early and now < dt.datetime(2026, 11, 26, 1, 45, tzinfo=dt.timezone.utc):
         raise SystemExit(f"confirmatory labels stay closed until {CONF_OPEN} (now {now:%Y-%m-%dT%H:%MZ})")
     out = []
-    for (claim, method), (tag, pre) in (methods or CONF_METHODS).items():
+    for (claim, method), (tag, pre) in (CONF_METHODS if methods is None else methods).items():
         by = dict(e2.get(tag) or {})
         cal_split = CAL_OF[claim]
+        cal_src = "eval2"
         if cal_split not in by and fallback and cal_split in fallback.get(tag, {}):
             by[cal_split] = fallback[tag][cal_split]            # stage-2 cal job missing: train-run eval-cal rows
+            cal_src = "train-run-eval-cal"
             print(f"confirmatory: {claim}/{method}: {tag} {cal_split} rows from the train run's eval unit")
         if not by or cal_split not in by:
             print(f"confirmatory: {claim}/{method}: no {tag} {cal_split} rows, skipped")
@@ -323,8 +347,9 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None, fallback=No
             d = df[keep]
             st = "exploratory" if split == "cal" else "confirmatory"
             out.append(pd.DataFrame(dict(
-                claim=claim, method=method, model_tag=tag, variant=f"{tag}:{'comp' if pre == 'c' else 'comp_blind' if pre == 'b' else 'direct'}"
-                                                    f"+simultaneous(q={q:.3f})",
+                claim=claim, method=method, model_tag=tag, variant=(f"{tag}:comp_posterior_q05" if method == "credible_lower" else
+                                                    f"{tag}:{'comp' if pre == 'c' else 'comp_blind' if pre == 'b' else 'direct'}"
+                                                    f"+simultaneous(q={q:.3f})") + f";cal={cal_src}",
                 route=("none" if method == "credible_lower" else "compositional" if pre else "simultaneous"),
                 posterior="amortized", train="T1", test_plant="T1",
                 split=split, status=st, eid=d.eid.to_numpy(), shard=d["shard"].to_numpy() if "shard" in d else -1,
@@ -339,20 +364,15 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None, fallback=No
 
 
 def load_env(roots):
-    """C-ENV rows of models_eval2 env units (family, mission, cand, seg, leg, cond, q05/q50/q95, ...)."""
+    """C-ENV rows of models_eval2 env units (complete copies only; deduplicated by (family, mission, cand, seg))."""
     parts = []
-    for r in roots:
-        for m in pathlib.Path(r).rglob("manifest.json"):
-            try:
-                man = json.loads(m.read_text())
-            except ValueError:
-                continue
-            if man.get("task") != "models_eval2":
-                continue
-            for f in sorted((m.parent / "units").glob("env-*.npz")):
-                with np.load(f) as z:
-                    parts.append(pd.DataFrame({k: z[k] for k in z.files}))
-    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+    for mdir, man in complete_manifests(roots, "models_eval2"):
+        for f in sorted((mdir / "units").glob("env-*.npz")):
+            with np.load(f) as z:
+                parts.append(pd.DataFrame({k: z[k] for k in z.files}))
+    if not parts:
+        return pd.DataFrame()
+    return pd.concat(parts, ignore_index=True).drop_duplicates(["family", "mission", "cand", "seg"])
 
 
 ENV_FLOOR = 0.01                     # scale floor = label resolution (CONFIRMATORY A-ENV 2, the H9 fix)
@@ -611,7 +631,7 @@ def main():
             fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False, q_env=q_env,
                             model_tag=a.env_model)
             if a.confirmatory:
-                confirmatory_rows({}, allow_early=a.allow_early)          # the 01:45Z guard
+                confirmatory_rows({}, allow_early=a.allow_early, methods={})   # the 01:45Z guard only
                 fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True, q_env=q_env,
                                  model_tag=a.env_model)
             print("env lower files:", [str(f) for f in fs])
