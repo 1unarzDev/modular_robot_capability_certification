@@ -57,7 +57,9 @@ def run(res, paper):
     N.num("f2.maxN", maxN, srcs, st)
     N.pct("f2.cert.lowdiv.maxN", at.get(lo_, np.nan), srcs, st)
     N.pct("f2.cert.highdiv.maxN", at.get(hi_, np.nan), srcs, st)
-    N.num("f2.gain.pts", 100 * (at.get(hi_, np.nan) - at.get(lo_, np.nan)), srcs, st, fmt="{:.1f}")
+    # gain from the DISPLAYED (1-decimal) values, so the text never shows e.g. 98.9 - 99.1 = -0.1 (critic B #5)
+    N.num("f2.gain.pts", round(100 * at.get(hi_, np.nan), 1) - round(100 * at.get(lo_, np.nan), 1), srcs, st,
+          fmt="{:.1f}")
     return N
 
 

@@ -52,6 +52,10 @@ metadata_nf are computed by the scorer (common.trivial_methods on amortized_comp
 A-POWER (77b17b0, §11): scored prefixes C-MAIN conf_test 40-2,439 (cal 0-999), C-GATE 3,040-3,639, C-MERGE pairs
 0-499 per arm, C-ENV ID 0-599 / E-H 0-299, C-SCALE conf_H4 and conf_H4b 0-599, C-HET 0-499 per split; rows beyond
 are dropped and counted (POWER_RANGES, ENV_RANGES).
+Critic C + A-KIND/D-CAL (5fd2720): P3 and P4 have "overall" rows requiring every pre-registered condition; an
+underpowered cell whose point exceeds its bar is "FAIL (underpowered; exceeds bar)"; C-MAIN bar 1b = per-kind E_dec at
+the pooled matched point (upper <= 3 %, < 1,000 incapable -> per-kind E_ep <= 0.10 decides); per-kind Mondrian matched
+points and the cal 0-999 vs 0-1,999 margin are descriptive; the report discloses that CIs condition on cal.
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -145,11 +149,16 @@ def _load(pattern, req, opt, res):
     return pd.concat(frames, ignore_index=True), [C.rel(f) for f in files]
 
 
+def is_cal(d):
+    """Exploratory calibration rows (split cal, het_cal, ...: any split name ending in 'cal')."""
+    return d["split"].astype(str).str.endswith("cal")
+
+
 def exclusions(d, log, what):
     """§0.1: drop canary shards and the pre-touched conf_test indices from test streams (cal rows untouched)."""
     if d.empty:
         return d
-    test = d["split"].astype(str) != "cal"
+    test = ~is_cal(d)                    # only confirmatory test streams; never exploratory cal / het_cal rows
     can = test & d["shard"].isin(CANARY_SHARDS)
     pre = np.zeros(len(d), bool)
     for sp, idx in PRE_TOUCHED.items():
@@ -308,7 +317,9 @@ class Scorer:
         elif est is None or not np.isfinite(est):
             v = "MISSING"
         elif power_row is not None and not power_row["power_ok"]:
-            v = "UNDERPOWERED"
+            # critic C: an underpowered cell whose POINT already exceeds its bar is not "underpowered", it fails
+            over = (le is not None and est > le) or (up_le is not None and est > up_le)
+            v = "FAIL (underpowered; exceeds bar)" if over else "UNDERPOWERED"
         else:
             v = "PASS" if all(bool(x) for x in conds) else "FAIL"
         thr = "; ".join(s for s in (f"<= {le}" if le is not None else "", f"upper95 <= {up_le}" if up_le is not None
@@ -354,13 +365,17 @@ def _sel(block):
             return (k == "child") & (n == 1) & hf
         if block == "multi-child":
             return s & (k == "child") & (n >= 2)
+        if block == "merge":
+            return s & (k == "merge")
         if block == "self":
             return s & (k == "self")
         return np.ones(len(d), bool)
     return f
 
 
-BLOCKS = ("stratum", "lone-faulted", "multi-child", "self", "all")
+BLOCKS = ("stratum", "lone-faulted", "multi-child", "merge", "self", "all")
+KIND_BLOCKS = (("merge", "merge"), ("multi-child", "child >=2 modules"), ("lone-faulted", "lone faulted child"))
+KIND_MIN_INC = 1000                                       # A-KIND: fewer incapable decisions -> UNDERPOWERED
 
 
 # ------------------------------------------------------------------------------------------------- C-MAIN
@@ -371,6 +386,7 @@ def score_main(S, dec, cal):
     S.log.append(f"C-MAIN: {d.eid.nunique()} episodes after exclusions (conf_test {CMAIN_IDX[0]}-{CMAIN_IDX[1] - 1})")
     methods = sorted(d.method.unique())
     stats = {}          # (method, plant, block, kind) -> cluster table
+    evs = {}
     plants = ["T1", "T2"] + sorted(set(d.test_plant.astype(str)) - {"T1", "T2"})   # e.g. T2 all+motor: cells only
     for plant in plants:
         dp = d[d.test_plant == plant]
@@ -383,6 +399,20 @@ def score_main(S, dec, cal):
                 ev = ev[ev.eid < SMC_FIRST].reset_index(drop=True)
             # cfBH: lower = largest selected tau (or -inf), commit-at-tau <=> lower >= tau; no matched point
             mlo = None if m in C.SELECTION_METHODS else matched(cal[cal.method == m], ev)
+            evs[m, plant] = ev
+            if m not in C.SELECTION_METHODS:          # A-KIND: per-kind Mondrian matched point, descriptive
+                for blk, kname in KIND_BLOCKS:
+                    ck_ = cal[cal.method == m]
+                    ck_ = ck_[np.asarray(_kind_rows(ck_, blk), bool)] if len(ck_) else ck_
+                    ek = ev[np.asarray(_kind_rows(ev, blk), bool)].reset_index(drop=True)
+                    lk = matched(ck_, ek) if len(ck_) and len(ek) else None
+                    if lk is None:
+                        continue
+                    t = cluster_stats(ek, lk, _sel("stratum"))
+                    S.cell(claim="C-MAIN", method=m, plant=plant, block=f"mondrian:{blk}", n_ep=len(t),
+                           E_dec_matched=C._ratio(t.uns.sum(), t.inc.sum()),
+                           CF_matched=C._ratio(t.cert.sum(), t.cap.sum()), n_incapable=int(t.inc.sum()),
+                           note="A-KIND per-kind Mondrian matched point (descriptive)")
             for blk in BLOCKS:
                 own = cluster_stats(ev, ev["lower"], _sel(blk))
                 stats[m, plant, blk, "own"] = own
@@ -425,6 +455,8 @@ def score_main(S, dec, cal):
                 est, reps = bt.ratio(mt, "uns", "inc")
                 S.bar("C-MAIN", "1 validity", "E_dec@U*", est, reps, le=bars["dec"][0], up_le=bars["dec"][1],
                       method=OURS, cell="stratum", plant=plant, n_clusters=len(mt), power_row=pw)
+        if plant == "T1":
+            _bar_1b(S, bt, stats, evs)
         if plant == "T1":
             # ---- P1: vs capxfer, lone-faulted, CF@U*
             a, b = stats.get((OURS, "T1", "lone-faulted", "matched")), stats.get(("capxfer", "T1", "lone-faulted", "matched"))
@@ -655,6 +687,45 @@ def score_explain(S, dec, res, truth_fn=None):
     e, r = bt.ratio(t, "margin", "ref")
     S.bar(claim, "margin share", "share of refusals with a margin claim", e, r, method=OURS, descriptive=True,
           plant="T1", note="margin claims make no physical assertion")
+
+
+def _kind_rows(d, blk):
+    """Row-level kind filter (tau-free) for the A-KIND kinds."""
+    k, n = d["kind"].to_numpy(), d["cand_size"].to_numpy(float)
+    if blk == "merge":
+        return k == "merge"
+    if blk == "multi-child":
+        return (k == "child") & (n >= 2)
+    if blk == "lone-faulted":
+        return (k == "child") & (n == 1) & (d["has_fault"].to_numpy(float) > 0.5)
+    raise ValueError(blk)
+
+
+def _bar_1b(S, bt, stats, evs):
+    """A-KIND (5fd2720) C-MAIN bar 1b, ours on T1, not Holm: per-kind E_dec at the UNCHANGED pooled matched point,
+    one-sided upper <= 3 %; a kind with < 1,000 incapable decisions is UNDERPOWERED and its per-kind E_ep (own bound,
+    episodes with an unsafe commit on that kind) <= 0.10 decides."""
+    ev = evs.get((OURS, "T1"))
+    for blk, kname in KIND_BLOCKS:
+        mt = stats.get((OURS, "T1", blk, "matched"))
+        if mt is None or ev is None:
+            S.bar("C-MAIN", "1b per-kind validity", f"E_dec@U* ({kname})", np.nan, method=OURS, plant="T1",
+                  status="MISSING")
+            continue
+        n_inc = int(mt.inc.sum())
+        pw = dict(n_incapable=n_inc, deff=np.nan, power_ok=n_inc >= KIND_MIN_INC)
+        e, r = bt.ratio(mt, "uns", "inc")
+        v = S.bar("C-MAIN", "1b per-kind validity", f"E_dec@U* ({kname})", e, r, up_le=0.03, method=OURS,
+                  cell=kname, plant="T1", n_clusters=len(mt), power_row=pw,
+                  note=f"pooled matched point; power: >= {KIND_MIN_INC} incapable decisions (A-KIND)")
+        if v == "UNDERPOWERED":
+            ek = ev[np.asarray(_kind_rows(ev, blk), bool)].reset_index(drop=True)
+            t = cluster_stats(ek, ek["lower"])
+            e2, r2 = bt.ratio(t, "ep_unsafe", "one")
+            v = S.bar("C-MAIN", "1b per-kind validity", f"E_ep own bound ({kname})", e2, r2, up_le=0.10,
+                      method=OURS, cell=kname, plant="T1", n_clusters=len(t), note="decides: E_dec underpowered")
+        if blk == "merge" and v not in ("PASS", "MISSING"):
+            S.rows[-1]["note"] += "; claim (iii) rests on C-MERGE alone"
 
 
 def _paired_diff(S, bt, claim, pid, metric, a, b, num, den, min_pts, ma, mb, plant, note=""):
@@ -1147,6 +1218,49 @@ def h12(S):
                        note="dominated rows: " + ", ".join(f"{r['method']} {r['verdict']}" for r in dom)))
 
 
+def p_overall(S, claim, pid, bars_metrics, overall_name):
+    """A P-claim passes only if EVERY pre-registered condition holds: the Holm-resolved paired row(s) and each listed
+    component row (critic C: conditions, not notes). DROPPED propagates."""
+    rows = [r for r in S.rows if r["claim"] == claim and (r["bar"] == pid or
+                                                          (r["bar"], r["metric"]) in bars_metrics)
+            and r["verdict"] != "DESCRIPTIVE"]
+    if not rows:
+        return
+    if any(r["verdict"] == "DROPPED" for r in rows):
+        v = "DROPPED"
+    elif any(r["verdict"] == "MISSING" for r in rows):
+        v = "MISSING"
+    else:
+        v = "PASS" if all(r["verdict"] == "PASS" for r in rows) else "FAIL"
+    S.rows.append(dict(claim=claim, bar=overall_name, metric="all pre-registered conditions", method="", cell="",
+                       plant="", estimate=np.nan, ci_lo=np.nan, ci_hi=np.nan, upper95=np.nan, lower95=np.nan,
+                       threshold="every component row PASS", n_clusters=np.nan, n_incapable=np.nan, deff=np.nan,
+                       power_ok=np.nan, verdict=v,
+                       note="; ".join(f"{r['bar']} / {r['metric']}: {r['verdict']}" for r in rows)))
+
+
+def cal_size_rows(S, dec, cal_full):
+    """Critic C #3 (descriptive): the C-MAIN matched margin of OURS fitted on cal 0-999 (A-POWER, the one used) and on
+    cal 0-1,999, with the T1 stratum E_dec / CF each gives on the scored test rows."""
+    d = dec[(dec.claim == "C-MAIN") & (dec.split == "conf_test") & (dec.method == OURS) & (dec.test_plant == "T1")
+            & dec.eid.between(CMAIN_IDX[0], CMAIN_IDX[1] - 1)].reset_index(drop=True)
+    c = cal_full[(cal_full.claim == "C-MAIN") & (cal_full.method == OURS) & (cal_full.test_plant == "T1")]
+    if d.empty or c.empty:
+        return
+    bt = Boot(np.sort(d.eid.unique()))
+    for lo_, hi_ in ((0, 999), (0, 1999)):
+        cc = c[c.eid.between(lo_, hi_)]
+        if cc.empty:
+            continue
+        lo, k = C.matched_lower(cc, d, u_star=U_STAR, taus=TAUS, stratum="rel")
+        t = cluster_stats(d, lo, _sel("stratum"))
+        e, rr = bt.ratio(t, "uns", "inc")
+        S.bar("C-MAIN", "cal-size sensitivity", f"E_dec@U* with margin from cal {lo_}-{hi_} (k = {k:.3g})", e, rr,
+              method=OURS, plant="T1", descriptive=True, n_clusters=len(t),
+              note=f"{cc.eid.nunique()} cal episodes; CF = {C._ratio(t.cert.sum(), t.cap.sum()):.4f}; "
+                   "descriptive (critic C); the scored margin is cal 0-999 (A-POWER)")
+
+
 def p6_overall(S):
     """A-GATE P6' = Holm-resolved paired E_ep difference AND robust's undominated validity (E_dec if powered, else
     the E_ep row that replaces it)."""
@@ -1191,6 +1305,8 @@ def report(S, H, out, sha, srcs, mock, header_note=""):
          f"Scored by `scripts/analysis/confirmatory.py` against `docs/CONFIRMATORY.md` @ `{sha}` on "
          f"{dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%MZ}. Inputs: {', '.join(srcs) or 'none'}.", "",
          *([header_note, ""] if header_note else []),
+         "Calibration disclosure (D-CAL, 5fd2720): every CI conditions on the fixed calibration split (margins are "
+         "fitted once on cal and frozen); calibration-sampling variability is not included in any interval.", "",
          "## Exclusions (§0.1)", ""] + [f"- {x}" for x in S.log] + ["", "## Power checks (§0.4), before any verdict", "",
          "| claim | cell | method | plant | incapable stratum decisions | deff | upper bound at 1 % | powered |",
          "|---|---|---|---|---|---|---|---|"]
@@ -1325,16 +1441,18 @@ def run(res, out, mock=False, now=None, truth_fn=None, header_note=""):
     dec, sv_dec = split_seeds(dec, S, "decision rows")
     if not mis.empty:
         mis, sv_mis = split_seeds(mis.assign(test_plant="env"), S, "mission rows")
-    cal = add_trivial(apply_ranges(dec[dec.split.astype(str) == "cal"], S, "cal rows", cal=True), S, "cal rows")
-    dec = add_trivial(apply_ranges(exclusions(dec[dec.split.astype(str) != "cal"], S.log, "decision rows"), S,
+    cal_full = dec[is_cal(dec)] if not dec.empty else dec
+    cal = add_trivial(apply_ranges(cal_full, S, "cal rows", cal=True), S, "cal rows")
+    dec = add_trivial(apply_ranges(exclusions(dec[~is_cal(dec)] if not dec.empty else dec, S.log, "decision rows"), S,
                                    "decision rows"), S, "decision rows")
     if not mis.empty:
         mis = apply_env_ranges(mis, S)
     mis = exclusions(mis.assign(split="missions", eid=mis.get("mission", pd.Series(dtype=float))), S.log,
                      "mission rows") if not mis.empty else mis
-    seed_variation(S, exclusions(sv_dec[sv_dec.split.astype(str) != "cal"], [], "seed variation")
+    seed_variation(S, exclusions(sv_dec[~is_cal(sv_dec)], [], "seed variation")
                    if not sv_dec.empty else sv_dec)
     score_main(S, dec, cal)
+    cal_size_rows(S, dec, cal_full)
     score_merge(S, dec, cal)
     score_gate(S, dec)
     score_env(S, mis, ks)
@@ -1344,6 +1462,8 @@ def run(res, out, mock=False, now=None, truth_fn=None, header_note=""):
     H = holm(S)
     h12(S)
     p6_overall(S)
+    p_overall(S, "C-MAIN", "P3", set(), "P3 overall")
+    p_overall(S, "C-MERGE", "P4", set(), "P4 overall")
     V = report(S, H, out, conf_sha(), s1 + s2 + ([C.rel(ksf)] if ks is not None else []), mock or
                (res / "MOCK.txt").exists(), header_note)
     return V, H, S

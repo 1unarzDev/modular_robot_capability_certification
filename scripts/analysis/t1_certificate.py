@@ -28,9 +28,9 @@ NAMES = {  # display names; unknown methods print their raw name
     "metadata_nf": "Shape metadata only", "metadata": "Metadata + true fault flag",
     "nominal": "Nominal (healthy) model", "rls_interval": "RLS + intervals", "capxfer": "capxfer certificate",
     "capxfer_raw": "capxfer certificate (raw)", "enum_known": "Exact enumeration (nuisance known)",
-    "nuisance_smc": "GPU-SMC (simulator likelihood)", "blackbox_gnn": "Black-box counterfactual GNN",
+    "nuisance_smc": "GPU-SMC (simulator likelihood)", "blackbox_gnn": "Black-box counterfactual GNN (baseline)",
     "ensemble": "Deep ensemble", "amortized_marg": "Amortized, marginal", "amortized_sim": "Amortized, simultaneous",
-    "amortized_comp": "Amortized, compositional",
+    "amortized_comp": "Amortized, compositional (ours)",
     # E3 (baselines role): strong trivial and partial-identification baselines
     "detector_gated": "Detector-gated nominal", "ghat_physics": "Detected gain + physics",
     "copy_parent": "Copy parent capability", "min_over_members": "Min over member modules",
@@ -50,6 +50,10 @@ SIZE_GROUPS = (("lone faulted", lambda d: (d["cand_size"] == 1) & (d["has_fault"
 E3_TRIVIAL = ("detector_gated", "ghat_physics", "copy_parent", "metadata_nf")
 E3_PI = "dominance_pi"
 POSTERIOR_BASED = ("smc", "amortized", "enum")
+OURS = "amortized_comp"          # the paper's certificate (compositional, st-n6-2); no other method is labelled ours
+KIND_GROUPS = (("lone", lambda d: (d["kind"] == "child") & (d["cand_size"] == 1)),
+               ("child $\\geq$2", lambda d: (d["kind"] == "child") & (d["cand_size"] >= 2)),
+               ("merge", lambda d: d["kind"] == "merge"))
 NO_GUARANTEE = {"always_go", "never_go", "metadata", "metadata_nf", "nominal", "oracle"}
 STRATUM_LABEL = {"rel": "decision-relevant decisions (faulted candidate or $|\\rho_{\\mathrm{dec}}-\\tau|<0.1$)",
                  "all": "all decisions"}
@@ -103,6 +107,7 @@ def run(res, paper):
         C.placeholder_table(out_a, "tOneTableAll", 11, "awaiting dec_*.csv")
         C.placeholder_table(out_n, "tOneNominal", 7, "awaiting dec_*.csv")
         C.placeholder_table(out_s, "tOneBySize", 9, "awaiting dec_*.csv")
+        C.placeholder_table(paper / "tables/t1_by_kind.tex", "tOneByKind", 7, "awaiting dec_*.csv")
         for k in ("t1.e3.gain.trivial", "t1.e3.gain.pi", "t1.e3.verdict", "t1.e3.best.trivial"):
             N.ph(k)
         for s in C.STRATA:
@@ -141,7 +146,7 @@ def run(res, paper):
                 if m in C.SELECTION_METHODS:
                     break                 # selection rule: no matched point; reported in the nominal table only
                 lo, k = C.matched_lower(fit, ev, stratum=stratum)
-                for g, sel in GROUPS + SIZE_GROUPS:
+                for g, sel in GROUPS + SIZE_GROUPS + tuple(("kind:" + n, f) for n, f in KIND_GROUPS):
                     s = np.asarray(sel(ev), bool)
                     if not s.any():
                         continue
@@ -152,6 +157,19 @@ def run(res, paper):
                     res_rows.append(dict(method=m, plant=plant, stratum=stratum, group=g, cf=cf, unsafe=us, k=k,
                                          dagger=dagger, lo=lohi[0], hi=lohi[1], n_ep=len(cnt),
                                          n_capable=int(cnt["cap"].sum()), n_incapable=int(cnt["inc"].sum())))
+            if m not in C.SELECTION_METHODS:
+                for kn, kf in KIND_GROUPS:                 # per-kind matched variant (descriptive)
+                    fk = fit[np.asarray(kf(fit), bool)]
+                    ek = ev[np.asarray(kf(ev), bool)].reset_index(drop=True)
+                    if fk.empty or ek.empty:
+                        continue
+                    lo_k, kk = C.matched_lower(fk, ek, stratum="rel")
+                    cnt = C.ep_counts(ek, lo_k, stratum="rel")
+                    res_rows.append(dict(method=m, plant=plant, stratum="rel", group="kindmatched:" + kn,
+                                         cf=C._ratio(cnt["cert"].sum(), cnt["cap"].sum()),
+                                         unsafe=C._ratio(cnt["uns"].sum(), cnt["inc"].sum()), k=kk, dagger=dagger,
+                                         lo=np.nan, hi=np.nan, n_ep=len(cnt), n_capable=int(cnt["cap"].sum()),
+                                         n_incapable=int(cnt["inc"].sum())))
             if m not in {"metadata", "metadata_nf"}:
                 row = dict(method=m, plant=plant)
                 for stratum in C.STRATA:
@@ -192,36 +210,73 @@ def run(res, paper):
             N.pct(f"t1.nom.unsafe.{r.method}.{r.plant}{sfx(stratum)}", r[f"unsafe_commit_{stratum}"], srcs, st, d=2)
             N.pct(f"t1.nom.cert.{r.method}.{r.plant}{sfx(stratum)}", r[f"cert_frac_{stratum}"], srcs, st)
         N.pct(f"t1.nom.epunsafe.{r.method}.{r.plant}", r.ep_any_unsafe_all, srcs, st)
-    best = None
+    # "best" macros = OURS (amortized_comp), never the best-scoring baseline (blind critic, weakpoints_B #1);
+    # t1.bestany.* names the best non-oracle method of any kind, for honesty.
     for stratum in C.STRATA:
         Rs = R[(R.group == "all") & (R.stratum == stratum)]
+        o1 = Rs[(Rs.plant == "T1") & (Rs.method == OURS)]
+        if not len(o1):
+            for k in ("t1.best.cert.T1", "t1.best.certlo.T1", "t1.best.certhi.T1", "t1.best.cert.T2",
+                      "t1.capxfer.cert.T1", "t1.gain.pts"):
+                N.ph(k + sfx(stratum), f"{OURS} rows missing")
+        else:
+            b = o1.iloc[0]
+            N.pct("t1.best.cert.T1" + sfx(stratum), b.cf, srcs, st)
+            N.pct("t1.best.certlo.T1" + sfx(stratum), b.lo, srcs, st)
+            N.pct("t1.best.certhi.T1" + sfx(stratum), b.hi, srcs, st)
+            t2 = Rs[(Rs.plant == "T2") & (Rs.method == OURS)]
+            N.pct("t1.best.cert.T2" + sfx(stratum), t2.cf.iloc[0] if len(t2) else np.nan, srcs, st)
+            cx = Rs[(Rs.plant == "T1") & (Rs.method == "capxfer")]
+            if len(cx):
+                N.pct("t1.capxfer.cert.T1" + sfx(stratum), cx.cf.iloc[0], srcs, st)
+                N.num("t1.gain.pts" + sfx(stratum), 100 * (b.cf - cx.cf.iloc[0]), srcs, st, fmt="{:.1f}")
+            else:
+                N.ph("t1.capxfer.cert.T1" + sfx(stratum)), N.ph("t1.gain.pts" + sfx(stratum))
         cand = Rs[(Rs.plant == "T1") & ~Rs.method.isin(NO_GUARANTEE)]
-        if not len(cand):
-            for k in ("t1.best.cert.T1", "t1.best.cert.T2", "t1.capxfer.cert.T1", "t1.gain.pts"):
-                N.ph(k + sfx(stratum))
-            continue
-        if stratum != "rel" and (cand.method == best).any():
-            b = cand[cand.method == best].iloc[0]       # same method as the headline, for comparability
-        else:
-            b = cand.loc[cand.cf.idxmax()]
-        if stratum == "rel":
-            best = b.method
-            N.set("t1.best.method", name(b.method), srcs, st)
-        N.pct("t1.best.cert.T1" + sfx(stratum), b.cf, srcs, st)
-        N.pct("t1.best.certlo.T1" + sfx(stratum), b.lo, srcs, st)
-        N.pct("t1.best.certhi.T1" + sfx(stratum), b.hi, srcs, st)
-        t2 = Rs[(Rs.plant == "T2") & (Rs.method == b.method)]
-        N.pct("t1.best.cert.T2" + sfx(stratum), t2.cf.iloc[0] if len(t2) else np.nan, srcs, st)
-        cx = Rs[(Rs.plant == "T1") & (Rs.method == "capxfer")]
-        if len(cx):
-            N.pct("t1.capxfer.cert.T1" + sfx(stratum), cx.cf.iloc[0], srcs, st)
-            N.num("t1.gain.pts" + sfx(stratum), 100 * (b.cf - cx.cf.iloc[0]), srcs, st, fmt="{:.1f}")
-        else:
-            N.ph("t1.capxfer.cert.T1" + sfx(stratum)), N.ph("t1.gain.pts" + sfx(stratum))
-    if best is None:
-        N.ph("t1.best.method")
+        if stratum == "rel" and len(cand):
+            ba = cand.loc[cand.cf.idxmax()]
+            N.set("t1.bestany.method", name(ba.method), srcs, st)
+            N.pct("t1.bestany.cert.T1", ba.cf, srcs, st)
+    N.set("t1.best.method", name(OURS), "t1_certificate.py OURS", st)
+    # population-matched capxfer comparison: lone faulted modules (capxfer's 58-75 % population)
+    L = R[(R.group == "lone faulted") & (R.stratum == "rel") & (R.plant == "T1")].set_index("method").cf
+    N.pct("t1.ours.cert.lone.T1", L.get(OURS, np.nan), srcs, st)
+    N.pct("t1.capxfer.cert.lone.T1", L.get("capxfer", np.nan), srcs, st)
+    N.num("t1.gain.lone.pts", 100 * (L.get(OURS, np.nan) - L.get("capxfer", np.nan)), srcs, st, fmt="{:.1f}")
+    _kind_table(R, methods, srcs, st, paper / "tables/t1_by_kind.tex", N)
     _e3(N, R, dec, srcs, st)
     return N
+
+
+def _kind_table(R, methods, srcs, st, path, N):
+    """Per candidate kind (lone child / child >= 2 / merge), decision-relevant stratum, T1 test: unsafe-commit rate at
+    the method's POOLED matched point (what the headline uses), and certified share / unsafe at a PER-KIND matched
+    point (margin fitted on that kind's cal rows). Descriptive (blind critic, weakpoints_B #2)."""
+    kinds = [n for n, _ in KIND_GROUPS]
+    Rt = R[(R.plant == "T1") & (R.stratum == "rel")]
+    lines = [r"\begin{tabular}{l" + "rr" * len(kinds) + "}", r"\toprule",
+             " & " + " & ".join(f"\\multicolumn{{2}}{{c}}{{{k}}}" for k in kinds) + r"\\",
+             "Method & " + " & ".join([r"unsafe@pooled (\%) & cert.@kind (\%)"] * len(kinds)) + r"\\",
+             r"\midrule"]
+    for m in methods:
+        cells, any_ = [name(m)], False
+        for k in kinds:
+            a = Rt[(Rt.method == m) & (Rt.group == "kind:" + k)]
+            b = Rt[(Rt.method == m) & (Rt.group == "kindmatched:" + k)]
+            any_ |= bool(len(a) or len(b))
+            cells += [C.fmt_pct(a.unsafe.iloc[0], 1) if len(a) else r"\textemdash",
+                      C.fmt_pct(b.cf.iloc[0]) if len(b) else r"\textemdash"]
+            kk = k.replace("$\\geq$", "ge")
+            if len(a):
+                N.pct(f"t1.kind.unsafe.{m}.{kk}", a.unsafe.iloc[0], srcs, st, d=1)
+            if len(b):
+                N.pct(f"t1.kind.certmatched.{m}.{kk}", b.cf.iloc[0], srcs, st)
+                N.pct(f"t1.kind.unsafematched.{m}.{kk}", b.unsafe.iloc[0], srcs, st, d=1)
+        if any_:
+            lines.append(" & ".join(cells) + r"\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    C.write_table(path, "\n".join(lines), srcs, "per candidate kind, T1, decision-relevant: unsafe at the pooled "
+                  "matched point; certified share at a per-kind matched point (descriptive)")
 
 
 def _size_table(R, methods, srcs, st, path):

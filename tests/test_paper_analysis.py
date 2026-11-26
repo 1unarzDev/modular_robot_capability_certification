@@ -367,3 +367,19 @@ def test_t4_missing_optional_columns_show_dashes(tmp_path):
     head = (tmp_path / "paper/tables/t4_probing.tex").read_text()
     assert "task-relevant" not in head and "\\textemdash" in head
     assert n.items[C.macro_name("t4.clamp.bought")][2] == "placeholder"
+
+
+def test_t3_selects_ours_by_posterior_amortized_compositional(tmp_path):
+    import t3_grid
+    res = mock.write(tmp_path / "res")
+    d = pd.read_csv(res / "models/paper/dec_models.csv")
+    ens = d[d.method == "amortized_sim"].copy()
+    ens["method"], ens["posterior"], ens["route"] = "ensemble", "none", "simultaneous"
+    pd.concat([d, ens]).to_csv(res / "models/paper/dec_models.csv", index=False)
+    t3_grid.run(res, tmp_path / "paper")
+    # amortized_sim (route simultaneous) and the ensemble (posterior none) are not ours; amortized_comp is
+    got = pd.read_csv(res / "models/paper/dec_models.csv")
+    picked = got[(got.posterior == "amortized") & (got.route == "compositional")].method.unique().tolist()
+    assert picked == ["amortized_comp"]
+    tex = (tmp_path / "paper/tables/t3_grid.tex").read_text()
+    assert "compositional" in tex.split("\n")[1]

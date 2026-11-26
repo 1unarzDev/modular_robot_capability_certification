@@ -16,6 +16,9 @@ import common as C
 from t1_certificate import sfx
 
 ROUTE = "simultaneous"
+# models 8c96915: exactly one method has posterior "amortized": amortized_comp (st-n6-2), route compositional; the
+# ensemble / black-box carry posterior "none", the direct heads "amortized_direct". Each posterior uses its own route.
+ROUTES = {"smc": "simultaneous", "amortized": "compositional"}
 POST = (("smc", "GPU-SMC (T1 likelihood)"), ("amortized", "Amortized (wide DR)"))
 
 
@@ -84,9 +87,13 @@ def run(res, paper):
     dec, _ = C.split_merge_rows(dec)   # E2 merge-only rows are scored in merge_table.py
     out = paper / "tables/t3_grid.tex"
     if not dec.empty:
-        dec = dec[(dec.split == "test") & dec.posterior.isin([p for p, _ in POST]) & (dec.route == ROUTE)]
+        sel = np.zeros(len(dec), bool)
+        for p_, rt in ROUTES.items():
+            sel |= ((dec.posterior == p_) & (dec.route == rt)).to_numpy()
+        dec = dec[(dec.split == "test").to_numpy() & sel]
     if dec.empty:
-        C.placeholder_table(out, "tThreeTable", 7, f"awaiting dec rows posterior smc/amortized, route {ROUTE}")
+        C.placeholder_table(out, "tThreeTable", 7, "awaiting dec rows: posterior smc (simultaneous) / amortized "
+                            "(compositional)")
         for p, _ in POST:
             for pl in ("T1", "T2"):
                 for s in C.STRATA:
@@ -103,7 +110,8 @@ def run(res, paper):
             if d.empty:
                 continue
             if d.method.nunique() > 1:
-                raise C.SchemaError(f"T3: several methods for posterior={p}, route={ROUTE}: {sorted(d.method.unique())}")
+                raise C.SchemaError(f"T3: several methods for posterior={p}, route={ROUTES[p]}: "
+                                    f"{sorted(d.method.unique())}")
             sec = float(np.nanmedian(d.drop_duplicates("eid")["seconds"])) if d["seconds"].notna().any() else np.nan
             for s in C.STRATA:
                 c = C.decision_counts(d, stratum=s)
@@ -127,7 +135,7 @@ def run(res, paper):
                           C.fmt_pct(c["cert_frac"]), C.fmt_pct(ca["cert_frac"])]
         lines.append(" & ".join(cells) + r"\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
-    C.write_table(out, "\n".join(lines), srcs, f"route {ROUTE}, nominal alpha [{st}]")
+    C.write_table(out, "\n".join(lines), srcs, f"routes {ROUTES}, nominal alpha [{st}]")
     for (p, pl, s), c in cell.items():
         N.pct(f"t3.unsafe.{p}.{pl}{sfx(s)}", c["unsafe_commit"], srcs, st, d=2)
         N.pct(f"t3.cert.{p}.{pl}{sfx(s)}", c["cert_frac"], srcs, st)

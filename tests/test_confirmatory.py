@@ -224,7 +224,7 @@ def test_cfbh_commit_rule_in_t1_scorer():
 def test_cfbh_has_no_matched_point_and_is_scored_on_its_rule(tmp_path):
     V, _, _, out = _run(tmp_path)
     cells = pd.read_csv(out / "cells.csv")
-    cf = cells[(cells.claim == "C-MAIN") & (cells.method == "cfBH")]
+    cf = cells[(cells.claim == "C-MAIN") & (cells.method == "cfBH") & (cells.block != "merge")]   # mock C-MAIN: no merges
     assert len(cf) and cf.CF_matched.isna().all() and cf.CF_own.notna().all()
     fdr = cf[(cf.block == "all") & (cf.plant == "T1")].FDR.iloc[0]
     assert 0 <= fdr <= 1
@@ -582,3 +582,53 @@ def test_header_note_in_results(tmp_path):
     K.run(res, tmp_path / "out", mock=True, header_note="Pre-scoring test suite: 133 passed.")
     md = (tmp_path / "out/CONFIRMATORY_RESULTS.md").read_text()
     assert md.index("Pre-scoring test suite: 133 passed.") < md.index("## Exclusions")
+
+
+# ---- critic C + A-KIND / D-CAL (5fd2720)
+
+def test_underpowered_but_over_bar_fails():
+    S = K.Scorer()
+    pw = dict(n_incapable=500, deff=1.0, power_ok=False)
+    assert S.bar("x", "b", "E_dec", 0.05, np.full(100, 0.05), le=0.01, up_le=0.013, power_row=pw) == \
+        "FAIL (underpowered; exceeds bar)"
+    assert S.bar("x", "b", "E_dec", 0.005, np.full(100, 0.005), le=0.01, up_le=0.013, power_row=pw) == "UNDERPOWERED"
+
+
+def test_p3_overall_requires_every_condition():
+    S = K.Scorer()
+    S.bar("C-MAIN", "P3", "E_dec own (raw) > 2 %", 0.015, np.full(50, 0.015), ge=0.02, lo_gt=0.01)   # fails
+    S.bar("C-MAIN", "P3", "E_dec own (ours) <= 2 %", 0.0, np.zeros(50), le=0.02, up_le=0.02)
+    S.bar("C-MAIN", "P3", "E_ep(raw) - E_ep(ours), paired", 0.3, np.full(50, 0.3), lo_gt=0.0, status="HOLM")
+    S.p = {"P3": 0.0001}
+    K.holm(S)
+    K.p_overall(S, "C-MAIN", "P3", set(), "P3 overall")
+    paired = [r for r in S.rows if r["metric"].startswith("E_ep(raw)")][0]
+    overall = [r for r in S.rows if r["bar"] == "P3 overall"][0]
+    assert paired["verdict"] == "PASS" and overall["verdict"] == "FAIL"
+    S.bar("C-MAIN", "P3", "claim", 0.015, status="DROPPED")
+    K.p_overall(S, "C-MAIN", "P3", set(), "P3 overall again")
+    assert S.rows[-1]["verdict"] == "DROPPED"
+
+
+def test_akind_bar_1b_mondrian_calsize_and_dcal(tmp_path):
+    V, _, _, out = _run(tmp_path)
+    b = V[(V.claim == "C-MAIN") & (V.bar == "1b per-kind validity")]
+    assert set(b.cell) >= {"lone faulted child", "child >=2 modules", "merge"}
+    lone = b[b.cell == "lone faulted child"]
+    assert lone.verdict.iloc[0] in ("UNDERPOWERED", "PASS", "FAIL", "FAIL (underpowered; exceeds bar)")
+    if (lone.verdict == "UNDERPOWERED").any():                     # small mock: E_ep decides
+        assert (lone.metric.str.startswith("E_ep own bound")).any()
+    cells = pd.read_csv(out / "cells.csv")
+    assert cells.block.astype(str).str.startswith("mondrian:").any()
+    cs = V[V.bar == "cal-size sensitivity"]
+    assert len(cs) >= 1 and (cs.verdict == "DESCRIPTIVE").all()
+    md = (out / "CONFIRMATORY_RESULTS.md").read_text()
+    assert "conditions on the fixed calibration split" in md
+    assert len(V[V.bar == "P3 overall"]) == 1 and len(V[V.bar == "P4 overall"]) == 1
+
+
+def test_shard0_exclusion_only_on_confirmatory_streams():
+    d = pd.DataFrame(dict(split=["conf_het_test", "het_cal", "cal", "conf_H1", "merge_P0"], eid=[100, 100, 5, 7, 3],
+                          shard=[0, 0, 0, 0, 0]))
+    out = K.exclusions(d, [], "x")
+    assert sorted(out.split) == ["cal", "het_cal"]            # exploratory cal rows never lose shard 0
