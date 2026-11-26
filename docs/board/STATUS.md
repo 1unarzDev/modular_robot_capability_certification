@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:07Z RISK: capacity.** Boxes fell from 25 to 15, probably the autoscale cooldown after the OOM-idle boxes, with 126 confirmatory GPU jobs queued: eval2b 39, conf4 78, eval2hb 9. The compute session is asked to lift the cooldown and rent toward 24. Credit $16.6, burn $2.3/h.
 - **01:05Z RISK: C-GATE will not finish by 03:00Z.**
   - cfcap-stress-conf-gate is back in canary mode after the #23 resume: 2 in flight, 21 queued, 2 done.
   - Its jobs run ~11 min/unit against 3.3 min planned (gate-cal.s004: 1/10 in 11 min) on the oversubscribed spare cores of torch boxes, so a job takes ~110 min. conf-gate.s013 has been silent for 85 min.
