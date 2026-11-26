@@ -370,3 +370,13 @@ The research lead reviewed `scripts/analysis/confirmatory.py` (7fe5883) against 
 3. **P5's dominated contrast when underpowered.** If the ≥ 3-module *dominated* cell fails the power rule, its
    condition becomes: one-sided upper ≤ 2 %, i.e. clearly below the undominated excess threshold. It is printed as
    "dominated: UNDERPOWERED, contrast-judged". If it is powered, the original ≤ 1 % (upper ≤ 1.3 %) applies.
+
+## 10. Procedural amendment A-SEED (22:05Z, before any confirmatory label is seen)
+- The st-n6-1 retrain was pre-empted (ETA 01:30Z). **Every confirmatory model row (C-MAIN, C-SCALE, C-ENV,
+  C-EXPLAIN; C-HET uses its own het models) uses seed 2, `st-n6-2`.** It has the same architecture, data recipe and
+  calibration procedure, and was chosen for availability only, before any confirmatory output from either seed
+  exists.
+- If st-n6-1 finishes in time, its confirmatory rows are reported **descriptively** (a seed-variation column). They
+  never replace st-n6-2 in a bar, and no bar is evaluated on whichever seed scores better.
+- Any constant that came from st-n6-1 (q_comp for C-ENV, the T1-cal margins) is recomputed for st-n6-2 on the same
+  exploratory cal split before scoring.
