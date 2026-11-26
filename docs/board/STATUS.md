@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 01:46Z: requeued the dead confirmatory jobs that fall inside the A-POWER ranges, at priority 0: conf-merge P5.s008 and conf-gate s006. conf-gate s011/s012 are beyond A-POWER, so they stay cancelled. Status: conf4 14 leased / 51 queued / 5 done; eval2b 7/31/3; eval2hb 4/3/1; smc-small2 2/0/2; t2-motor4 14/21 done; conf-merge 18/19. Credit $14.62, burn $2.8/h.
 - 01:47Z: research-cluster a357458 now treats GPU OOM as a retried gpu_resource error. Resumed (note "gpu_resource no longer trips (a357458)"): #31 conf4 (60 queued), #32 eval2b (31 queued), #25 eval2, #26 eval2h. #27–#30 (cut batches) and #23 (conf-gate) were already resumed and are verifying. Every confirmatory job has max_attempts 3.
 - 01:42Z: **ops error:** clearing stray queues also cancelled cfcap-nuis2.nuis-main.s000. It had been requeued after a preemption and was waiting as "queued". Its 7 pair units, excluded from nuis3, therefore need a rerun. The IDs are in `scripts/campaigns/nuisance_nuis3.json`. Planned for tomorrow on free workers, together with the other cut work; there is no capacity for it before 03:00Z.
 - 01:40Z: **cfcap-models-wheels is complete (5/5)**: C-EXPLAIN wheel posteriors, stored unread until 01:45Z, at `~/.cache/vast-out/*/crane/cfcap-models-wheels.*` (coordinator artifacts too). The stale OOM incidents #27–#30 (cut batches, no queued work) are moved to verifying so their signature stops tripping live batches.
