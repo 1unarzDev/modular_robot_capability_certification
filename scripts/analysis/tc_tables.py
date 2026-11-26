@@ -98,7 +98,7 @@ def run(res, paper):
         e = v[(v.claim == "C-SCALE") & (v.metric == "E_ep") & (v.cell == cell)].iloc[0]
         cv = v[(v.claim == "C-SCALE") & (v.metric == "stratum coverage") & (v.cell == cell)].iloc[0]
         tr.append(f"{lab} modules & {ci(e)} & {f(cv.estimate)} & \\textemdash & \\textemdash" + r" \\")
-    for cell, lab, met in (("conf_H1", "Omniwheel", "E_ep (faulted)"), ("conf_H2", "Mixed types", "E_ep (all)")):
+    for cell, lab, met in (("conf_H1", "Low-grip rollers", "E_ep (faulted)"), ("conf_H2", "Mixed types", "E_ep (all)")):
         e = v[(v.claim == "C-HET") & (v.metric == met) & (v.cell == cell) & (v.method == "amortized_comp")].iloc[0]
         tag = "conf_H1 (faulted)" if cell == "conf_H1" else "conf_H2 (all)"
         cd = v[(v.claim == "C-HET") & (v.metric == f"coverage drop ID -> {tag}")].iloc[0]

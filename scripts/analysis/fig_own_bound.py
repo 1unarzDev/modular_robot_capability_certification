@@ -37,7 +37,7 @@ METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
            ("Min over members", "min_over_members", S.GREY, "<", 4.2),
            ("Detector-gated", "detector_gated", S.GREY, "^", 4.2),
            ("Copy parent", "copy_parent", S.GREY, "s", 3.8),
-           ("Shape metadata", "metadata_nf", S.GREY, "o", 6.0))     # hollow ring around Copy parent at (0, 0)
+           ("Shape metadata", "metadata_nf", S.GREY, "o", 5.2))     # hollow ring around Copy parent at (0, 0)
 SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
 BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "A faulty module alone"),
           ("merge", "merge", "Merged bodies"))
@@ -45,15 +45,15 @@ BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "l
 # ("at", x_rate, y_pct, ha[, lines]): text placed in data coordinates with a 0.4 pt leader to the marker.
 # lines: 2 or 3 line layout of the Ours/CapXfer number label (default Ours 1, CapXfer 3).
 LABEL_AT = {
-    "stratum": {"amortized_comp": ("off", -4, 8, "left"), "capxfer": ("at", 0.17, 42, "center"),
+    "stratum": {"amortized_comp": ("off", -4, 8, "left"), "capxfer": ("off", 3, -14, "left", 3),
                 "ghat_physics": ("at", 0.0088, 64.1, "right"), "min_over_members": ("at", 0.0050, 36.3, "right"),
                 "detector_gated": ("off", 0, 7.5, "center"), "copy_parent": ("off", 9, -2.5, "left"),
                 "oracle": ("off", -2.5, 7, "left")},
     "lone-faulted": {"amortized_comp": ("off", -10, 12, "left"), "capxfer": ("off", 7, 11, "center", 2),
                      "ghat_physics": ("at", 0.95, 38, "right"), "detector_gated": ("off", 3, -9, "left"),
                      "copy_parent": ("off", 9, -3, "left"), "oracle": ("off", -2.5, 7, "left")},
-    "merge": {"amortized_comp": ("off", -7, 8, "left"), "capxfer": ("at", 0.95, 19, "right"),
-              "ghat_physics": ("off", -6, 7, "right"), "min_over_members": ("off", 6, 0, "left"),
+    "merge": {"amortized_comp": ("off", -7, 8, "left"), "capxfer": ("off", -4, -8.6, "right", 4),
+              "ghat_physics": ("off", 0, -8, "center"), "min_over_members": ("off", 6, 0, "left"),
               "detector_gated": ("off", 9, 4, "left"), "copy_parent": ("off", 9, -4, "left"),
               "oracle": ("off", -2.5, 7, "left")}}
 NOLEAD = {("stratum", "ghat_physics"), ("stratum", "min_over_members")}   # 'at' labels set beside the CI, no leader
@@ -159,7 +159,7 @@ def run(res, paper):
 
     # ---------------------------------------------------------------- figure
     S.apply()
-    W, H = S.W2, 2.0
+    W, H = S.W2, 2.03
     fig = S.plt.figure(figsize=(W, H))
     L, Bm, T = 0.40, 0.33, 0.21
     pw, gap = 1.30, 0.07
@@ -208,7 +208,8 @@ def run(res, paper):
             if code in ("amortized_comp", "capxfer"):
                 nl = spec[4] if len(spec) > 4 else (1 if ours else 3)
                 a_, b_ = f"{100 * p['cf']:.1f} %", f"{100 * p['ed']:.2f} %"
-                txt = {1: f"{name} {a_} at {b_}", 2: f"{name}\n{a_} at {b_}", 3: f"{name}\n{a_} at\n{b_}"}[nl]
+                txt = {1: f"{name} {a_} at {b_}", 2: f"{name}\n{a_} at {b_}", 3: f"{name}\n{a_} at\n{b_}",
+                       4: f"{name} {a_}\nat {b_}"}[nl]
                 tc = col
             else:
                 txt = "ĝ-physics ≈\nMin over members" if (same and code == "ghat_physics") else name
@@ -221,7 +222,7 @@ def run(res, paper):
             if spec[0] == "off":
                 ax.annotate(txt, (x, y), xytext=spec[1:3], textcoords="offset points", ha=spec[3], **kw)
             else:
-                lk = None if (blk, code) in NOLEAD else dict(lead, relpos=(0.7, 1.0) if spec[2] < y else (0.5, 0.5))
+                lk = None if (blk, code) in NOLEAD else dict(lead, relpos=(0.3, 1.0) if spec[2] < y else (0.5, 0.5))
                 ax.annotate(txt, (x, y), xytext=(spec[1], spec[2]), textcoords="data", ha=spec[3],
                             arrowprops=lk, **kw)
         if i == 1:
@@ -236,25 +237,33 @@ def run(res, paper):
     lim = (0.0, 1.25)
     for j, (ax, plant) in enumerate(zip(axd, ("T1", "T2"))):
         g = mg[mg.test_plant == plant]
-        ax.hexbin(g.truth.clip(*lim), g.lower.clip(*lim), gridsize=26, extent=(*lim, *lim), cmap=cmap,
+        hb = ax.hexbin(g.truth.clip(*lim), g.lower.clip(*lim), gridsize=26, extent=(*lim, *lim), cmap=cmap,
                   norm=LogNorm(vmin=1, vmax=max(2, len(g) / 20)), mincnt=1, linewidths=0.15, edgecolors="face",
                   zorder=2)
         ax.plot(lim, lim, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=3)
         miss = g[g.lower > g.truth]
-        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=4.2, mew=2.4,
-                color="white", zorder=8, clip_on=False)                    # halo: misses read in grayscale
-        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=3.6, mew=1.0,
-                color=S.ORANGE, zorder=9, clip_on=False)
+        # misses: orange-filled X with a black edge (reads in grayscale on dark hexagons), drawn last
+        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="X", ms=4.6, mfc=S.ORANGE,
+                mec=S.INK, mew=0.4, zorder=9, clip_on=False)
         ax.set_xlim(-0.04, lim[1])
         ax.set_ylim(-0.04, lim[1])
         ax.set_xticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_yticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_aspect("auto")
-        ax.text(0.05, 0.95, plant, transform=ax.transAxes, fontsize=S.LABEL_PT, fontweight="bold", color=S.INK,
+        ax.text(0.05, 0.96, plant, transform=ax.transAxes, fontsize=S.LABEL_PT, fontweight="bold", color=S.INK,
                 va="top")
         nm = int(len(miss))
-        ax.text(0.95, 0.05, f"{nm} misses\nin {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
-                color=S.ORANGE_TX, ha="right", va="bottom", linespacing=1.0)
+        ax.text(0.22, 0.96, f"{nm} misses\nin {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
+                color=S.ORANGE_TX, ha="left", va="top", linespacing=1.0)
+        if j == 0:      # density key in the dead space above the diagonal
+            ax.text(0.06, 0.82, "entries per\nhexagon", transform=ax.transAxes, fontsize=S.LABEL_PT, color=S.INK2,
+                    ha="left", va="top", linespacing=1.0)
+            cax = ax.inset_axes([0.07, 0.63, 0.24, 0.04])
+            cb = fig.colorbar(hb, cax=cax, orientation="horizontal")
+            cb.outline.set_linewidth(0.3)
+            cb.set_ticks([1, 1000], labels=["1", "1000"])
+            cax.tick_params(labelsize=S.LABEL_PT, length=1.5, width=0.4, pad=1)
+            cax.xaxis.set_minor_locator(S.matplotlib.ticker.NullLocator())
         ax.set_xlabel("true capability", labelpad=1.5)
         if j:
             ax.tick_params(labelleft=False)

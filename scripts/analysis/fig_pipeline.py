@@ -66,13 +66,13 @@ def draw(path):
     y0, h = 0.36, 0.80
     gap = 0.14
     specs = [
-        (0.92, "data", "Today's robot:\n12-s test drive", ["wheel commands,", "wheel speeds,", "motion sensor"]),
+        (0.92, "data", "Today's robot:\n12-s test drive", ["wheel speeds,", "duty,", "motion sensor"]),
         (1.36, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
          ["faults, friction, motor", "strength, from the drive"]),
         (1.42, "physics", "2 Build each candidate\nbody in the simulator\n(physics)",
          ["every split and merge, 10", r"directions $\to$ estimate $\hat\rho$, spread $\sigma$"]),
         (1.28, "calib", "3 Add one calibrated\nsafety margin",
-         [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: worst error over", "past episodes"]),
+         [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: margin from", "calibration episodes"]),
     ]
     B = []
     x = 0.01

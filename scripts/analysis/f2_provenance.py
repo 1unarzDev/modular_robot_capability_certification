@@ -13,6 +13,7 @@ Outputs: paper/figs/f2_provenance.pdf (3.25 in column, 1:1), macros cfFigTwo* (e
 from __future__ import annotations
 
 import numpy as np
+import matplotlib.patheffects as pe
 import pandas as pd
 from matplotlib.patches import Rectangle
 
@@ -23,11 +24,13 @@ BYSIZE = "theory/dominance_by_leg_size.csv"
 VSN = "theory/dominance_vs_N.csv"
 VERD = "confirmatory/verdicts.csv"
 KINDS = ("surge", "sway", "diag", "yaw")
+LEGNAME = {"surge": "forward", "sway": "sideways", "diag": "diagonal", "yaw": "turn"}   # text vocabulary
 SIZES = ("1", "2", "3", "4", "5", "6+")
 # probe set code -> (display name, colour, linestyle, marker, macro key part)
-PROBES = {"v2": ("v2", S.BLUE, "-", "o", "vtwo"),
-          "v2+clamp": ("v2 + clamp", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
-          "v2+clamp+yawhi": ("+ yaw probe", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+PROBES = {"v2": ("test drive", S.BLUE, "-", "o", "vtwo"),
+          "v2+clamp": ("fast test drive\n(clamp)", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
+          "v2+clamp+yawhi": ("+ turn test", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+YTOP = 76
 HTINT = "#dce8f7"   # light blue under the fine hatching, so dark numbers stay legible
 NWORD = {4: "NFour", 8: "NEight", 16: "NSixteen"}
 
@@ -94,13 +97,13 @@ def run(res, paper):
 
     # ---- figure
     S.apply()
-    W, H = S.W1, 2.25
+    W, H = S.W1, 2.3
     fig = S.plt.figure(figsize=(W, H))
     inch = lambda x, y, w, h: [x / W, y / H, w / W, h / H]  # noqa: E731
 
     # (a) grid: x = child size columns, y = leg kinds (top to bottom)
-    gx, gw, rh = 0.52, 1.72, 0.135
-    gy = H - 0.30 - 4 * rh
+    gx, gw, rh = 0.58, 1.66, 0.135
+    gy = H - 0.42 - 4 * rh
     ax = fig.add_axes(inch(gx, gy, gw, 4 * rh))
     ax.set_xlim(0, 6)
     ax.set_ylim(4, 0)
@@ -118,35 +121,36 @@ def run(res, paper):
                                        hatch_linewidth=0.4))
             ax.add_patch(Rectangle((x0, y0), w, h, fc="none", ec=S.BLUE, lw=0.5))
             if x >= 0.005:     # observed cells carry no number (solid = 0 % extrapolated)
+                # white halo around the glyphs only, so the hatching stays visible around the number
                 ax.text(j + 0.5, i + 0.5, _cell_txt(x), ha="center", va="center", fontsize=S.LABEL_PT,
-                        color=S.INK, bbox=dict(boxstyle="round,pad=0.22,rounding_size=0.3", fc="white",
-                                               ec="none"))
-        ax.text(-0.12, i + 0.5, k, ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK)
+                        color=S.INK, path_effects=[pe.withStroke(linewidth=2.2, foreground="white")])
+        ax.text(-0.12, i + 0.5, LEGNAME[k], ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK)
         # with clamp: one word per row, from the data
         c = Ac.loc[k]
         if (c < 0.5).all():
-            ct = "observed"
+            ct = "seen"
         else:
             first = next(s for s in SIZES if c[s] >= 0.5)
-            ct = f"extrap. if size ≥ {first}"
+            ct = f"not seen if size ≥ {first}"
         ax.text(6.1, i + 0.5, ct, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
     for j, s in enumerate(SIZES):
         ax.text(j + 0.5, -0.12, s, ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text(-0.12, -0.12, "child size", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
-    ax.text(6.1, -0.12, "with clamp", ha="left", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
-    fig.text(0.02 / W, (H - 0.03) / H, "(a) Which legs the probe has seen, by child size", ha="left", va="top",
+    ax.text(6.1, -0.12, "with fast test\ndrive (clamp)", ha="left", va="bottom", fontsize=S.LABEL_PT,
+            color=S.INK2, linespacing=1.0)
+    fig.text(0.02 / W, (H - 0.03) / H, "(a) Which directions the test drive has seen, by child size", ha="left", va="top",
              fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     # key, in-line: solid = observed, hatched = extrapolated (% of legs extrapolated in the cells)
     ky = gy - 0.10
     kx = 0.36
     fig.patches.append(Rectangle((kx / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=S.BLUE, ec=S.BLUE, lw=0.5,
                                  transform=fig.transFigure))
-    fig.text((kx + 0.2) / W, ky / H, "observed by v2", ha="left", va="center", fontsize=S.LABEL_PT,
+    fig.text((kx + 0.2) / W, ky / H, "seen by the test drive", ha="left", va="center", fontsize=S.LABEL_PT,
              color=S.INK2)
-    kx2 = kx + 1.0
+    kx2 = kx + 1.25
     fig.patches.append(Rectangle((kx2 / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
                                  hatch="////////", hatch_linewidth=0.4, transform=fig.transFigure))
-    fig.text((kx2 + 0.2) / W, ky / H, "extrapolated via motor law (% of legs)", ha="left", va="center",
+    fig.text((kx2 + 0.2) / W, ky / H, "motor model only (% of legs)", ha="left", va="center",
              fontsize=S.LABEL_PT, color=S.INK2)
 
     # (b) extrapolated share vs parent size
@@ -155,12 +159,9 @@ def run(res, paper):
     bx = fig.add_axes(inch(0.36, by, 1.92, bh))
     if len(cov):
         bx.axvspan(7, 10, color=S.TINT, lw=0, zorder=0)
-        c78, c910 = cov.get("N 7-8", np.nan), cov.get("N 9-10", np.nan)
-        # callout flush against the band's right edge (the band is the anchor; no leader)
-        bx.text(10.12, 38, f"◂ tested sizes (N 7–10)\nmeasured coverage\n{100 * c78:.0f} % → {100 * c910:.0f} %",
-                ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.05,
-                bbox=dict(fc="white", ec="none", pad=0.3))
-    bx.text(2.3, 27, "closed form\n(Prop. 2b)", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
+        # band header above the curves (measured coverage goes in the caption, not on this axis)
+        bx.text(8.5, 71, "tested sizes (N 7–10)", ha="center", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    bx.text(2.3, 23, "closed form\n(Prop. 2b)", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
             linespacing=1.05)
     ends = {}
     for code, (lab, col, ls, mk, _) in PROBES.items():
@@ -171,7 +172,7 @@ def run(res, paper):
         bx.plot(d.N, y, color=col, ls=ls, lw=lw, marker=mk, ms=2.6, mfc=col, mec=col, mew=0, zorder=3)
         ends[code] = (int(d.N.iloc[-1]), y[-1], lab, col)
     ly = {k: e[1] for k, e in ends.items()}
-    line = 1.2 * S.LABEL_PT / 72 / bh * (64 + 2)   # one 7-pt line, in data units of this axis
+    line = 1.2 * S.LABEL_PT / 72 / bh * (YTOP + 2)   # one 7-pt line, in data units of this axis
     half = {k: 0.5 * line * (1 + e[2].count("\n")) for k, e in ends.items()}
     ks = sorted(ly, key=ly.get)
     for lo, hi in zip(ks, ks[1:]):   # push labels apart (lower one down, upper one up) until they clear
@@ -184,12 +185,12 @@ def run(res, paper):
                 if col != S.GREY else S.INK2)
     nmax = int(v.N.max())
     bx.set_xlim(1.6, nmax + 0.4)
-    bx.set_ylim(-2, 64)
+    bx.set_ylim(-2, YTOP)
     bx.set_xticks([2, 4, 6, 8, 10, 12, 14, 16])
     bx.set_yticks([0, 20, 40, 60])
     bx.yaxis.grid(True)
     bx.set_xlabel("parent size N (modules)", labelpad=1)
-    bx.set_ylabel("extrap. (%)", labelpad=2)
+    bx.set_ylabel("share (%)", labelpad=2)
     bx.tick_params(length=2, pad=1.5)
     fig.text(0.02 / W, (by + bh + 0.20) / H, "(b) Share answered by the motor model grows with robot size", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)

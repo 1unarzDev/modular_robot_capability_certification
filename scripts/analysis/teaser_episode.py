@@ -149,6 +149,7 @@ def main(res=C.RES):
         half_wheelbase_m=float(par["module"]["half_wheelbase_m"]),
         half_track_m=float(par["module"]["half_track_m"]), wheel_radius_m=float(par["wheel"]["radius_m"]),
         roller_pattern=par["wheel"]["roller_pattern"], rollers=int(par["wheel"]["rollers"]),
+        roller_angle_deg=float(par["wheel"]["roller_angle_deg"]),
         lidar_modules=list(par["module"]["lidar_modules"]),
         parent=asm_json(pa.asm), parent_cells=[[int(i), int(j)] for i, j in GE.cells(pa.asm)],
         faults=faults_of(pa),

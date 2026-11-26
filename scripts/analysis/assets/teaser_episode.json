@@ -108,6 +108,7 @@
   "rr": "/"
  },
  "rollers": 9,
+ "roller_angle_deg": 45.0,
  "lidar_modules": [
   "M1"
  ],

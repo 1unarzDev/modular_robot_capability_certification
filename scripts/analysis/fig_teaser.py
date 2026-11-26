@@ -134,7 +134,10 @@ def panel_render(fig, ax, E, box):
 
 
 # ------------------------------------------------------------------------------------------------- panel (b)
-def icon(ax, cells, x0, y0, c, foreign=(), fault=(), fill=CERT_FILL):
+PROBE_HATCH = "........"      # "test first" bodies: dotted, so they differ from "certified" in grayscale
+
+
+def icon(ax, cells, x0, y0, c, foreign=(), fault=(), fill=CERT_FILL, hatch=None):
     """cells [(i, j)] (i forward = up, j left = left); fault: [(cell index, (rel_x, rel_y))]. Returns (w, h)."""
     ii = [p[0] for p in cells]
     jj = [p[1] for p in cells]
@@ -143,7 +146,8 @@ def icon(ax, cells, x0, y0, c, foreign=(), fault=(), fill=CERT_FILL):
         Y = y0 + (i - min(ii)) * c
         fo = k in foreign
         ax.add_patch(Rectangle((X + 0.1 * c, Y + 0.1 * c), 0.8 * c, 0.8 * c, lw=0.5,
-                               ec=S.GREY if fo else S.INK2, fc=fill, ls=(0, (1.6, 1.0)) if fo else "-", zorder=3))
+                               ec=S.GREY if fo else S.INK2, fc=fill, ls=(0, (1.6, 1.0)) if fo else "-", zorder=3,
+                               hatch=hatch))
     for k, rel in fault:
         i, j = cells[k]
         X = x0 + (max(jj) - j) * c
@@ -166,7 +170,8 @@ def body_icon(ax, E, cand, x, y, c, verdict):
         if rel is not None:
             fault.append((k, rel))
     fill = {"certify": CERT_FILL, "refuse": REF_FILL, "probe": S.SURFACE}[verdict]
-    return icon(ax, [tuple(p) for p in cd["cells"]], x, y, c, foreign, fault, fill)
+    return icon(ax, [tuple(p) for p in cd["cells"]], x, y, c, foreign, fault, fill,
+                PROBE_HATCH if verdict == "probe" else None)
 
 
 def mark(ax, x, y, verdict, size=8):
@@ -254,7 +259,8 @@ def key_line(ax, E, V, x0, y):
     x = x0
     for v, word, adv in (("certify", "certified", 0.68), ("probe", "test first", 0.66), ("refuse", "refused", 0.58)):
         fill = {"certify": CERT_FILL, "refuse": REF_FILL, "probe": S.SURFACE}[v]
-        ax.add_patch(Rectangle((x, y - c / 2), c, c, lw=0.5, ec=S.INK2, fc=fill))
+        ax.add_patch(Rectangle((x, y - c / 2), c, c, lw=0.5, ec=S.INK2, fc=fill,
+                               hatch=PROBE_HATCH if v == "probe" else None))
         if v != "certify":
             mark(ax, x + c + 0.035, y, v, size=7.5)
         ax.text(x + c + (0.125 if v != "certify" else 0.035), y, f"{word} ({n[v]})", ha="left", va="center",
@@ -291,7 +297,7 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
         ax.text(tx, y - h / 2, tag, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK, fontweight="bold")
         ax.text(tx + 0.15, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
         mark(ax, gx, y - h / 2, verdict)
-        y -= h + (0.15 if first else 0.03)
+        y -= h + 0.03
         g = legs[legs.cand == cand].set_index("legn")
         for leg in order:
             r = g.loc[leg]
@@ -303,10 +309,7 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
             ax.plot([X(lo)] * 2, [yc - 0.06, yc + 0.06], color=S.BLUE, lw=S.LW_OURS, solid_capstyle="butt", zorder=4)
             ax.plot([X(r.tau)] * 2, [yc - 0.075, yc + 0.075], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5,
                     path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
-            if first and leg == order[0]:           # direct labels on the first bar: what its two ends are
-                ax.text(X(lo) + 0.04, yc + 0.06, "lower bound", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)
-                ax.text(X(float(r.point)) - 0.04, yc + 0.06, "estimate", ha="left", va="bottom", fontsize=S.LABEL_PT,
-                        color=S.INK2)
+            ax.plot([X(float(r.point))] * 2, [yc - 0.055, yc + 0.055], color=S.INK2, lw=0.9, zorder=4)  # estimate
             mark(ax, gx, yc, r.verdict, size=7.5)
             y -= rh
         y -= 0.02
@@ -355,7 +358,7 @@ def draw(res, out):
         fw = {f["wheel"] for f in E["faults"]}
         wk = max((w for w in range(len(E["parent"]["wheel_pos"])) if w not in fw),
                  key=lambda w: to_in(f"wheel{w}")[0])                              # rightmost healthy wheel
-        ax.annotate("mecanum wheel:\nangled rollers\nlet it drive\nsideways", tuple(to_in(f"wheel{wk}")),
+        ax.annotate(f"mecanum wheel:\n{E['rollers']} rollers at {E['roller_angle_deg']:g}\u00b0\nlet it drive\nsideways", tuple(to_in(f"wheel{wk}")),
                     xytext=(XA + 1.93, top2 - 0.30), ha="right", va="top", color=S.INK,
                     arrowprops={**lead, "color": S.INK2, "relpos": (0, 0.85)}, **lab)
         f = E["faults"][0]
@@ -385,7 +388,14 @@ def draw(res, out):
     ax.plot([XC + 0.10] * 2, [yk2 - 0.055, yk2 + 0.055], color=S.INK, lw=1.0, solid_capstyle="butt")
     ax.text(XC + 0.24, yk2, "what the job needs (task library)", ha="left", va="center", fontsize=S.LABEL_PT,
             color=S.INK2)
-    panel_legs(ax, E, V, XC, W - 0.01, yk2 - 0.09, 0.33)
+    yk3 = yk2 - 0.12                          # bar key: thick start = lower bound, end tick = estimate
+    bx0, bx1 = XC + 0.02, XC + 0.18
+    ax.add_patch(Rectangle((bx0, yk3 - 0.04), bx1 - bx0, 0.08, lw=0.6, ec=S.BLUE, fc=S.BLUE))
+    ax.plot([bx0] * 2, [yk3 - 0.055, yk3 + 0.055], color=S.BLUE, lw=S.LW_OURS, solid_capstyle="butt")
+    ax.plot([bx1] * 2, [yk3 - 0.055, yk3 + 0.055], color=S.INK2, lw=0.9)
+    ax.text(XC + 0.24, yk3, "start: lower bound, end tick: estimate", ha="left", va="center",
+            fontsize=S.LABEL_PT, color=S.INK2)
+    panel_legs(ax, E, V, XC, W - 0.01, yk3 - 0.10, 0.33)
     S.save(fig, out)
     return E, V, srcs, counts
 

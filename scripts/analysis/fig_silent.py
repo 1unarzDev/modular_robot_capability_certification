@@ -79,13 +79,13 @@ def run(res, paper):
     W, H = S.W1, 2.1
     fig = S.plt.figure(figsize=(W, H))
     L, Bm, T, gap, Rm = 0.47, 0.30, 0.31, 0.48, 0.03
-    pwa = 1.33
+    pwa = 1.55
     pwb = W - L - gap - Rm - pwa
     ph = H - Bm - T
     axa = fig.add_axes([L / W, Bm / H, pwa / W, ph / H])
     axb = fig.add_axes([(L + pwa + gap) / W, Bm / H, pwb / W, ph / H])
     X1 = 3.35                                   # data region of (a) is [-0.35, X1]; labels to its right
-    XR = -0.35 + 3.7 * pwa / (pwa - 0.66)       # leave 0.66 in for the direct labels
+    XR = -0.35 + 3.7 * pwa / (pwa - 0.88)       # leave 0.88 in for the direct labels
     XS = XR + 0.35
 
     # (a) E_ep, log with a broken zero; region above alpha in orange tint; labels to the right of s = 3
@@ -131,9 +131,9 @@ def run(res, paper):
                  mec=col, mfc="white" if hollow else col, mew=0.9 if (mk == "x" or hollow) else 0.4, zorder=3)
     # direct labels, (a): values at s = 3, set right of the last marker
     r3 = {c: R[c, 3]["eep"] for _, c, *_ in METHODS}
-    for code, txt, col, f in (("raw", f"uncalibrated\nphysics model\n{100 * r3['raw']:.1f} %", S.TEAL, 1.0),
-                              ("robust", f"data-only\nbound {100 * r3['robust']:.1f} %", S.INK2, 1.0),
-                              ("par", f"calibrated\nphysics model\n{100 * r3['par']:.1f} %", S.TEAL, 0.62)):
+    for code, txt, col, f in (("raw", f"uncalibrated\nphysics model\n{100 * r3['raw']:.1f} % of episodes", S.TEAL, 1.0),
+                              ("robust", f"data-only bound\n{100 * r3['robust']:.1f} % of episodes", S.INK2, 1.0),
+                              ("par", f"calibrated\nphysics model\n{100 * r3['par']:.1f} % of episodes", S.TEAL, 0.62)):
         axa.annotate(txt, (3, r3[code]), xytext=(3.45, r3[code] * f), textcoords="data", ha="left",
                      va="center", fontsize=S.LABEL_PT, color=col, linespacing=1.0)
     axa.set_ylabel("episodes with any\nunsafe commitment (%)", labelpad=1.5, linespacing=1.0)
@@ -145,7 +145,7 @@ def run(res, paper):
     for code, dy, txt, col in (("raw", 10, "uncalibrated\nphysics model", S.TEAL),
                                ("robust", -8, "data-only bound", S.INK2),
                                ("par", 12, "calibrated\nphysics model", S.TEAL),
-                               ("par", -12, "margin anomaly\n(App. B)", S.INK2)):
+                               ("par", -12, "margin\nanomaly (App. B)", S.INK2)):
         axb.annotate(txt, (1.5, 100 * np.mean([R[code, 1]["cf"], R[code, 2]["cf"]])), xytext=(0, dy),
                      textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=col,
                      linespacing=1.0)
@@ -154,7 +154,7 @@ def run(res, paper):
              fontsize=S.LABEL_PT, color=S.INK2)
     tkw = dict(fontsize=S.TITLE_PT, fontweight="bold", color=S.INK, va="top", ha="left", linespacing=1.05)
     fig.text(0.03 / W, 1 - 0.03 / H, "(a) Unsafe episodes rise as the\nmotor model gets more wrong …", **tkw)
-    fig.text(1.70 / W, 1 - 0.03 / H, "(b) … while the uncalibrated\nmodel keeps certifying", **tkw)
+    fig.text(1.66 / W, 1 - 0.03 / H, "(b) … while the uncalibrated\nmodel keeps certifying", **tkw)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros
