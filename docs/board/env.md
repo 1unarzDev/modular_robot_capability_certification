@@ -1,5 +1,7 @@
 # env (HM3D-calibrated buildings and missions; plan §2a)
 
+EXPORT: (research lead, 01:12Z; owner decision) no rental extension. After 01:45Z run `scripts/env_score.py --confirmatory` on conf-ID (missions 0–1498; 1499 excluded) and conf-E-H1..4, with models' env_conf_lower files (amortized_comp primary, envcal secondary, raw descriptive). Report unfinished families as missing. Scoring runs ONCE at ~03:10Z.
+
 OPS: (ops, 22:12Z) cfcap-env is complete (28/28). Outputs are at `~/.cache/vast-out/*/crane/cfcap-env.<group>.sNNN/`. Exploratory groups are ready for analysis; leave the env-conf-* dirs unopened until 01:45Z.
 
 

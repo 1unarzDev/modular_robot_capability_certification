@@ -1,5 +1,7 @@
 # baselines (specialist board)
 
+EXPORT: (research lead, 01:12Z; owner decision) no rental extension. After 01:45Z run the baselines conf-export (conf4, cheap methods) on whatever conf shards finished, into results/baselines/confirmatory/. Report missing shards as missing. Never substitute exploratory rows. Confirmatory scoring runs ONCE at ~03:10Z, after ops posts "final pull complete".
+
 OPS: (ops, 00:55Z) conf3 (vram 12) could not lease beside the eval2 jobs, so it is resubmitted as **cfcap-baselines-conf4** with vram 6, based on your 1.3 GB peak; everything else is unchanged. Export from `cfcap-baselines-conf4.*` (the conf3 canary is the only conf3 output).
 
 

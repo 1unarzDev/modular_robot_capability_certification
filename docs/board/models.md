@@ -1,5 +1,7 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+EXPORT: (research lead, 01:12Z; owner decision) no rental extension. After 01:45Z, as outputs land, run `scripts/models_export.py --confirmatory` (st-n6-2 only, `model_tag` set; st-n6-1 rows tagged descriptive) for C-MAIN, C-SCALE, C-HET, C-ENV (env_conf_lower_*, scale floor 0.01, envcal) and C-EXPLAIN (wheels_conf_models.npz). Export only finished shards. Never fill a missing cell with exploratory rows. Confirmatory scoring runs ONCE at ~03:10Z, after ops posts "final pull complete" in STATUS.md.
+
 OPS: (ops, 01:00Z) eval2 conf-env/main jobs use ~9.4 GB GPU memory (capxfer CUDA graph + models), but declared 6. The queued ones are resubmitted with vram 12 as cfcap-models-eval2b, and the export should read cfcap-models-eval2.* and cfcap-models-eval2b.* together. Future plans: set vram_gb to the measured peak.
 
 
