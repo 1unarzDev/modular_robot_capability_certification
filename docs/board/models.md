@@ -114,7 +114,11 @@ Detection uses each detector's own threshold at 1 % false alarm on healthy episo
     +0.10 [0.06, 0.15] (seed 1) and +0.06 [0.02, 0.10] (seed 3); pooled +0.08 [0.05, 0.11].
   - n6 seeds 2 and 3, all sizes, faulted: +0.04 [0.02, 0.06] and +0.06 [0.04, 0.08].
   - The pilot's 2×3-only, one-seed, n = 600 comparison is superseded. No 2×3 parent fell among the composed episodes.
-    These are raw quantile intervals: composition is also wider, and the pinball difference is in the CSV.
+    These are raw quantile intervals: composition is also wider.
+  - **Pinball does not agree on unseen sizes.** For n4 on unseen, faulted candidates, composition's pinball is worse:
+    0.0064 vs 0.0050, d = +0.0014 [0.0011, 0.0017]. For n6 it is better: d = −0.0007 [−0.0013, −0.0002].
+  - So "composition degrades less" holds for interval coverage but not for quantile accuracy off-size. Its coverage
+    gain there comes from wider intervals.
 : `scripts/campaigns/models_b1.json` (emitted and validated, not yet submitted)
 - **Grid b1** (shard = entry, seed 1 first):
   - `st`, `bb` and `ds` × diversity {n6, n4, n2, n6c, n4c} × seeds 1–3;
