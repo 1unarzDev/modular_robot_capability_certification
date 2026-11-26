@@ -458,3 +458,52 @@ def test_wheels_npz_models_format(tmp_path):
              p=P[:1])
     with pytest.raises(K.C.SchemaError):
         K.load_wheels(tmp_path)
+
+
+# ---- A-SEED (03387d0) and scorer-computed trivial baselines (coordinator 00:35Z)
+
+def _tagged_mock(tmp_path, add_seed1=True):
+    res = K.write_mock(tmp_path / "in", n_main=60, n_gate=40, n_pairs=40)
+    f = res / "models/confirmatory/dec_conf_models.csv.gz"
+    d = pd.read_csv(f, low_memory=False)
+    mm = d.method.isin(K.MODEL_METHODS) & d.claim.isin(K.SEED_CLAIMS)
+    d["model_tag"] = np.where(mm, K.PRIMARY_TAG, None)
+    if add_seed1:
+        s1 = d[mm & (d.method == K.OURS) & (d.claim == "C-MAIN")].copy()
+        s1["model_tag"] = "st-n6-1"
+        s1["lower"] = s1["truth"] + 0.3                           # a terrible seed: must never reach a bar
+        d = pd.concat([d, s1], ignore_index=True)
+    d.to_csv(f, index=False)
+    return res
+
+
+def test_aseed_primary_tag_only_in_bars(tmp_path):
+    V0, _, _ = K.run(_tagged_mock(tmp_path / "a", add_seed1=False), tmp_path / "o0", mock=True)
+    V1, _, S = K.run(_tagged_mock(tmp_path / "b", add_seed1=True), tmp_path / "o1", mock=True)
+    bars = lambda V: V[(V.claim == "C-MAIN") & ~V.bar.str.contains("seed variation")].set_index(  # noqa: E731
+        ["bar", "metric", "method", "plant"]).estimate
+    np.testing.assert_allclose(bars(V0).sort_index().to_numpy(), bars(V1).sort_index().to_numpy())
+    sv = V1[V1.bar == "seed variation (A-SEED)"]
+    assert len(sv) and (sv.verdict == "DESCRIPTIVE").all() and sv.estimate.min() > 0.5
+    assert any("st-n6-1" in x and "seed-variation" in x for x in S.log)
+
+
+def test_aseed_mixed_tags_raise(tmp_path):
+    res = _tagged_mock(tmp_path, add_seed1=False)
+    f = res / "models/confirmatory/dec_conf_models.csv.gz"
+    d = pd.read_csv(f, low_memory=False)
+    i = d.index[(d.method == K.OURS) & (d.claim == "C-MAIN")][:5]
+    d.loc[i, "model_tag"] = np.nan
+    d.to_csv(f, index=False)
+    with pytest.raises(K.C.SchemaError):
+        K.run(res, tmp_path / "out", mock=True)
+
+
+def test_trivial_baselines_computed_by_scorer(tmp_path):
+    res = K.write_mock(tmp_path / "in", n_main=60, n_gate=40, n_pairs=40)
+    V, _, S = K.run(res, tmp_path / "out", mock=True)
+    assert any("metadata_nf" in x and "scorer computes" in x for x in S.log)      # role rows dropped
+    cells = pd.read_csv(tmp_path / "out/cells.csv")
+    c = cells[(cells.claim == "C-MAIN") & (cells.plant == "T1") & (cells.block == "all")].set_index("method")
+    assert c.loc["always_go"].E_ep == 1.0 and c.loc["never_go"].E_ep == 0.0 and c.loc["never_go"].CF_own == 0.0
+    assert np.isfinite(c.loc["metadata_nf"].CF_matched)

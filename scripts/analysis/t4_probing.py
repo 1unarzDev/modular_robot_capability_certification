@@ -11,13 +11,13 @@ in the appendix (docs/board/paper.md, claim C4).
 The headline table is test_plant == HEADLINE_PLANT ("T0-knee-post-ktol", decision's probe_t0n1bK.csv) when present;
 every other plant (the *-appendix ablations "T0-knee-post-K5-appendix", "T0-knee-truemodes-appendix", and older
 plants) goes to t4_probing_appendix.tex.
-Research-lead ruling (23:00Z): the HEADLINE columns are useful commits (sum n_served / sum oracle_served), regret
-(mean, s) with the paired difference vs always-clamp (fixed_v2_clamp) and vs the dominance trigger (dominance_clamp)
-[95 % episode-paired bootstrap CI], the episode-unsafe rate E_ep (share of episodes with an unsafe assignment,
-n_unsafe_assigned > 0, else n_unsafe > 0) [CI], and probe seconds; plus, when decision provides them, the
-task-relevant certified share (n_certified_task / n_capable_task). The candidate-level certified share moves to the
-secondary table t4_probing_candidates.tex, labelled "certifies what the task needs, not every candidate". If decision
-provides `clamp_bought` (per episode: clamp's extra certifications bought utility), the count is a macro.
+Research-lead ruling + correction (23:00Z / 00:35Z): the HEADLINE columns are served / oracle-served (sum n_served /
+sum oracle_served, shown with the counts), regret (mean, s) with the paired difference vs always-clamp
+(fixed_v2_clamp) and vs the dominance trigger (dominance_clamp) [95 % episode-paired bootstrap CI], the
+episode-unsafe rate E_ep (share of episodes with an unsafe assignment, n_unsafe_assigned > 0, else n_unsafe > 0)
+[CI], and probe seconds. The SECONDARY table t4_probing_candidates.tex carries the task-relevant certified share
+(n_certified_task / n_capable_task) and the candidate-level certified shares, with the clamp-bought count
+(`clamp_bought`, k/n), phrased as "serves the same tasks through alternative certified plans".
 Outputs: paper/tables/t4_probing.tex (headline), t4_probing_candidates.tex (secondary), t4_probing_appendix.tex,
 t4_probing.csv, macros cfTFour* (unsuffixed = rel).
 """
@@ -127,6 +127,9 @@ def run(res, paper):
                          utility=d.utility.mean(), abstain=(d.action == "abstain").mean(),
                          useful=(C._ratio(d.n_served.sum(), d.oracle_served.sum())
                                  if "n_served" in d and d.n_served.notna().any() else np.nan),
+                         n_served=d.n_served.sum() if "n_served" in d and d.n_served.notna().any() else np.nan,
+                         n_oracle_served=(d.oracle_served.sum() if "oracle_served" in d
+                                          and d.oracle_served.notna().any() else np.nan),
                          regret=d.regret.mean() if "regret" in d and d.regret.notna().any() else np.nan,
                          ep_unsafe=_mean_ci(_ep_unsafe(d))[0], ep_unsafe_ci=_mean_ci(_ep_unsafe(d))[1],
                          cert_task=(C._ratio(d.n_certified_task.sum(), d.n_capable_task.sum())
@@ -148,15 +151,17 @@ def run(res, paper):
     for pol in Rp.policy:
         for ref, tag in REFS:
             dreg[pol, tag] = paired_regret(Pp, pol, ref)
-    has_task = Rp.cert_task.notna().any()
+    has_task = False                                                     # task-relevant share: secondary table
     ci = lambda c: (f"[{c[0]:+.1f}, {c[1]:+.1f}]" if np.isfinite(c[0]) else "")              # noqa: E731
-    hdr = (r"Policy & useful commits (\%) & regret (s) & $\Delta$ regret vs always-clamp & $\Delta$ regret vs "
+    hdr = (r"Policy & served / oracle-served (\%) & regret (s) & $\Delta$ regret vs always-clamp & $\Delta$ regret vs "
            r"dominance trigger & $E_{\mathrm{ep}}$ (\%) & probe (s)" + (r" & task-relevant cert.\ (\%)" if has_task
                                                                         else "") + r"\\")
     lines = [r"\begin{tabular}{l" + "r" * (7 if has_task else 6) + "}", r"\toprule", hdr, r"\midrule"]
     for _, r in Rp.iterrows():
         nm = NAMES.get(r.policy, r.policy.replace("_", r"\_"))
-        cells = [nm, C.fmt_pct(r.useful), f"{r.regret:.1f}" if np.isfinite(r.regret) else r"\textemdash"]
+        srv = (f" ({int(r.n_served)}/{int(r.n_oracle_served)})" if np.isfinite(r.n_oracle_served)
+               and r.n_oracle_served > 0 else "")
+        cells = [nm, C.fmt_pct(r.useful) + srv, f"{r.regret:.1f}" if np.isfinite(r.regret) else r"\textemdash"]
         for _, tag in REFS:
             e, c, _n = dreg[r.policy, tag]
             cells.append(f"{e:+.1f} {ci(c)}" if np.isfinite(e) else r"\textemdash")
@@ -169,17 +174,17 @@ def run(res, paper):
     C.write_table(out, "\n".join(lines), srcs, f"plant {plant}; headline (research-lead ruling); paired by episode [{st}]")
     # secondary: candidate-level certification
     lines = [r"\begin{tabular}{lrrrrrr}", r"\toprule",
-             r" & & & \multicolumn{2}{c}{decision-relevant} & all & \\",
-             r"Policy & ambiguity resolved (\%) & per extra min & cert.\ (\%) & unsafe (\%) & cert.\ (\%) & "
+             r" & task-relevant & \multicolumn{3}{c}{candidate level} & & \\",
+             r"Policy & cert.\ (\%) & cert.\ rel.\ (\%) & unsafe rel.\ (\%) & cert.\ all (\%) & ambiguity resolved (\%) & "
              r"abstain (\%)\\", r"\midrule"]
     for _, r in Rp.iterrows():
         nm = NAMES.get(r.policy, r.policy.replace("_", r"\_"))
-        pm = f"{100 * r.per_min:.0f}" if np.isfinite(r.per_min) else r"\textemdash"
-        lines.append(f"{nm} & {C.fmt_pct(r.resolved)} & {pm} & {C.fmt_pct(r.cert)} & {C.fmt_pct(r.unsafe, 2)} & "
-                     f"{C.fmt_pct(r.cert_all)} & {C.fmt_pct(r.abstain)}\\\\")
+        lines.append(f"{nm} & {C.fmt_pct(r.cert_task)} & {C.fmt_pct(r.cert)} & {C.fmt_pct(r.unsafe, 2)} & "
+                     f"{C.fmt_pct(r.cert_all)} & {C.fmt_pct(r.resolved)} & {C.fmt_pct(r.abstain)}\\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     C.write_table(paper / "tables/t4_probing_candidates.tex", "\n".join(lines), srcs,
-                  "secondary: candidate-level certified share -- certifies what the task needs, not every candidate")
+                  "secondary: policies that certify fewer candidates serve the same tasks through alternative certified "
+                  "plans (served / oracle-served in the headline); clamp-bought count in \\cfTFourClampBought")
     for _, r in Rp.iterrows():
         p = r.policy
         N.pct(f"t4.useful.{p}", r.useful, srcs, st)

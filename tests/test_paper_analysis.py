@@ -349,9 +349,9 @@ def test_t4_headline_ruling_columns(tmp_path):
     assert v["cfTFourEpunsafeFixedVTwoClamp"] == "5.0\\,\\%" and v["cfTFourEpunsafeEvoi"] == "0.0\\,\\%"
     assert v["cfTFourCerttaskEvoi"] == "90.0\\,\\%" and v["cfTFourClampBought"] == "3/20"
     head = (tmp_path / "paper/tables/t4_probing.tex").read_text()
-    assert "useful commits" in head and "task-relevant cert" in head and "$\\Delta$ regret vs always-clamp" in head
+    assert "served / oracle-served" in head and "(180/200)" in head and "task-relevant" not in head
     sec = (tmp_path / "paper/tables/t4_probing_candidates.tex").read_text()
-    assert "certifies what the task needs, not every candidate" in sec
+    assert "task-relevant" in sec and "alternative certified" in sec and "certifies what the task needs" not in sec
     # paired CI excludes 0 for a constant -5 s difference
     assert "-5.0 [-5.0, -5.0]" in head
 

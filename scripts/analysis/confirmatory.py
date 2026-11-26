@@ -45,6 +45,10 @@ A-ENV (0dc1aec): conf-ID mission 1499 excluded; amortized_comp E_mis = empirical
 amortized_comp_envcal scored under the same bars (guarantee on ID); raw = plug-in median, descriptive.
 c2b97cd: C-EXPLAIN (§6b, secondary, not in Holm; models' wheels_conf_models.npz + point = q50; truth regenerated with
 make_episode) and an exploratory C-MAIN row with tau from the task-library histogram.
+A-SEED (03387d0, §10): model rows (C-MAIN, C-SCALE, C-ENV, C-EXPLAIN) are filtered to model_tag == st-n6-2; other
+tags (st-n6-1) go to a descriptive seed-variation column, never to a bar.
+Coordinator 00:35Z: credible_lower comes from models (seed-filtered like every model row); always_go, never_go and
+metadata_nf are computed by the scorer (common.trivial_methods on amortized_comp's labels), never read from rows.
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -89,11 +93,19 @@ DIRECT = ("st_direct", "blackbox_gnn")
 DEC_REQ = ("claim", "method", "test_plant", "split", "status", "eid", "shard", "cand", "kind", "cand_size",
            "has_fault", "leg", "truth", "lower")
 DEC_OPT = ("point", "scale", "truth_own", "severity", "probe", "dominated", "parent_n", "seconds", "lower_marg",
-           "arm", "variant")
+           "arm", "variant", "model_tag")
 MIS_REQ = ("claim", "method", "family", "building", "mission", "shard", "committed", "failed", "success",
            "oracle_success")
-MIS_OPT = ("reconfig", "time_s", "status")
+MIS_OPT = ("reconfig", "time_s", "status", "model_tag")
 KS_REQ = ("stat", "ks_p", "ks_d")
+# A-SEED (03387d0, §10): every confirmatory model row of C-MAIN / C-SCALE / C-ENV / C-EXPLAIN is st-n6-2. Rows of any
+# other model tag (st-n6-1 if it finishes) are a descriptive seed-variation column only: never in a bar, no
+# best-of-seeds. C-HET uses its own het models and is not filtered.
+PRIMARY_TAG = "st-n6-2"
+SEED_CLAIMS = ("C-MAIN", "C-SCALE", "C-ENV")             # C-EXPLAIN reads C-MAIN rows
+MODEL_METHODS = {"amortized_comp", "amortized_comp_blind", "amortized_comp_envcal", "raw", "credible_lower",
+                 "blackbox_gnn",
+                 "st_direct", "amortized_marg", "amortized_sim"}
 
 
 # ------------------------------------------------------------------------------------------------- loading
@@ -1181,6 +1193,70 @@ def report(S, H, out, sha, srcs, mock):
     return V
 
 
+def split_seeds(d, S, what):
+    """A-SEED: keep model rows of PRIMARY_TAG for scoring; return (scored rows, seed-variation rows). Untagged model rows
+    are accepted only if the file carries no tags at all for that claim (logged); mixing tagged and untagged raises."""
+    if d.empty:
+        return d, d.iloc[:0]
+    mm = d["method"].isin(MODEL_METHODS) & d["claim"].isin(SEED_CLAIMS)
+    tag = d["model_tag"].astype(object)
+    has = tag.notna()
+    for cl in SEED_CLAIMS:
+        c = mm & (d["claim"] == cl)
+        if c.any() and has[c].any() and (~has[c]).any():
+            raise C.SchemaError(f"{what}: {cl} model rows mix tagged and untagged model_tag (A-SEED needs the tag)")
+        if c.any() and not has[c].any():
+            S.log.append(f"{what}: {cl} model rows carry no model_tag; assumed {PRIMARY_TAG} (A-SEED) - check the export")
+    other = mm & has & (tag.astype(str) != PRIMARY_TAG)
+    if other.any():
+        S.log.append(f"{what}: {int(other.sum())} model rows of tag(s) {sorted(set(tag[other].astype(str)))} moved to "
+                     "the descriptive seed-variation column (A-SEED; never in a bar)")
+    return d[~other], d[other]
+
+
+def seed_variation(S, sv):
+    """Descriptive cells + DESCRIPTIVE rows for non-primary model tags (A-SEED): own-bound E_ep and stratum CF/E_dec."""
+    if sv.empty:
+        return
+    for (cl, m, tg, pl), g in sv.groupby(["claim", "method", "model_tag", "test_plant"]):
+        g = g.reset_index(drop=True)
+        if cl == "C-MAIN":
+            g = g[g.eid.between(CMAIN_IDX[0], CMAIN_IDX[1] - 1)].reset_index(drop=True)
+        if g.empty:
+            continue
+        key = "ck"
+        g[key] = g["split"].astype(str) + ":" + g["eid"].astype(str)
+        t = cluster_stats(g, g["lower"], _sel("stratum"), cluster=key)
+        bt = Boot(t.index)
+        e, rr = bt.ratio(t, "ep_unsafe", "one")
+        S.cell(claim=cl, method=m, model_tag=tg, plant=pl, block="seed variation", n_ep=len(t), E_ep=e,
+               CF_own=C._ratio(t.cert.sum(), t.cap.sum()), E_dec_own=C._ratio(t.uns.sum(), t.inc.sum()))
+        S.bar(cl, "seed variation (A-SEED)", f"E_ep, {tg}", e, rr, method=m, plant=pl, n_clusters=len(t),
+              descriptive=True, note=f"descriptive only; the bars use {PRIMARY_TAG}; no best-of-seeds")
+
+
+SCORER_TRIVIAL = ("always_go", "never_go", "metadata_nf")   # computed here (coordinator 00:35Z), never read from rows
+
+
+def add_trivial(d, S, what):
+    """C-MAIN constant and shape-metadata baselines computed by the scorer from the shared labels of OURS's rows
+    (common.trivial_methods: always_go finite huge bound, never_go -inf, metadata_nf 2-fold cross-fit over episodes
+    within each (plant, split) block). Role-exported rows of these names are dropped (logged)."""
+    if d.empty:
+        return d
+    ex = d["method"].isin(SCORER_TRIVIAL) & (d["claim"] == "C-MAIN")
+    if ex.any():
+        S.log.append(f"{what}: dropped {int(ex.sum())} role-exported rows of {sorted(set(d.method[ex]))}; the scorer "
+                     "computes them")
+        d = d[~ex]
+    base = d[(d.claim == "C-MAIN") & (d.method == OURS)]
+    if base.empty:
+        return d
+    t = C.trivial_methods(base)
+    t = t[t.method.isin(SCORER_TRIVIAL)].copy()
+    return pd.concat([d, t[d.columns.intersection(t.columns)]], ignore_index=True)
+
+
 def run(res, out, mock=False, now=None, truth_fn=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     if not mock and not (res / "MOCK.txt").exists() and now < SCORING_OPENS:
@@ -1195,10 +1271,15 @@ def run(res, out, mock=False, now=None, truth_fn=None):
         if any(c not in ks for c in KS_REQ):
             raise C.SchemaError(f"{ksf}: needs {KS_REQ}")
     S = Scorer()
-    cal = dec[dec.split.astype(str) == "cal"]
-    dec = exclusions(dec[dec.split.astype(str) != "cal"], S.log, "decision rows")
+    dec, sv_dec = split_seeds(dec, S, "decision rows")
+    if not mis.empty:
+        mis, sv_mis = split_seeds(mis.assign(test_plant="env"), S, "mission rows")
+    cal = add_trivial(dec[dec.split.astype(str) == "cal"], S, "cal rows")
+    dec = add_trivial(exclusions(dec[dec.split.astype(str) != "cal"], S.log, "decision rows"), S, "decision rows")
     mis = exclusions(mis.assign(split="missions", eid=mis.get("mission", pd.Series(dtype=float))), S.log,
                      "mission rows") if not mis.empty else mis
+    seed_variation(S, exclusions(sv_dec[sv_dec.split.astype(str) != "cal"], [], "seed variation")
+                   if not sv_dec.empty else sv_dec)
     score_main(S, dec, cal)
     score_merge(S, dec, cal)
     score_gate(S, dec)
