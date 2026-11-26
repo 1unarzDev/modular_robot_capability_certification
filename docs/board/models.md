@@ -284,6 +284,18 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - (b) matched-compute SMC: baselines runs SMC at a wall budget equal to `sec_comp`.
   - (c) capxfer on the same eids: baselines' capxfer_cert.
 
+## Tomorrow (free-worker list, for a complete confirmatory rescore)
+1. Rerun the st-n6-2 stage-2 **models-eval2 `cal` job** (generator cal 0–1999, compositional route for every
+   episode). It replaces tonight's train-run eval-cal fallback (300 episodes, 100 composed; q_comp 1.618). The fallback
+   is a legitimate exploratory calibration, and the paper discloses its size. Then re-fit `calib_st-n6-2.json`, the
+   C-MAIN / C-SCALE margins and the C-ENV q_comp / q_env.
+2. Run the remaining confirmatory groups:
+   - models-conf-main-scale for C-MAIN beyond the 750 conf_test episodes pulled so far, and for conf_H4b (none yet);
+   - models-conf-env (no complete units yet).
+3. After ops' final pull, rerun once before scoring:
+   `$PY scripts/models_export.py ~/.cache/vast-out --calib-out results/models/calib --confirmatory`.
+   Do the same after the rescore pulls.
+
 ## Needs from other roles
 - **generator:** the ref-split shards (cfcap-gen-ref2) for a stage-2 eval on 20k cal/test, so calibration is not limited to 300 episodes.
 - **stress:** T2 evaluation of the pulled `weights.pt` (stage 2).
