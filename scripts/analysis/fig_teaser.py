@@ -157,7 +157,7 @@ def icon(ax, cells, x0, y0, c, foreign=(), fault=(), fill=CERT_FILL, hatch=None)
         i, j = cells[k]
         X = x0 + (max(jj) - j) * c
         Y = y0 + (i - min(ii)) * c
-        ax.plot(X + c * (0.5 - 0.75 * rel[1]), Y + c * (0.5 + 0.75 * rel[0]), "o", ms=2.4, mfc=S.ORANGE, mec="none",
+        ax.plot(X + c * (0.5 - 0.75 * rel[1]), Y + c * (0.5 + 0.75 * rel[0]), "o", ms=2.6, mfc=S.ORANGE, mec=S.INK, mew=0.4,
                 zorder=4)
     return (max(jj) - min(jj) + 1) * c, (max(ii) - min(ii) + 1) * c
 
@@ -276,7 +276,7 @@ def key_line(ax, E, V, x0, y):
         ax.text(x + c + (0.125 if v != "certify" else 0.035), y, word, ha="left", va="center",
                 fontsize=S.LABEL_PT, color=S.INK2)
         x += adv + (0.08 if v != "certify" else 0)
-    ax.plot(x + 0.03, y, "o", ms=2.4, mfc=S.ORANGE, mec="none")
+    ax.plot(x + 0.03, y, "o", ms=2.6, mfc=S.ORANGE, mec=S.INK, mew=0.4)
     ax.text(x + 0.08, y, f"{MODE_WORD[E['faults'][0]['mode']]} wheel", ha="left", va="center",
             fontsize=S.LABEL_PT, color=S.ORANGE_TX)
     return n
@@ -316,7 +316,7 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
             ax.add_patch(Rectangle((X(lo), yc - 0.045), X(float(r.point)) - X(lo), 0.09, lw=0.6, ec=S.BLUE,
                                    fc=S.SURFACE if r.ext else S.BLUE, hatch="//////" if r.ext else None, zorder=3))
             ax.plot([X(lo)] * 2, [yc - 0.06, yc + 0.06], color=S.BLUE, lw=S.LW_OURS, solid_capstyle="butt", zorder=4)
-            ax.plot([X(r.tau)] * 2, [yc - 0.075, yc + 0.075], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5,
+            ax.plot([X(r.tau)] * 2, [yc - 0.046, yc + 0.046], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5,
                     path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
             ax.plot([X(float(r.point))] * 2, [yc - 0.055, yc + 0.055], color=S.INK2, lw=0.9, zorder=4)  # estimate
             mark(ax, gx, yc, r.verdict, size=7.5)

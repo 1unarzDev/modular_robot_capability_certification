@@ -151,7 +151,7 @@ def run(res, paper):
                      textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=col,
                      linespacing=1.0)
     # one shared x label; two-line panel titles placed in figure inches
-    fig.text(0.5, 0.02 / H, "how wrong the motor model is (severity $s$)", ha="center", va="bottom",
+    fig.text(0.5, 0.02 / H, "how wrong the motor model is (knee severity $s$)", ha="center", va="bottom",
              fontsize=S.LABEL_PT, color=S.INK2)
     tkw = dict(fontsize=S.TITLE_PT, fontweight="bold", color=S.INK, va="top", ha="left", linespacing=1.05)
     fig.text(0.03 / W, 1 - 0.03 / H, "(a) Unsafe episodes rise as the\nmotor model gets more wrong …", **tkw)

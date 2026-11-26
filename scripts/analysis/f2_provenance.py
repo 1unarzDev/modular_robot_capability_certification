@@ -27,9 +27,9 @@ KINDS = ("surge", "sway", "diag", "yaw")
 LEGNAME = {"surge": "forward", "sway": "sideways", "diag": "diagonal", "yaw": "turn"}   # text vocabulary
 SIZES = ("1", "2", "3", "4", "5", "6+")
 # probe set code -> (display name, colour, linestyle, marker, macro key part)
-PROBES = {"v2": ("test drive", S.BLUE, "-", "o", "vtwo"),
-          "v2+clamp": ("fast test drive\n(clamp)", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
-          "v2+clamp+yawhi": ("+ turn test", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+PROBES = {"v2": ("test drive only:\n{y} % extrapolated", S.BLUE, "-", "o", "vtwo"),
+          "v2+clamp": ("+ clamp: {y} %", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
+          "v2+clamp+yawhi": ("+ turn test: {y} %", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
 YTOP = 76
 HTINT = "#dce8f7"   # light blue under the fine hatching, so dark numbers stay legible
 NWORD = {4: "NFour", 8: "NEight", 16: "NSixteen"}
@@ -150,7 +150,7 @@ def run(res, paper):
     kx2, ky2 = kx, ky - 0.15          # second key on its own row (long label)
     fig.patches.append(Rectangle((kx2 / W, (ky2 - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
                                  hatch="////////", hatch_linewidth=0.4, transform=fig.transFigure))
-    fig.text((kx2 + 0.2) / W, ky2 / H, "extrapolated by the motor model (% of directions)", ha="left", va="center",
+    fig.text((kx2 + 0.2) / W, ky2 / H, "extrapolated by the motor model (% of predictions)", ha="left", va="center",
              fontsize=S.LABEL_PT, color=S.INK2)
 
     # (b) extrapolated share vs parent size
@@ -181,7 +181,7 @@ def run(res, paper):
             mid = (ly[hi] + ly[lo]) / 2
             ly[lo], ly[hi] = mid - need / 2, mid + need / 2
     for code, (n, y, lab, col) in ends.items():
-        bx.text(n + 0.6, ly[code], f"{lab}  {y:.0f} %", ha="left", va="center", fontsize=S.LABEL_PT, linespacing=1.0, color=col
+        bx.text(n + 0.6, ly[code], lab.format(y=f"{y:.0f}"), ha="left", va="center", fontsize=S.LABEL_PT, linespacing=1.0, color=col
                 if col != S.GREY else S.INK2)
     nmax = int(v.N.max())
     bx.set_xlim(1.6, nmax + 0.4)

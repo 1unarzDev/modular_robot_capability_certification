@@ -39,6 +39,7 @@ METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
            ("Detector-gated", "detector_gated", S.GREY, "^", 4.2),
            ("Copy parent", "copy_parent", S.GREY, "s", 3.8),
            ("Shape metadata", "metadata_nf", S.GREY, "o", 5.2))     # hollow ring around Copy parent at (0, 0)
+PLANT_NAME = {"T1": "T1 (training simulator)", "T2": "T2 (independent simulator)"}
 SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
 BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "Lone faulty module"),
           ("merge", "merge", "Merged configurations"))
@@ -163,12 +164,13 @@ def run(res, paper):
     W, H = S.W2, 2.03
     fig = S.plt.figure(figsize=(W, H))
     L, Bm, T = 0.40, 0.33, 0.21
-    pw, gap = 1.30, 0.07
+    pw, gap = 1.27, 0.07
     ph = H - Bm - T
     axs = [fig.add_axes([(L + i * (pw + gap)) / W, Bm / H, pw / W, ph / H]) for i in range(3)]
     dL = L + 3 * pw + 2 * gap + 0.38
-    dw = (W - dL - 0.06 - 0.06) / 2
-    axd = [fig.add_axes([(dL + i * (dw + 0.06)) / W, Bm / H, dw / W, ph / H]) for i in range(2)]
+    dgap, dR, dB = 0.12, 0.02, 0.47            # (d): wider gap and a taller bottom for its two-line x labels
+    dw = (W - dL - dgap - dR) / 2
+    axd = [fig.add_axes([(dL + i * (dw + dgap)) / W, dB / H, dw / W, (H - dB - T) / H]) for i in range(2)]
 
     lead = dict(arrowstyle="-", lw=0.4, color=S.INK2, shrinkA=1.0, shrinkB=S.ARROW_SHRINK)
     for i, (ax, (blk, bl, short)) in enumerate(zip(axs, BLOCKS)):
@@ -244,29 +246,34 @@ def run(res, paper):
         ax.plot(lim, lim, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=3)
         miss = g[g.lower > g.truth]
         # misses: orange-filled X with a black edge (reads in grayscale on dark hexagons), drawn last
-        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="X", ms=4.6, mfc=S.ORANGE,
-                mec=S.INK, mew=0.4, zorder=9, clip_on=False)
+        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="X", ms=5.2, mfc=S.ORANGE,
+                mec=S.INK, mew=0.9, zorder=9, clip_on=False)
         ax.set_xlim(-0.04, lim[1])
         ax.set_ylim(-0.04, lim[1])
         ax.set_xticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_yticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_aspect("auto")
-        ax.text(0.05, 0.96, plant, transform=ax.transAxes, fontsize=S.LABEL_PT, fontweight="bold", color=S.INK,
-                va="top")
         nm = int(len(miss))
-        ax.text(0.20, 0.96, f"{nm} bounds\ntoo high\n/ {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
+        ax.text(0.05, 0.96, f"{nm} bounds\ntoo high\n/ {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
                 color=S.ORANGE_TX, ha="left", va="top", linespacing=1.0)
         if j == 0:      # density key in the dead space above the diagonal
             ax.text(0.06, 0.735, "per hexagon", transform=ax.transAxes, fontsize=S.LABEL_PT, color=S.INK2,
                     ha="left", va="top", linespacing=1.0)
-            cax = ax.inset_axes([0.07, 0.545, 0.30, 0.04])
+            cax = ax.inset_axes([0.07, 0.50, 0.30, 0.04])
             cb = fig.colorbar(hb, cax=cax, orientation="horizontal")
             cb.outline.set_linewidth(0.3)
             cb.set_ticks([1, 1000], labels=["1", "1000"])
             cax.tick_params(labelsize=S.LABEL_PT, length=1.5, width=0.4, pad=1)
             cax.xaxis.set_minor_locator(S.matplotlib.ticker.NullLocator())
             cax.xaxis.set_ticks_position("top")
-        ax.set_xlabel("true capability", labelpad=1.5)
+        ax.set_xlabel(f"true capability\n{PLANT_NAME[plant]}", labelpad=1.5, linespacing=1.0)
+        if j == 0:
+            ax.xaxis.set_label_coords(0.45, -0.175, transform=ax.transAxes)
+            ax.xaxis.label.set_va("top")
+        else:   # right-aligned at the figure edge so it clears the T1 label
+            ax.xaxis.set_label_coords(1 + (dR - 0.005) / dw, -0.175, transform=ax.transAxes)
+            ax.xaxis.label.set_ha("right")
+            ax.xaxis.label.set_va("top")
         if j:
             ax.tick_params(labelleft=False)
         else:
@@ -275,7 +282,7 @@ def run(res, paper):
         N.num(f"fig4.merge.entries.{plant.lower()}", len(g), "results/" + MERGE, SD)
         N.pct(f"fig4.merge.missrate.{plant.lower()}", nm / len(g), "results/" + MERGE, SD, d=2)
         N.num(f"fig4.merge.pairs.{plant.lower()}", g.groupby(["arm", "eid"]).ngroups, "results/" + MERGE, SD)
-    S.panel(axd[0], "(d) Never-docked merges: bound vs. truth", x=-0.27)
+    S.panel(axd[0], "(d) Never-docked merges: bound vs. truth", x=-0.25)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros

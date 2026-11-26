@@ -23,7 +23,7 @@ import figstyle as S
 SEV = 3
 FW = 0.75          # speed-knee fraction for this wheel; asserted inside envelope.SEVERITY[3] and above the probe
 WHEEL = 2          # parent wheel index (module 0 of the 2x3 parent); kept by the 2x2 child as its wheel 2
-W_IN, H_IN = 3.5, 3.2
+W_IN, H_IN = 3.5, 3.45
 
 
 def _t0_points():
@@ -157,10 +157,10 @@ def run(res, paper):
     S.apply()
     fig = S.plt.figure(figsize=(W_IN, H_IN))
     # ---- (a) masking: needed power of the weak wheel per body, and how much motion the body keeps
-    HA = 1.15                                    # inches for panel (a), title included
+    HA = 1.50                                    # inches for panel (a), title included
     fig.text(0.02 / W_IN, (H_IN - 0.03) / H_IN, "(a) Why an assembly hides a weak wheel", ha="left", va="top",
              fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
-    a_y0, a_h = H_IN - HA + 0.26, HA - 0.26 - 0.42
+    a_y0, a_h = H_IN - HA + 0.51, HA - 0.51 - 0.52
     am = fig.add_axes([1.12 / W_IN, a_y0 / H_IN, 1.45 / W_IN, a_h / H_IN])
     umax = max(r_["u_need"] for r_ in mask)
     xr = 1.0 + 1.15 * (umax - 1.0) + 0.05
@@ -177,7 +177,7 @@ def run(res, paper):
                 color=S.INK if r_["rho"] > 0.95 else S.ORANGE_TX, clip_on=False)
     # header row: reference line, the two number columns; the orange segment is named under the axis
     hy = -0.62
-    am.text(XP, hy, "motion\nkept", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2,
+    am.text(XP, hy, "commanded\nmotion\nachieved", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2,
             clip_on=False, linespacing=1.0)
     am.text(umax + 0.03 * xr, hy, "duty\nneeded", ha="left", va="bottom", fontsize=S.LABEL_PT, color=S.INK2,
             clip_on=False, linespacing=1.0)
@@ -194,13 +194,16 @@ def run(res, paper):
     am.spines["left"].set_visible(False)
     am.tick_params(length=2, pad=1.5)
     am.set_xlabel("duty a half-strength wheel needs on a diagonal", labelpad=1)
+    fig.text(W_IN / 2 / W_IN, (a_y0 - 0.29) / H_IN, "same duty needed in every configuration; what changes is\n"
+             "how much its neighbours compensate", ha="center", va="top", fontsize=S.LABEL_PT, color=S.INK2,
+             linespacing=1.05)
 
     # ---- (b) the operating plane
     HB = H_IN - HA
     fig.text(0.02 / W_IN, (HB - 0.04) / H_IN, "(b) What a test drive sees, and what a new configuration needs", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
-    ax = fig.add_axes([0.42 / W_IN, 0.46 / H_IN, (W_IN - 0.42 - 0.06) / W_IN, (HB - 0.46 - 0.24) / H_IN])
-    X0, X1, YB = 0.0, 1.03, 0.42            # torque axis cut: everything the steps need lies below it
+    ax = fig.add_axes([0.42 / W_IN, 0.58 / H_IN, (W_IN - 0.42 - 0.06) / W_IN, (HB - 0.58 - 0.24) / H_IN])
+    X0, X1, YB = 0.0, 1.03, 0.50            # torque axis cut: everything the steps need lies below it
     xs = np.linspace(0, k, 600)
     yt = _true_envelope(xs, k, env)
     ok = np.isfinite(yt)
@@ -249,17 +252,17 @@ def run(res, paper):
 
     ax.set_xlim(X0, X1)
     ax.set_ylim(0, YB)
-    along(0.63, 1 - 0.63, 0.1, "healthy motor", S.INK, 5)
-    along(0.505, k - 0.505, 0.1, "fitted motor model (straight line)", S.TEAL, 5)
+    along(0.59, 1 - 0.59, 0.1, "healthy motor", S.INK, 5)
+    along(0.45, k - 0.45, 0.1, "fitted motor model (straight line)", S.TEAL, 5)
     ax.text(0.03, ymax + 0.045, "this wheel's real limit (with knee)", color=S.INK2, ha="left", va="center", **T)
     ax.text(0.025, ymax - 0.02, "covered by the 12-s test drive", color=S.BLUE, ha="left", va="top", **T)
     ax.text(surge[0] - 0.035, 0.035, "forward: inside → answered by data", color=S.INK, ha="right", va="center",
             **T)
-    under(X1, 0, "diagonal: outside → answered by the motor model", S.INK)
-    under(X1, 1, "orange interval: model says reachable; real wheel cannot", S.ORANGE_TX)
-    ax.set_xticks([0])
-    ax.set_yticks([0])
-    ax.set_xlabel("wheel speed (fraction of no-load speed)", labelpad=12)
+    under(X1, 1, "diagonal: outside → answered by the motor model", S.INK)
+    under(X1, 2, "orange interval: model says reachable; real wheel cannot", S.ORANGE_TX)
+    ax.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+    ax.set_yticks([0, 0.5], ["0", "0.5"])
+    ax.set_xlabel("wheel speed (fraction of no-load speed)", labelpad=20)
     ax.set_ylabel("torque (fraction of stall torque)", labelpad=1)
     ax.tick_params(length=2, pad=1.5)
     N.set("figconcept.speed.forward", f"{surge[0]:.2f}", src, st)

@@ -70,7 +70,7 @@ def draw(path):
         (1.32, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
          ["faults, friction, motor", "strength, from the drive"]),
         (1.30, "physics", "2 Build each candidate\nconfiguration in the\nsimulator (physics)",
-         ["every split and merge,", r"10 directions $\to$ $\hat\rho$, spread $\sigma$"]),
+         ["every split and merge,", "10 motion directions", r"$\to$ estimate $\hat\rho$, spread $\sigma$"]),
         (1.26, "calib", "3 Add one calibrated\nsafety margin",
          [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: margin from", "calibration episodes"]),
     ]
@@ -107,6 +107,13 @@ def draw(path):
     arrow(ax, (xm, oy + oh / 2), (xm, cy), ls=(0, (2.5, 1.5)))
     ax.text(xm + 0.05, oy + oh / 2 + 0.02, "for merges", ha="left", va="bottom", fontsize=S.LABEL_PT,
             color=S.INK2)
+    # box-colour key, in the dead space right of "for merges"
+    kx, ky = xm + 0.55, oy + oh / 2 + 0.035
+    for kind, word in (("learned", "learned"), ("physics", "physics"), ("calib", "calibration")):
+        ax.add_patch(FancyBboxPatch((kx, ky - 0.04), 0.13, 0.08, boxstyle=f"round,pad=0,rounding_size={S.BOX_ROUND}",
+                                    lw=S.LW_BOX, ec=EDGE[kind], fc=FILL[kind], zorder=2))
+        t = ax.text(kx + 0.17, ky, word, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+        kx += 0.17 + 0.042 * len(word) + 0.10
     # test-first loop (decision-EVOI, exploratory): from the "test first" row back into the test drive
     vx = x + 0.07
     yl = 0.035
