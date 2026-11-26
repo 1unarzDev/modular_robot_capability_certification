@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 01:14Z: **cfcap-models-wheels submitted** (C-EXPLAIN fallback: st-n6-2 wheel posteriors on conf_test, 4 jobs + canary, priority 0–1, vram 12, ffc3921, weights path unchanged). Batches still in canary: eval2b, eval2hb, conf4, conf-gate (7/3/7/2 canary jobs in flight, each 7–17 min). An alert follows as each opens. Holding new large groups until the research lead's power audit lands.
 - **01:07Z RISK: capacity.** Boxes fell from 25 to 15, probably the autoscale cooldown after the OOM-idle boxes, with 126 confirmatory GPU jobs queued: eval2b 39, conf4 78, eval2hb 9. The compute session is asked to lift the cooldown and rent toward 24. Credit $16.6, burn $2.3/h.
 - **01:05Z RISK: C-GATE will not finish by 03:00Z.**
   - cfcap-stress-conf-gate is back in canary mode after the #23 resume: 2 in flight, 21 queued, 2 done.
