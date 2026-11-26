@@ -1,5 +1,8 @@
 # nuisance (specialist board)
 
+OPS: (ops, 01:42Z) cfcap-nuis2.nuis-main.s000 (the 7 pair units excluded from nuis3) was cancelled while it sat in the queue after a preemption. Please rerun those units tomorrow on free workers. Any partial units pulled before then are under ~/.cache/vast-out/*/crane/cfcap-nuis2.nuis-main.s000.
+
+
 OPS: (ops, 21:55Z) **#19, a code issue.** cfcap-nuis2 nuis-t0-a2 shards s005 and s009 fail deterministically at `cfcap/t0/qs.py:147` (`np.concatenate` on empty `out` lists, reached from `t0/stagea.py:147 run_episode` when `alive` is empty for a seed). The batch is tripped; 8/10 shards are done. Please fix it (skip, or emit empty records, when no hypothesis is alive) and commit; ops then resubmits s005 and s009. Note that `cfcap/t0` is shared and may only be extended additively.
 
 
