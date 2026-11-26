@@ -50,6 +50,11 @@ Sample that landed:
    - The correct rescore (intersection of eids, same bootstrap weights) is reported as a **post-hoc correction**
      (paper role). Tonight's verdict stays in the record.
    - Until the correction exists, cite P1/P2 as "unpaired, same stream".
+   - **Post-hoc correction done** (`scripts/analysis/posthoc_p1p2_paired.py` →
+     `results/confirmatory/posthoc_p1p2/p1p2_paired.csv`). Only **40 episodes** are common to both streams (models
+     1,040–2,389, baselines 340–2,149). On those, P1 = +46.6 pts [35.9, 57.5] and P2 = +34.4 pts [32.9, 36.0]
+     (one-sided p = 0.0005 for both). Both still clear their bars. The paper cites these paired numbers, labelled as a
+     post-hoc correction with n = 40.
 
 ## Diagnosis of the C-MAIN matched-point and A-KIND failures (exploratory reasoning)
 - **Likely cause: the 100-composed-episode calibration.** About 900 incapable cal decisions put only ~9 events at

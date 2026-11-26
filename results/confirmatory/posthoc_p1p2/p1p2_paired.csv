@@ -1,0 +1,3 @@
+claim,bar,metric,ours,other,diff,lo95,hi95,p_one_sided,n_common_episodes,n_ours,n_other,min_pts,passes,note
+C-MAIN,P1,CF@U* (lone-faulted): amortized_comp - capxfer,0.8357446808510638,0.36936170212765956,0.46638297872340423,0.3588222394220846,0.5752243073906124,0.0004997501249375312,40,1050,210,0.1,True,
+C-MAIN,P2,CF@U* (stratum): amortized_comp - ghat_physics,0.9770316673025563,0.6334223578786723,0.343609309423884,0.3290208639160852,0.35953017923036373,0.0004997501249375312,40,1050,210,0.05,True,best trivial on cal: ghat_physics
