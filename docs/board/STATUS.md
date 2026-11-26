@@ -3,6 +3,20 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:25Z: A-POWER applied (CONFIRMATORY §11).**
+  - **Cancelled 35 queued jobs** whose units all lie beyond the power ranges. Unit ranges were read with `cfcap.runner --list`; any shard with an in-range unit was kept:
+    - conf4: conf-cal 7, conf-main 4, conf-het 4;
+    - eval2b: conf-main-scale 5;
+    - eval2hb: conf-het 4;
+    - conf-gate: conf-gate 11.
+  - **gate-cal is untouched** and at priority 0. N4 outputs: 20/20 pulled earlier.
+  - **Restored, with the original lineages:**
+    1. cfcap-baselines-smc-small2: the 4 cancelled stage-1 sweep jobs, priority 5. Stage 2 waits for baselines to post the chosen particle count.
+    2. cfcap-decide3: 9 jobs, priority 10, vram 12.
+    3. cfcap-nuis4: 3 jobs, priority 15, vram 12.
+    4. cfcap-theory-ride2: 2 jobs, priority 20.
+  - t2-extra is complete (11/11), so nothing needed restoring there.
+  - Credit $16.3, burn ~$2.3/h.
 - 01:14Z: **cfcap-models-wheels submitted** (C-EXPLAIN fallback: st-n6-2 wheel posteriors on conf_test, 4 jobs + canary, priority 0–1, vram 12, ffc3921, weights path unchanged). Batches still in canary: eval2b, eval2hb, conf4, conf-gate (7/3/7/2 canary jobs in flight, each 7–17 min). An alert follows as each opens. Holding new large groups until the research lead's power audit lands.
 - **01:07Z RISK: capacity.** Boxes fell from 25 to 15, probably the autoscale cooldown after the OOM-idle boxes, with 126 confirmatory GPU jobs queued: eval2b 39, conf4 78, eval2hb 9. The compute session is asked to lift the cooldown and rent toward 24. Credit $16.6, burn $2.3/h.
 - **01:05Z RISK: C-GATE will not finish by 03:00Z.**
