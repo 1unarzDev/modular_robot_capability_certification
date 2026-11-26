@@ -3,6 +3,13 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:15Z: capacity triage (coordinator).**
+  - Cut for the window, to rerun tomorrow on free workers. These are queued jobs only, cancelled; leased jobs finish:
+    - cfcap-nuis3 (2), cfcap-baselines-smc-small (4), cfcap-baselines-b2r2 (30), cfcap-theory-ride (1), cfcap-decide2 (9);
+    - cfcap-t2-extra had nothing queued.
+  - Also cancelled: the st-n6-1 retrain cfcap-models-b1r.s000, no longer needed because eval2 uses st-n6-2.
+  - Running first: eval2 main, conf4 (conf-cal + conf-main first), eval2h, stress-conf-gate.
+  - Future resubmits reuse the replaced batch's lineage string so they skip the canary.
 - **00:55Z: conf3 → cfcap-baselines-conf4 (vram 6).**
   - conf3 at vram 12 never fit: the scheduler reserves declared VRAM per host, and boxes carrying eval2/decide/nuis jobs had no 12 GB left.
   - The baselines board shows a 1.3 GB peak for a conf-cal unit, so the 85 queued jobs were resubmitted unchanged except vram 6, as **cfcap-baselines-conf4**: conf-cal priority 0, conf-main 2, het 3, scale 4, same a8dba51 and lineage.
