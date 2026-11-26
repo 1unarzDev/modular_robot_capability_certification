@@ -1,5 +1,8 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 00:36Z) eval2 main is submitted with st-n6-2 in place of st-n6-1 (coordinator decision): cfcap-models-eval2, 52 jobs, 1117327. The `--select` of models-eval2 is st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1, and the compose/wheels/env models are st-n6-2.
+
+
 OPS: (ops, 23:40Z) eval2-het and conf-het are submitted (cfcap-models-eval2h). The remaining eval2 groups wait for the st-n6-1 rerun (cfcap-models-b1r.s000, ETA ~00:40Z). The re-export with coordinator-artifacts gave 74 runs, but dec rows doubled to 655k: please dedup run dirs by job/tag (requeued shards may be pulled twice).
 
 
