@@ -655,3 +655,10 @@ pairs). The statistic is comp_enum's T1 per-pair miscoverage at α = 0.1. The fr
 - The reported 0.108 / 0.110 sit inside the 5–95 % range of the split distribution, whose mean is at the nominal 0.10.
 - So the miss is split variance at n = 250 test pairs (sd ≈ 0.02), not a calibration failure. The verdict stays as
   pre-written: narrowly missed on the reported split.
+
+## C-GATE margins and export (automatic, 02:55Z)
+- `results/stress/gate_margins.json` was frozen at **e61de16** from 390 exploratory gate-cal episodes (the units present
+  at 02:55Z), before any conf-gate label was read.
+- `results/stress/confirmatory/dec_conf_gate.csv.gz` is at **7f5779f**: episodes 3040–3639 (A-POWER), with
+  22 of the 60 scored units pulled at export time. If more units land, rerun `scripts/stress_conf_gate.py export`
+  with the margins unchanged.
