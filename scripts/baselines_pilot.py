@@ -479,7 +479,7 @@ CONF_NAME = dict(detector_gated="detector_gated", physics_gains="ghat_physics", 
 CONF_CLAIM = {"conf_test": "C-MAIN", "conf_H4": "C-SCALE", "conf_H4b": "C-SCALE", "conf_het_test": "C-HET",
               "conf_H1": "C-HET", "conf_H2": "C-HET"}
 CONF_METHODS = {"C-MAIN": ("always_go", "never_go", "metadata_nf", "detector_gated", "ghat_physics", "copy_parent",
-                           "min_over_members", "capxfer", "credible_lower", "cfBH", "oracle", "nuisance_smc"),
+                           "min_over_members", "capxfer", "oracle"),
                 "C-SCALE": ("capxfer", "metadata_nf"), "C-HET": ("metadata_nf",)}
 SCORING_OPENS = "2026-11-26T01:45:00+00:00"
 BIG = 1e6

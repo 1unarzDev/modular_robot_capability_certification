@@ -200,7 +200,10 @@ def candidate_rho(par, cands, rows, device="cuda", relative=True, plate="plated"
     relative=False skips the fault-free twin rollouts (rho_rel then NaN)."""
     rows = lat_to(rows, device)
     targets = [(c.asm, cand_latents(rows, c)) for c in cands]
-    outs = cap.capability(targets, par, relative=relative, device=device)
+    from . import posterior as Po
+    eng = "graph" if str(device).startswith("cuda") else "eager"
+    outs = Po.with_fallback(lambda e: cap.capability(targets, par, relative=relative, device=device, engine=e,
+                                                     max_wheels=Po.CAP_MAX_WHEELS), eng)
     rho = np.stack([o["rho"].cpu().numpy() for o in outs], 1)
     rr = np.stack([o["rho_rel"].cpu().numpy() for o in outs], 1) if relative else np.full_like(rho, np.nan)
     return rr, rho, rho / ref_table(cands, plate, device)[None]
@@ -263,7 +266,10 @@ def from_gen(plate, split, index, engine="compile"):
     gep = GE.make_episode(plate, split, index)
     par = GE.params(plate)
     pa = gep.parent
-    o = S.probe_episodes([gep], ("v2",), engine=engine)["v2"][0][0]
+    from . import posterior as Po
+    engine = Po.pick_engine(engine)
+    o = Po.with_fallback(lambda e: S.probe_episodes([gep], ("v2",), engine=e, max_wheels=Po.CAP_MAX_WHEELS),
+                         engine)["v2"][0][0]
     rng = GE.episode_rng(plate, split, index, stream=1 + S.PROBE_KINDS.index("v2"))
     cmd, _, _ = S.probe_tables("v2", pa.asm, par, rng)          # the same draw probe_episodes used (full table)
     speed = o["dcnt"].astype(np.float32) / P.CPR * 2 * np.pi / plant.DT_OBS
@@ -285,7 +291,7 @@ def from_gen(plate, split, index, engine="compile"):
             ol = GE.plant_latents(gep, om, np.zeros(4 * len(om), np.float32), None)
             other = {k: ol[k] for k in _WHEEL_KEYS + _MOD_KEYS + ("wtype",) if k in ol}
         cands.append(Cand(f"{split}{index}/c{ci}", kinds[c.kind], c.asm, pm, src, other, c.load_z, c.payload))
-    lab = S.label_episodes([gep], engine=engine)[0]
+    lab = Po.with_fallback(lambda e: S.label_episodes([gep], engine=e, max_wheels=Po.CAP_MAX_WHEELS), engine)[0]
     T = S.probe_T("v2")
     rho_dec = lab["rho_dec"] if "rho_dec" in lab else lab["rho"] / ref_table(cands, plate)
     return Episode(rho_dec=rho_dec, eid=int(index), shape=f"{pa.m}m:{pa.topo}", plate=plate, cmd=cmd, T=T, obs=obs,

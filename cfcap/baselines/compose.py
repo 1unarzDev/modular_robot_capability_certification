@@ -129,7 +129,8 @@ def merge_enum_known(probed, cands, device="cuda", grid=Po.GRID, cap_asm=64, cap
             rr = Po.rows_from(posts[r]["lat"], B)
             rows[r] = Po.set_faults(rr, posts[r]["HM"][idx], posts[r]["HG"][idx])
         lat_c = merge_latents(rows, c, device)
-        o = cap.capability([(c.asm, lat_c)], par, device=device)[0]
+        o = Po.with_fallback(lambda e: cap.capability([(c.asm, lat_c)], par, device=device, engine=e,
+                                                      max_wheels=Po.CAP_MAX_WHEELS), "graph")[0]
         rho = o["rho"].cpu().numpy() / ref_table([c], probed[0].plate, device)[0][None]
         m, sd, q05 = Po.summarise(rho[:, None, :], w[keep])
         point[ci], scale[ci], lower[ci] = m[0], sd[0] + SCALE_FLOOR, q05[0]

@@ -35,7 +35,8 @@ from cfcap.t1 import plant
 
 GRID = np.round(np.arange(0.30, 0.9001, 0.10), 2)
 SD = dict(duty=0.02, speed=0.10, gz=0.005)
-CHUNK_WHEELS = 1 << 16
+CHUNK_WHEELS = 1 << 14          # rows x wheels per likelihood batch (2x3: 682 rows); fits <= ~12 GB with graph
+CAP_MAX_WHEELS = 1 << 15        # rows x wheels per candidate-capability run (cfcap.t1.plant.simulate_mixed)
 NUIS_KEYS = ("stall_w", "noload_w", "vbatt_off", "mu_mod", "load_z")
 
 
@@ -94,24 +95,41 @@ def rows_from(lat1, B):
 
 
 ENGINE = "compile"
-_COMPILE_BROKEN = False
+_BROKEN = set()                 # engines that failed in this process (no C compiler, CUDA-graph OOM, ...)
+_CHAIN = ("compile", "graph", "eager")
+
+
+def pick_engine(engine):
+    """First engine of the fallback chain compile -> graph -> eager at or after `engine` that has not failed."""
+    i = _CHAIN.index(engine) if engine in _CHAIN else 0
+    for e in _CHAIN[i:]:
+        if e not in _BROKEN:
+            return e
+    return "eager"
+
+
+def with_fallback(fn, engine):
+    """Run fn(engine) with the fallback chain compile -> graph -> eager: an engine that raises (torch.compile without
+    a C compiler, CUDA OOM while instantiating a CUDA graph, incident #22) is marked broken for the rest of the
+    process and the call is retried with the next one. Eager is the same physics without graph capture."""
+    import torch
+    e = pick_engine(engine)
+    while True:
+        try:
+            return fn(e)
+        except Exception as ex:
+            if e == "eager":
+                raise
+            print(f"[baselines] engine {e} failed ({type(ex).__name__}: {str(ex)[:160]}); falling back", flush=True)
+            _BROKEN.add(e)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            e = pick_engine(e)
 
 
 def _simulate(asm, lat, cmd, par, T, dev, engine):
-    """plant.simulate_bucket with the generator's automatic compile -> graph fallback (cfcap/gen/simrun.py): when
-    torch.compile has no working inductor/triton toolchain (e.g. no C compiler on a slim box) the engine falls back to
-    CUDA graphs for the rest of the process (same physics)."""
-    global _COMPILE_BROKEN
-    eng = "graph" if (engine == "compile" and _COMPILE_BROKEN) else engine
-    try:
-        return plant.simulate_bucket([dict(asm=asm, lat=lat, cmd=cmd)], par, T, device=dev, engine=eng)[0]
-    except Exception as ex:
-        if eng != "compile":
-            raise
-        print(f"[baselines] torch.compile failed ({type(ex).__name__}: {str(ex)[:200]}); falling back to engine=graph",
-              flush=True)
-        _COMPILE_BROKEN = True
-        return plant.simulate_bucket([dict(asm=asm, lat=lat, cmd=cmd)], par, T, device=dev, engine="graph")[0]
+    return with_fallback(lambda e: plant.simulate_bucket([dict(asm=asm, lat=lat, cmd=cmd)], par, T, device=dev,
+                                                         engine=e)[0], engine)
 
 
 def loglik(asm, par, cmd, T, lat_rows, y, gyro_bias=0.0, sd=SD, chunk=None, engine=None):

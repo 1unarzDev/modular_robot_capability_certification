@@ -48,6 +48,10 @@ def _args(p):
                         "stage cap is set per episode to fit it (models' median end-to-end time, docs/board/models.md)")
     p.add_argument("--n-prop", type=int, default=32, help="particles pushed to the candidates")
     p.add_argument("--with-enum", action="store_true", help="also the known-nuisance exact enumeration")
+    p.add_argument("--engine", default="compile", choices=["compile", "graph", "eager"],
+                   help="T1 engine of the baselines (fallback chain compile -> graph -> eager on any failure)")
+    p.add_argument("--chunk-wheels", type=int, default=1 << 14, help="rows x wheels per likelihood batch")
+    p.add_argument("--cap-max-wheels", type=int, default=1 << 15, help="rows x wheels per capability / label run")
     p.add_argument("--methods", default="nuisance_smc",
                    help="comma list of nuisance_smc (nuisance_smc_p<N>: N particles), enum_known, capxfer, rls_interval, nominal, oracle, detector_gated, "
                         "physics_gains, copy_parent, weakest_member")
@@ -74,11 +78,21 @@ def _episode_ids(a, unit):
     return [ids[j] for j in r] if ids is not None else list(r)
 
 
+def _configure(a):
+    from cfcap.baselines import posterior as Po
+    Po.ENGINE = a.engine
+    Po.CHUNK_WHEELS = int(a.chunk_wheels)
+    Po.CAP_MAX_WHEELS = int(a.cap_max_wheels)
+    if a.engine != "compile":
+        Po._BROKEN.update(Po._CHAIN[:Po._CHAIN.index(a.engine)])
+
+
 def episode(a, j):
     from cfcap.baselines import episode as E
+    _configure(a)
     if a.source == "pilot":
         return E.pilot_episode(a.split, j)
-    return E.from_gen(a.plate, a.split, j)
+    return E.from_gen(a.plate, a.split, j, engine=a.engine)
 
 
 def dec_rows(ep, method, posterior, pred, seconds, split, status, extra=None):

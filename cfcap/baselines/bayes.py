@@ -137,7 +137,8 @@ class NuisanceSMC(Baseline):
                 self._setup.clear()
             dr = P.theta_dr(P.load_theta(ep.plate))
             probe = types.SimpleNamespace(tw=np.asarray(ep.cmd, np.float32), pw=None, T=float(ep.T))
-            self._setup[key] = (NP.Space(asm, dr), NP.Sim(asm, par, probe, "graph", 8192))
+            self._setup[key] = (NP.Space(asm, dr), NP.Sim(asm, par, probe, Po.pick_engine("graph"),
+                                                          max(64, Po.CHUNK_WHEELS // asm.n)))
         return self._setup[key]
 
     def predict(self, ep):

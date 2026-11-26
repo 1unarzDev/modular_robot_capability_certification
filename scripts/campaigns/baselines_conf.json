@@ -1,10 +1,10 @@
 {
- "campaign": "cfcap-baselines-conf",
+ "campaign": "cfcap-baselines-conf3",
  "submitter": "09-cfcap",
  "owner": "09-cfcap",
  "project": "crane",
- "stop": "Stop when every group has its rows: exploratory cal 0-1999, conf_test 0-3039 (40-3039 scored), conf_H4 / conf_H4b 0-599 and conf_het_test / conf_H1 / conf_H2 0-999. These are the baselines' confirmatory decision rows (docs/CONFIRMATORY.md C-MAIN, C-SCALE, C-HET).",
- "_doc": "Role baselines, lineage cfcap-baselines. Task `smc` (cfcap/baselines/smc.py:TASK) on generator confirmatory twins (--source gen, SEED_CONF streams), rows per method with shard and parent_n. Shard 0 of every test group is deliberately unscored (the scorer drops shard 0): conf-main's shard 0 is conf_test 0-39 (pre-excluded) plus ids 5000-5109 (21 shards x 150 episodes), the other groups' shard 0 is a block of ids >= 5000 outside the claim ranges. Labels are written by the jobs but nobody opens them before 2026-11-26 01:45Z: `scripts/baselines_pilot.py conf-export --runs ~/.cache/vast-out` refuses to run before then (only --mock). Method names in the confirmatory file: always_go, never_go, metadata_nf (cal size x leg quantiles, no observation), detector_gated, ghat_physics (= physics_gains), copy_parent, min_over_members (= weakest_member), capxfer (Thm 5, re-calibrated, refusal fix b08d5d5), credible_lower (enum_known Bayes q05, raw), cfBH (conformal selection FDR 0.1 on enum_known), oracle. `raw` (posterior, q = 0) and dominance_pi are not produced here (they belong to models / theory); nuisance-SMC is not in the confirmatory set (coordinator ruling: descriptive only; smc_small covers T3). conf-cal replaces b2-cheap-cal (removed from b2) so calibration rows come from one code version. unit_s are ESTIMATES. Trimmed 2026-11-25 (coordinator budget ruling): C-SCALE 0-599 per split (about 5.4k incapable stratum decisions each at 9 per episode, below the 20k power rule: the E_dec cells are expected UNDERPOWERED; E_ep is reported).",
+ "stop": "Stop when every group has its rows: exploratory cal 0-1999, conf_test 0-3039 (40-3039 scored), conf_H4 / conf_H4b 0-299 and conf_het_test / conf_H1 / conf_H2 0-999. These are the baselines' confirmatory decision rows (docs/CONFIRMATORY.md C-MAIN, C-SCALE, C-HET).",
+ "_doc": "Role baselines, lineage cfcap-baselines. Task `smc` (cfcap/baselines/smc.py:TASK) on generator confirmatory twins (--source gen, SEED_CONF streams), rows per method with shard and parent_n. Shard 0 of every test group is deliberately unscored (the scorer drops shard 0): conf-main's shard 0 is conf_test 0-39 (pre-excluded) plus ids 5000-5109 (21 shards x 150 episodes), the other groups' shard 0 is a block of ids >= 5000 outside the claim ranges. Labels are written by the jobs but nobody opens them before 2026-11-26 01:45Z: `scripts/baselines_pilot.py conf-export --runs ~/.cache/vast-out` refuses to run before then (only --mock). Method names in the confirmatory file: always_go, never_go, metadata_nf (cal size x leg quantiles, no observation), detector_gated, ghat_physics (= physics_gains), copy_parent, min_over_members (= weakest_member), capxfer (Thm 5, re-calibrated, refusal fix b08d5d5), credible_lower (enum_known Bayes q05, raw), cfBH (conformal selection FDR 0.1 on enum_known), oracle. `raw` (posterior, q = 0) and dominance_pi are not produced here (they belong to models / theory); nuisance-SMC is not in the confirmatory set (coordinator ruling: descriptive only; smc_small covers T3). conf-cal replaces b2-cheap-cal (removed from b2) so calibration rows come from one code version. unit_s are ESTIMATES. Trimmed 2026-11-25 (coordinator budget ruling): C-SCALE 0-599 per split (about 5.4k incapable stratum decisions each at 9 per episode, below the 20k power rule: the E_dec cells are expected UNDERPOWERED; E_ep is reported). conf3 (2026-11-26 00:40Z, incident #22 rescue): methods limited to capxfer, detector_gated, physics_gains, copy_parent, weakest_member, rls_interval, nominal, oracle (no CUDA-graph likelihood; enum_known and nuisance_smc are out of the confirmatory path; credible_lower and raw come from models; dominance_pi from theory). Engine graph with automatic fallback to eager on any failure (CUDA-graph OOM included), 2^14 wheels per likelihood batch, 2^15 per capability / label run, vram 12 GB. conf-cal and conf-main first (priority 1/2); conf-scale minimal (0-299 per split, shard 0 = 20 unscored ids); C-SCALE E_dec underpowered by design.",
  "groups": [
   {
    "name": "conf-cal",
@@ -16,8 +16,8 @@
    "units_per_shard": 15,
    "unit_s": 100,
    "overhead_s": 180,
-   "vram_gb": 10,
-   "priority": 10,
+   "vram_gb": 12,
+   "priority": 1,
    "seed": 0,
    "task_args": [
     "--source",
@@ -33,7 +33,7 @@
     "--per-unit",
     "10",
     "--methods",
-    "enum_known,capxfer,nominal,oracle,detector_gated,physics_gains,copy_parent,weakest_member",
+    "capxfer,detector_gated,physics_gains,copy_parent,weakest_member,rls_interval,nominal,oracle",
     "--status",
     "exploratory",
     "--particles",
@@ -43,12 +43,18 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
    ],
-   "pilot": "ESTIMATE (2026-11-25): ~10 s per generator episode for the cheap set (enum_known 1.8-4.4 s posterior + 2.6 s propagation on the 4070, capxfer ~3 s, trivial < 0.5 s, episode generation/labels ~1-2 s); the b2 / pilot2 sidecars give the measured value.",
+   "pilot": "local 4070 (2026-11-26 00:33Z, /tmp/conf3_unit): one conf-cal unit, 2 generator cal episodes, the 8 conf3 methods, engine graph, 22 s wall incl. model load and first-shape capture, peak 1.3 GB VRAM, no fallback triggered; ~10 s/episode assumed",
    "role": "baselines",
    "purpose": "Cheap and trivial baselines on the exploratory generator cal split 0-1999: the only calibration rows for the confirmatory margins and matched points."
   },
@@ -62,8 +68,8 @@
    "units_per_shard": 15,
    "unit_s": 100,
    "overhead_s": 180,
-   "vram_gb": 10,
-   "priority": 11,
+   "vram_gb": 12,
+   "priority": 2,
    "seed": 0,
    "task_args": [
     "--source",
@@ -77,7 +83,7 @@
     "--per-unit",
     "10",
     "--methods",
-    "enum_known,capxfer,nominal,oracle,detector_gated,physics_gains,copy_parent,weakest_member",
+    "capxfer,detector_gated,physics_gains,copy_parent,weakest_member,rls_interval,nominal,oracle",
     "--status",
     "confirmatory",
     "--particles",
@@ -87,14 +93,20 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
    ],
-   "pilot": "ESTIMATE (2026-11-25): ~10 s per generator episode for the cheap set (enum_known 1.8-4.4 s posterior + 2.6 s propagation on the 4070, capxfer ~3 s, trivial < 0.5 s, episode generation/labels ~1-2 s); the b2 / pilot2 sidecars give the measured value.",
+   "pilot": "local 4070 (2026-11-26 00:33Z, /tmp/conf3_unit): one conf-cal unit, 2 generator cal episodes, the 8 conf3 methods, engine graph, 22 s wall incl. model load and first-shape capture, peak 1.3 GB VRAM, no fallback triggered; ~10 s/episode assumed",
    "role": "baselines",
-   "purpose": "Confirmatory C-MAIN rows for the cheap and trivial baselines and capxfer on conf_test 40-3039; shard 0 holds unscored ids (0-39 and 5000-5109)."
+   "purpose": "Confirmatory C-MAIN rows for the cheap and trivial baselines and capxfer (no enumeration) on conf_test 40-3039; shard 0 holds unscored ids (0-39 and 5000-5109)."
   },
   {
    "name": "conf-scale-H4",
@@ -103,11 +115,11 @@
    "lane": "rented",
    "profile": "torch",
    "shards": 16,
-   "units_per_shard": 4,
+   "units_per_shard": 2,
    "unit_s": 350,
    "overhead_s": 180,
-   "vram_gb": 16,
-   "priority": 20,
+   "vram_gb": 12,
+   "priority": 40,
    "seed": 0,
    "task_args": [
     "--source",
@@ -117,7 +129,7 @@
     "--split",
     "conf_H4",
     "--ids",
-    "5000,5001,5002,5003,5004,5005,5006,5007,5008,5009,5010,5011,5012,5013,5014,5015,5016,5017,5018,5019,5020,5021,5022,5023,5024,5025,5026,5027,5028,5029,5030,5031,5032,5033,5034,5035,5036,5037,5038,5039,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297,298,299,300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315,316,317,318,319,320,321,322,323,324,325,326,327,328,329,330,331,332,333,334,335,336,337,338,339,340,341,342,343,344,345,346,347,348,349,350,351,352,353,354,355,356,357,358,359,360,361,362,363,364,365,366,367,368,369,370,371,372,373,374,375,376,377,378,379,380,381,382,383,384,385,386,387,388,389,390,391,392,393,394,395,396,397,398,399,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,419,420,421,422,423,424,425,426,427,428,429,430,431,432,433,434,435,436,437,438,439,440,441,442,443,444,445,446,447,448,449,450,451,452,453,454,455,456,457,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477,478,479,480,481,482,483,484,485,486,487,488,489,490,491,492,493,494,495,496,497,498,499,500,501,502,503,504,505,506,507,508,509,510,511,512,513,514,515,516,517,518,519,520,521,522,523,524,525,526,527,528,529,530,531,532,533,534,535,536,537,538,539,540,541,542,543,544,545,546,547,548,549,550,551,552,553,554,555,556,557,558,559,560,561,562,563,564,565,566,567,568,569,570,571,572,573,574,575,576,577,578,579,580,581,582,583,584,585,586,587,588,589,590,591,592,593,594,595,596,597,598,599",
+    "5000,5001,5002,5003,5004,5005,5006,5007,5008,5009,5010,5011,5012,5013,5014,5015,5016,5017,5018,5019,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297,298,299",
     "--per-unit",
     "10",
     "--methods",
@@ -131,14 +143,20 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
    ],
    "pilot": "ESTIMATE: ~35 s per H4/H4b episode (7-16-module parents: up to 40 children + merges, capxfer bands for many new child shapes, larger label rollouts); no measurement yet.",
    "role": "baselines",
-   "purpose": "Confirmatory C-SCALE rows for capxfer and shape-metadata baselines on conf_H4 0-599 (7-10-module parents); shard 0 holds 40 unscored ids."
+   "purpose": "Confirmatory C-SCALE rows for capxfer and shape-metadata baselines on conf_H4 0-299 (7-10-module parents); shard 0 holds 20 unscored ids."
   },
   {
    "name": "conf-scale-H4b",
@@ -147,11 +165,11 @@
    "lane": "rented",
    "profile": "torch",
    "shards": 16,
-   "units_per_shard": 4,
+   "units_per_shard": 2,
    "unit_s": 350,
    "overhead_s": 180,
-   "vram_gb": 16,
-   "priority": 21,
+   "vram_gb": 12,
+   "priority": 41,
    "seed": 0,
    "task_args": [
     "--source",
@@ -161,7 +179,7 @@
     "--split",
     "conf_H4b",
     "--ids",
-    "5000,5001,5002,5003,5004,5005,5006,5007,5008,5009,5010,5011,5012,5013,5014,5015,5016,5017,5018,5019,5020,5021,5022,5023,5024,5025,5026,5027,5028,5029,5030,5031,5032,5033,5034,5035,5036,5037,5038,5039,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297,298,299,300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315,316,317,318,319,320,321,322,323,324,325,326,327,328,329,330,331,332,333,334,335,336,337,338,339,340,341,342,343,344,345,346,347,348,349,350,351,352,353,354,355,356,357,358,359,360,361,362,363,364,365,366,367,368,369,370,371,372,373,374,375,376,377,378,379,380,381,382,383,384,385,386,387,388,389,390,391,392,393,394,395,396,397,398,399,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,419,420,421,422,423,424,425,426,427,428,429,430,431,432,433,434,435,436,437,438,439,440,441,442,443,444,445,446,447,448,449,450,451,452,453,454,455,456,457,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477,478,479,480,481,482,483,484,485,486,487,488,489,490,491,492,493,494,495,496,497,498,499,500,501,502,503,504,505,506,507,508,509,510,511,512,513,514,515,516,517,518,519,520,521,522,523,524,525,526,527,528,529,530,531,532,533,534,535,536,537,538,539,540,541,542,543,544,545,546,547,548,549,550,551,552,553,554,555,556,557,558,559,560,561,562,563,564,565,566,567,568,569,570,571,572,573,574,575,576,577,578,579,580,581,582,583,584,585,586,587,588,589,590,591,592,593,594,595,596,597,598,599",
+    "5000,5001,5002,5003,5004,5005,5006,5007,5008,5009,5010,5011,5012,5013,5014,5015,5016,5017,5018,5019,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297,298,299",
     "--per-unit",
     "10",
     "--methods",
@@ -175,14 +193,20 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
    ],
    "pilot": "ESTIMATE: ~35 s per H4/H4b episode (7-16-module parents: up to 40 children + merges, capxfer bands for many new child shapes, larger label rollouts); no measurement yet.",
    "role": "baselines",
-   "purpose": "Confirmatory C-SCALE rows for capxfer and shape-metadata baselines on conf_H4b 0-599 (11-16-module parents); shard 0 holds 40 unscored ids."
+   "purpose": "Confirmatory C-SCALE rows for capxfer and shape-metadata baselines on conf_H4b 0-299 (11-16-module parents); shard 0 holds 20 unscored ids."
   },
   {
    "name": "conf-het-het_test",
@@ -194,8 +218,8 @@
    "units_per_shard": 20,
    "unit_s": 20,
    "overhead_s": 180,
-   "vram_gb": 10,
-   "priority": 30,
+   "vram_gb": 12,
+   "priority": 50,
    "seed": 0,
    "task_args": [
     "--source",
@@ -219,7 +243,13 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
@@ -238,8 +268,8 @@
    "units_per_shard": 20,
    "unit_s": 20,
    "overhead_s": 180,
-   "vram_gb": 10,
-   "priority": 31,
+   "vram_gb": 12,
+   "priority": 51,
    "seed": 0,
    "task_args": [
     "--source",
@@ -263,7 +293,13 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"
@@ -282,8 +318,8 @@
    "units_per_shard": 20,
    "unit_s": 20,
    "overhead_s": 180,
-   "vram_gb": 10,
-   "priority": 32,
+   "vram_gb": 12,
+   "priority": 52,
    "seed": 0,
    "task_args": [
     "--source",
@@ -307,7 +343,13 @@
     "--n-prop",
     "32",
     "--capxfer-dir",
-    "/workspace/in/capxfer_v2"
+    "/workspace/in/capxfer_v2",
+    "--engine",
+    "graph",
+    "--chunk-wheels",
+    "16384",
+    "--cap-max-wheels",
+    "32768"
    ],
    "extra_inputs": [
     "~/.cache/modular-runs/2026-11/cfcap/compute/stage_baselines/capxfer_v2"

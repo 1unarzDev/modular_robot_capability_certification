@@ -207,7 +207,9 @@ class CapxferCert(Baseline):
                 lat["g"] = torch.tensor([g] * self.M2, device=self.device).float()
                 targets.append((cand.asm, lat))
             from cfcap.t1.reference import rho_ref_many
-            outs = cap.capability(targets, par, device=self.device)
+            from . import posterior as Po
+            outs = Po.with_fallback(lambda e: cap.capability(targets, par, device=self.device, engine=e,
+                                                             max_wheels=Po.CAP_MAX_WHEELS), "graph")
             ref = rho_ref_many([x[1].asm for x in need], self.plate, self.device)
             for (k, *_), o, rf in zip(need, outs, ref):
                 r = np.sort(o["rho"].cpu().numpy() / rf[None], 0)

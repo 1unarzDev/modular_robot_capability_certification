@@ -149,10 +149,23 @@ def test_compile_failure_falls_back_to_graph(monkeypatch):
             raise RuntimeError("Failed to find C compiler")
         return ["ok"]
     monkeypatch.setattr(plant, "simulate_bucket", fake)
-    monkeypatch.setattr(Po, "_COMPILE_BROKEN", False)
+    monkeypatch.setattr(Po, "_BROKEN", set())
     assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
     assert Po._simulate(None, None, None, None, 1.0, "cpu", "compile") == "ok"
     assert calls == ["compile", "graph", "graph"]
+
+
+def test_graph_oom_falls_back_to_eager(monkeypatch):
+    calls = []
+
+    def fn(e):
+        calls.append(e)
+        if e in ("compile", "graph"):
+            raise RuntimeError("CUDA error: Failed to allocate resources for the kernel nodes")
+        return e
+    monkeypatch.setattr(Po, "_BROKEN", set())
+    assert Po.with_fallback(fn, "compile") == "eager" and calls == ["compile", "graph", "eager"]
+    assert Po.with_fallback(fn, "graph") == "eager"
 
 
 def test_conformal_selection_fdr_and_refusal():
@@ -301,8 +314,8 @@ def test_conf_export_mock(tmp_path, monkeypatch):
     d = pd.read_csv(tmp_path / "res" / "confirmatory" / "dec_conf_baselines_MOCK.csv.gz")
     te = d[d.split == "conf_test"]
     assert te.eid.min() >= 40 and (d.claim == "C-MAIN").all()
-    assert {"always_go", "never_go", "metadata_nf", "capxfer", "credible_lower", "cfBH", "oracle",
-            "detector_gated"} <= set(te.method)
+    assert {"always_go", "never_go", "metadata_nf", "capxfer", "oracle", "detector_gated"} <= set(te.method)
+    assert not ({"credible_lower", "cfBH", "raw", "nuisance_smc"} & set(te.method))
     assert (d[d.split == "cal"].status == "exploratory").all()
     o = te[te.method == "oracle"]
     assert np.allclose(o.lower, o.truth)
