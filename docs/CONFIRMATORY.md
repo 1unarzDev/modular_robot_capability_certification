@@ -380,3 +380,6 @@ The research lead reviewed `scripts/analysis/confirmatory.py` (7fe5883) against 
   never replace st-n6-2 in a bar, and no bar is evaluated on whichever seed scores better.
 - Any constant that came from st-n6-1 (q_comp for C-ENV, the T1-cal margins) is recomputed for st-n6-2 on the same
   exploratory cal split before scoring.
+- **Clarification (01:15Z, before any confirmatory label).** A-SEED exists to stop best-of-seeds selection of *our*
+  model. The C-SCALE comparator `blackbox_gnn` has one trained seed (bb-n6-1), so no selection is possible, and it
+  is admitted under that tag.
