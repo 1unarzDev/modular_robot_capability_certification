@@ -100,6 +100,26 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **02:40Z, H11 held-out severity: REINSTATED (exploratory, T0)** (decision board "Critic-A audit", 3b80d98;
+  `results/decision/hos_audit_K.csv`, `hos_audit_worstcase.csv`).
+  - **K is applied.** K = 15 gives a median screened set of 348 and 17.8 % empty screens; K = 60 gives 0 % empty.
+    Between K = 26.9 and 28.7 only near-zero-weight hypotheses enter, and they never reach the ≤ 6 top-mass set. That
+    explains the byte-identical arms (a property, not a bug).
+  - **Worst case**, with the 33 non-converged severity-3 episodes counted as abstain at oracle regret: EVOI 78.2 % vs
+    clamp 78.4 % useful, both 1.0 % E_ep. The pre-registered bars still hold.
+  - **Caveat.** On the 45-episode audit subset, EVOI E_ep is 4.4 % (2/45) at every K, against 1.1 % on the full
+    267-episode run. That is consistent with noise, since 2/45 has an exact upper 95 % of ≈ 13 %. But it shows that
+    the severity-3 validity rests on few events.
+- **02:40Z, H3 final wording: "the same usefulness at ~¼ of the probe time".**
+  - Decision regret excluding probe time: EVOI is worse by +1.13 s [0.21, 2.15] vs clamp, and +0.92 [0.10, 1.85] vs
+    dom.
+  - Its total-regret win (−6.0 s) is the probing it saves (6.5 s).
+  - Not "better decisions". T0 only.
+- **02:40Z, RNG stream fix** (critic C; `envelope_post`).
+  - Only NEXT-1's robust-likelihood arm was affected. Its clamp-leg sd draws collided with the v2 stream of other
+    seeds, and it feeds only an auxiliary healthy-draw sd.
+  - The NEXT-1 verdict (64.8 % useful vs a 75 % bar; the robust arm equalled the v2 arm) cannot flip.
+  - No other result used that path.
 - **01:50Z, status corrections for the paper (after blind critics A and B; `docs/reviews/weakpoints_{A,B}.md`).**
   - **H12 → HYPOTHESIS-GENERATING.** The ≥ 3-module restriction was chosen after seeing N3 (pooled bar neither
     met nor failed). It is tested only by C-GATE P5. If C-GATE is missing or partial, the paper may state H12 only
@@ -109,8 +129,8 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
   - **H3 (probing) wording.** EVOI matches always-clamp usefulness at ~¼ of the probe time. Its regret gain is
     probe-time accounting: decision regret without probe time is ~0.5 s *worse* than clamp (critic A §2). It is
     not "better decisions". T0 only.
-  - **H11 held-out severity: SUSPENDED.** The K₀₋₂ and K_pool row files are byte-identical (critic A §1), so K may
-    never have reached the screen. The verdict stands only after the decision role's plumbing check.
+  - H11 held-out severity: suspended at 01:50Z, then REINSTATED at 02:40Z after the K-sweep audit (see the entry
+    above).
   - **Everything at decision level is T0** (decision, probing, screen, gate). T1/T2 evidence is certificate-level
     only (critic A §3). This goes in the limitations.
   - **Critic B points carried to the final ledger:**
