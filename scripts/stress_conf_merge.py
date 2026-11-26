@@ -49,7 +49,7 @@ def main(runs, mock=False):
                          "non-confirmatory runs)")
     M = json.loads((RES / "N4_margins.json").read_text())
     (RES / "confirmatory").mkdir(parents=True, exist_ok=True)
-    out = RES / "confirmatory" / "dec_conf_merge.csv.gz"
+    out = RES / "confirmatory" / ("dec_conf_merge_mock.csv.gz" if mock else "dec_conf_merge.csv.gz")
     n = 0
     with gzip.open(out, "wt", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(COLS))
