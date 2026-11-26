@@ -359,7 +359,8 @@ def test_aenv_exclusion_labels_and_envcal(tmp_path):
                                                                 failed=1, success=0, oracle_success=1)
     pd.concat([d, bad]).to_csv(f, index=False)
     V, _, S = K.run(res, tmp_path / "out", mock=True)
-    assert any("mission 1499" in x and "excluded 7 rows" in x for x in S.log)
+    # mission 1499 is excluded by A-ENV; since A-POWER (ID 0-599) the prefix rule drops it first
+    assert any(("mission 1499" in x and "excluded 7 rows" in x) or "A-POWER: C-ENV ID: dropped 7" in x for x in S.log)
     val = V[(V.claim == "C-ENV") & (V.bar == "1 validity")]
     ours = val[(val.method == K.OURS) & (val.cell == "ID")].iloc[0]
     exp = d[(d.family == "ID") & (d.method == K.OURS)]
@@ -467,7 +468,7 @@ def _tagged_mock(tmp_path, add_seed1=True):
     f = res / "models/confirmatory/dec_conf_models.csv.gz"
     d = pd.read_csv(f, low_memory=False)
     mm = d.method.isin(K.MODEL_METHODS) & d.claim.isin(K.SEED_CLAIMS)
-    d["model_tag"] = np.where(mm, K.PRIMARY_TAG, None)
+    d["model_tag"] = np.where(mm, d.method.map(K.TAG_ALLOW), None)
     if add_seed1:
         s1 = d[mm & (d.method == K.OURS) & (d.claim == "C-MAIN")].copy()
         s1["model_tag"] = "st-n6-1"
@@ -507,3 +508,69 @@ def test_trivial_baselines_computed_by_scorer(tmp_path):
     c = cells[(cells.claim == "C-MAIN") & (cells.plant == "T1") & (cells.block == "all")].set_index("method")
     assert c.loc["always_go"].E_ep == 1.0 and c.loc["never_go"].E_ep == 0.0 and c.loc["never_go"].CF_own == 0.0
     assert np.isfinite(c.loc["metadata_nf"].CF_matched)
+
+
+
+def test_tag_allowlist_bb_family_enters_bars(tmp_path):
+    res = _tagged_mock(tmp_path / "a", add_seed1=False)
+    d = pd.read_csv(res / "models/confirmatory/dec_conf_models.csv.gz", low_memory=False)
+    assert set(d[(d.method == "blackbox_gnn") & (d.claim == "C-SCALE")].model_tag) == {"bb-n6-1"}
+    V, _, S = K.run(res, tmp_path / "o", mock=True)
+    sl = V[(V.claim == "C-SCALE") & (V.bar == "2 comp vs direct")]
+    assert sl.verdict.iloc[0] in ("PASS", "FAIL") and "blackbox_gnn" in sl.note.iloc[0]
+    assert not (V.bar == "seed variation (A-SEED)").any()
+    # the same comparator under the st primary tag is NOT allowlisted -> seed variation, out of the bar
+    f = res / "models/confirmatory/dec_conf_models.csv.gz"
+    d.loc[d.method == "blackbox_gnn", "model_tag"] = "st-n6-2"
+    d.to_csv(f, index=False)
+    V2, _, _ = K.run(res, tmp_path / "o2", mock=True)
+    assert V2[(V2.claim == "C-SCALE") & (V2.bar == "2 comp vs direct")].verdict.iloc[0] == "MISSING"
+    assert (V2[V2.bar == "seed variation (A-SEED)"].method == "blackbox_gnn").any()
+
+
+
+# ---- A-POWER (77b17b0, §11): scored prefixes
+
+def test_apower_drops_rows_beyond_prefixes(tmp_path):
+    res0 = K.write_mock(tmp_path / "a", n_main=60, n_gate=40, n_pairs=40)
+    V0, _, _ = K.run(res0, tmp_path / "o0", mock=True)
+    res = K.write_mock(tmp_path / "b", n_main=60, n_gate=40, n_pairs=40)
+    f = res / "models/confirmatory/dec_conf_models.csv.gz"
+    d = pd.read_csv(f, low_memory=False)
+    cm = d[(d.claim == "C-MAIN") & (d.split == "conf_test")]
+    late = cm[cm.eid == cm.eid.max()].copy()
+    assert len(late)
+    extra = []
+    for e in (2440, 2441, 2900):                                       # beyond 40-2,439
+        x = late.copy()
+        x["eid"], x["shard"] = e, 40
+        x["lower"] = x["truth"] + 0.3                                   # would wreck validity if scored
+        extra.append(x)
+    cal = d[(d.claim == "C-MAIN") & (d.split == "cal")].copy()
+    cal["eid"] += 1000                                                  # cal beyond 0-999
+    cal["lower"] = cal["truth"] + 0.3
+    sc = d[(d.claim == "C-SCALE") & (d.split == "conf_H4")].copy()
+    sc["eid"] += 600                                                    # conf_H4 beyond 0-599
+    pd.concat([d] + extra + [cal, sc], ignore_index=True).to_csv(f, index=False)
+    V1, _, S = K.run(res, tmp_path / "o1", mock=True)
+    key = ["claim", "bar", "metric", "method", "cell", "plant"]
+    a = V0.set_index(key).estimate.sort_index()
+    b = V1.set_index(key).estimate.sort_index()
+    np.testing.assert_allclose(a.to_numpy(), b.loc[a.index].to_numpy())
+    log = "\n".join(S.log)
+    assert "A-POWER: decision rows C-MAIN conf_test: dropped" in log and "beyond 40-2439" in log
+    assert "A-POWER: cal rows C-MAIN cal: dropped" in log and "C-SCALE conf_H4: dropped" in log
+
+
+def test_apower_env_ranges(tmp_path):
+    res = _env_only_dir(tmp_path)
+    f = res / "env/confirmatory/missions_conf_env.csv.gz"
+    d = pd.read_csv(f)
+    bad = d[d.family == "ID"].drop_duplicates("method").assign(mission=700, building="conf-ID-998", committed=1,
+                                                               failed=1, success=0)
+    pd.concat([d, bad]).to_csv(f, index=False)
+    V, _, S = K.run(res, tmp_path / "out", mock=True)
+    assert any("A-POWER: C-ENV ID: dropped 7 mission rows" in x for x in S.log)
+    ours = V[(V.claim == "C-ENV") & (V.bar == "1 validity") & (V.method == K.OURS) & (V.cell == "ID")].iloc[0]
+    exp = d[(d.family == "ID") & (d.method == K.OURS)]
+    assert ours.estimate == pytest.approx(((exp.committed == 1) & (exp.failed == 1)).sum() / exp.committed.sum())

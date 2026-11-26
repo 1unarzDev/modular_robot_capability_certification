@@ -49,6 +49,9 @@ A-SEED (03387d0, §10): model rows (C-MAIN, C-SCALE, C-ENV, C-EXPLAIN) are filte
 tags (st-n6-1) go to a descriptive seed-variation column, never to a bar.
 Coordinator 00:35Z: credible_lower comes from models (seed-filtered like every model row); always_go, never_go and
 metadata_nf are computed by the scorer (common.trivial_methods on amortized_comp's labels), never read from rows.
+A-POWER (77b17b0, §11): scored prefixes C-MAIN conf_test 40-2,439 (cal 0-999), C-GATE 3,040-3,639, C-MERGE pairs
+0-499 per arm, C-ENV ID 0-599 / E-H 0-299, C-SCALE conf_H4 and conf_H4b 0-599, C-HET 0-499 per split; rows beyond
+are dropped and counted (POWER_RANGES, ENV_RANGES).
 Which bound each bar uses: E_dec at the matched point (U* = 1 %, margin from cal) for C-MAIN bar 1 and C-MERGE P4;
 each certifier's own bound for E_ep, for P3 (raw vs ours: calibration is what is being tested) and for C-GATE
 (par / raw / pi / gate are each a complete certifier).
@@ -80,7 +83,16 @@ ALPHA_FWER = 0.05
 SCORING_OPENS = dt.datetime(2026, 11, 26, 1, 45, tzinfo=dt.timezone.utc)
 CANARY_SHARDS = {0}
 PRE_TOUCHED = {"conf_test": set(range(0, 40))}           # §0.1 amendment ac543b8
-CMAIN_IDX, CGATE_IDX = (40, 3040), (3040, 5040)
+CMAIN_IDX, CGATE_IDX = (40, 2440), (3040, 3640)              # A-POWER (77b17b0, §11) prefixes (were 3,040 / 5,040)
+# A-POWER scored prefixes, inclusive (claim, split or family) -> (lo, hi); rows beyond are dropped (optional stopping)
+POWER_RANGES = {
+    ("C-MAIN", "conf_test"): (40, 2439), ("C-MAIN", "cal"): (0, 999),
+    ("C-GATE", "conf_test"): (3040, 3639),
+    ("C-MERGE", "*"): (0, 499),                                              # pairs per arm (non-cal rows)
+    ("C-SCALE", "conf_H4"): (0, 599), ("C-SCALE", "conf_H4b"): (0, 599),
+    ("C-HET", "conf_het_test"): (0, 499), ("C-HET", "conf_H1"): (0, 499), ("C-HET", "conf_H2"): (0, 499),
+}
+ENV_RANGES = {"ID": (0, 599), "E-H1": (0, 299), "E-H2": (0, 299), "E-H3": (0, 299), "E-H4": (0, 299)}
 SMC_FIRST = 200                                          # §1: SMC on the first 200 indices, descriptive
 POWER_N, POWER_UP, POWER_Z = 20000, 0.013, 1.96
 HOLM = ("P1", "P2", "P3", "P4", "P5", "P6'", "P7")     # P6' replaces P6 (A-GATE, 727f995); m stays 7
@@ -102,10 +114,15 @@ KS_REQ = ("stat", "ks_p", "ks_d")
 # other model tag (st-n6-1 if it finishes) are a descriptive seed-variation column only: never in a bar, no
 # best-of-seeds. C-HET uses its own het models and is not filtered.
 PRIMARY_TAG = "st-n6-2"
+# Coordinator ruling (01:20Z, before any label): allowlist per model family. Our st-family -> st-n6-2 only; single-seed
+# comparator models enter under their own tag (no seed choice exists for them): bb-family (blackbox_gnn) -> bb-n6-1.
+BB_TAG = "bb-n6-1"
+ST_FAMILY = {"amortized_comp", "amortized_comp_blind", "amortized_comp_envcal", "raw", "credible_lower", "st_direct",
+             "amortized_marg", "amortized_sim"}
+BB_FAMILY = {"blackbox_gnn"}
+TAG_ALLOW = {**{m: PRIMARY_TAG for m in ST_FAMILY}, **{m: BB_TAG for m in BB_FAMILY}}
 SEED_CLAIMS = ("C-MAIN", "C-SCALE", "C-ENV")             # C-EXPLAIN reads C-MAIN rows
-MODEL_METHODS = {"amortized_comp", "amortized_comp_blind", "amortized_comp_envcal", "raw", "credible_lower",
-                 "blackbox_gnn",
-                 "st_direct", "amortized_marg", "amortized_sim"}
+MODEL_METHODS = ST_FAMILY | BB_FAMILY
 
 
 # ------------------------------------------------------------------------------------------------- loading
@@ -1193,6 +1210,37 @@ def report(S, H, out, sha, srcs, mock):
     return V
 
 
+def apply_ranges(d, S, what, cal=False):
+    """A-POWER: keep each claim's scored prefix; log the dropped counts per (claim, split)."""
+    if d.empty:
+        return d
+    keep = np.ones(len(d), bool)
+    for (cl, sp), (lo, hi) in POWER_RANGES.items():
+        if (sp == "cal") != cal:
+            continue
+        m = (d["claim"] == cl).to_numpy().copy()
+        if sp != "*":
+            m &= (d["split"].astype(str) == sp).to_numpy()
+        out = m & ~d["eid"].between(lo, hi).to_numpy()
+        if out.any():
+            S.log.append(f"A-POWER: {what} {cl} {sp}: dropped {int(out.sum())} rows of "
+                         f"{d.loc[out, 'eid'].nunique()} clusters beyond {lo}-{hi}")
+        keep &= ~out
+    return d[keep]
+
+
+def apply_env_ranges(m, S):
+    if m.empty:
+        return m
+    keep = np.ones(len(m), bool)
+    for fam, (lo, hi) in ENV_RANGES.items():
+        out = (m["family"] == fam).to_numpy() & ~m["mission"].between(lo, hi).to_numpy()
+        if out.any():
+            S.log.append(f"A-POWER: C-ENV {fam}: dropped {int(out.sum())} mission rows beyond missions {lo}-{hi}")
+        keep &= ~out
+    return m[keep]
+
+
 def split_seeds(d, S, what):
     """A-SEED: keep model rows of PRIMARY_TAG for scoring; return (scored rows, seed-variation rows). Untagged model rows
     are accepted only if the file carries no tags at all for that claim (logged); mixing tagged and untagged raises."""
@@ -1206,8 +1254,10 @@ def split_seeds(d, S, what):
         if c.any() and has[c].any() and (~has[c]).any():
             raise C.SchemaError(f"{what}: {cl} model rows mix tagged and untagged model_tag (A-SEED needs the tag)")
         if c.any() and not has[c].any():
-            S.log.append(f"{what}: {cl} model rows carry no model_tag; assumed {PRIMARY_TAG} (A-SEED) - check the export")
-    other = mm & has & (tag.astype(str) != PRIMARY_TAG)
+            S.log.append(f"{what}: {cl} model rows carry no model_tag; assumed the allowlisted tag (st-family "
+                         f"{PRIMARY_TAG}, bb-family {BB_TAG}) - check the export")
+    allowed = d["method"].map(TAG_ALLOW)
+    other = mm & has & (tag.astype(str) != allowed.astype(str))
     if other.any():
         S.log.append(f"{what}: {int(other.sum())} model rows of tag(s) {sorted(set(tag[other].astype(str)))} moved to "
                      "the descriptive seed-variation column (A-SEED; never in a bar)")
@@ -1232,7 +1282,7 @@ def seed_variation(S, sv):
         S.cell(claim=cl, method=m, model_tag=tg, plant=pl, block="seed variation", n_ep=len(t), E_ep=e,
                CF_own=C._ratio(t.cert.sum(), t.cap.sum()), E_dec_own=C._ratio(t.uns.sum(), t.inc.sum()))
         S.bar(cl, "seed variation (A-SEED)", f"E_ep, {tg}", e, rr, method=m, plant=pl, n_clusters=len(t),
-              descriptive=True, note=f"descriptive only; the bars use {PRIMARY_TAG}; no best-of-seeds")
+              descriptive=True, note=f"descriptive only; the bars use {TAG_ALLOW.get(m, PRIMARY_TAG)}; no best-of-seeds")
 
 
 SCORER_TRIVIAL = ("always_go", "never_go", "metadata_nf")   # computed here (coordinator 00:35Z), never read from rows
@@ -1274,8 +1324,11 @@ def run(res, out, mock=False, now=None, truth_fn=None):
     dec, sv_dec = split_seeds(dec, S, "decision rows")
     if not mis.empty:
         mis, sv_mis = split_seeds(mis.assign(test_plant="env"), S, "mission rows")
-    cal = add_trivial(dec[dec.split.astype(str) == "cal"], S, "cal rows")
-    dec = add_trivial(exclusions(dec[dec.split.astype(str) != "cal"], S.log, "decision rows"), S, "decision rows")
+    cal = add_trivial(apply_ranges(dec[dec.split.astype(str) == "cal"], S, "cal rows", cal=True), S, "cal rows")
+    dec = add_trivial(apply_ranges(exclusions(dec[dec.split.astype(str) != "cal"], S.log, "decision rows"), S,
+                                   "decision rows"), S, "decision rows")
+    if not mis.empty:
+        mis = apply_env_ranges(mis, S)
     mis = exclusions(mis.assign(split="missions", eid=mis.get("mission", pd.Series(dtype=float))), S.log,
                      "mission rows") if not mis.empty else mis
     seed_variation(S, exclusions(sv_dec[sv_dec.split.astype(str) != "cal"], [], "seed variation")
@@ -1328,7 +1381,7 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
                 for leg in range(10):
                     truth = float(rng.uniform(0.55, 1.0) - (0.35 * rng.random() if hf else 0.0))
                     r = dict(claim=claim, test_plant=plant, split=split, status="confirmatory", eid=e,
-                             shard=e // 50, cand=c, kind=kind, cand_size=size, has_fault=hf, leg=leg, truth=truth,
+                             shard=e // 50 if split == "conf_test" else 1 + e // 50, cand=c, kind=kind, cand_size=size, has_fault=hf, leg=leg, truth=truth,
                              truth_own=truth, dominated=int(leg < 4))
                     if extra:
                         r.update(extra(e, c, leg))
@@ -1364,7 +1417,7 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
             spec[OURS] = (0.01, 0.02, ours_q + 0.02)
         frames.append(methods(base, spec))
         frames.append(cfbh_rows(base, rng))
-    cal = body("C-MAIN", "cal", range(100000, 100000 + n_main), "T1")
+    cal = body("C-MAIN", "cal", range(0, n_main), "T1")
     cal["status"] = "exploratory"
     frames.append(methods(cal, main_spec))
     # C-MERGE
@@ -1399,7 +1452,7 @@ def write_mock(out, good=True, seed=0, n_main=160, n_gate=120, n_pairs=120, knee
     # C-SCALE
     sb = []
     for i, (a, b_) in enumerate(SCALE_BINS):
-        sb.append(body("C-SCALE", "conf_H4" if a < 11 else "conf_H4b", range(1000 * (i + 1), 1000 * (i + 1) + 60),
+        sb.append(body("C-SCALE", "conf_H4" if a < 11 else "conf_H4b", range(60 * (i % 2), 60 * (i % 2) + 60),
                        "T1", extra=lambda e, c, l, n=a: dict(parent_n=n)))
     sb = pd.concat(sb, ignore_index=True)
     sm = methods(sb, {OURS: (0.0, 0.02, 0.07), "blackbox_gnn": (0.0, 0.02, 0.05)})
