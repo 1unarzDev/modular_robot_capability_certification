@@ -19,6 +19,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 RES = ROOT / "results/stress"
 OUT = pathlib.Path(os.environ.get("CFCAP_OUT", pathlib.Path.home() / ".cache/modular-runs/2026-11/cfcap")) / "stress"
 L = 10
+CONF_PAIRS = 500
 COLS = ("claim", "shard", "arm", "method", "route", "posterior", "train", "test_plant", "split", "status", "eid",
         "shape", "family", "cand", "kind", "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower", "alpha",
         "seconds")
@@ -61,6 +62,8 @@ def main(runs, mock=False):
                 shard = int(json.loads((pathlib.Path(f).parents[1] / "manifest.json").read_text())["shard"])
                 z = np.load(f)
                 for i in range(len(z["pair"])):
+                    if int(z["pair"][i]) >= CONF_PAIRS:          # A-POWER (77b17b0 §11): pairs 0-499 per arm only
+                        continue
                     arm = str(z["arm"][i])
                     for plant in ("T1", "T2"):
                         tr = np.array([z[f"truth_{plant}.{l}"][i] for l in range(L)])

@@ -80,6 +80,8 @@ def export(runs, mock=False):
         raise SystemExit("refusing: confirmatory labels are not opened before 2026-11-26 01:45Z")
     M = json.loads((RES / "gate_margins.json").read_text())
     z = _load(runs)
+    keep = (z["index"] >= 3040) & (z["index"] < 3640)        # A-POWER (77b17b0 §11): episodes 3040-3639 only
+    z = {k: v[keep] for k, v in z.items()}
     (RES / "confirmatory").mkdir(parents=True, exist_ok=True)
     out = RES / "confirmatory" / ("dec_conf_gate_mock.csv.gz" if mock else "dec_conf_gate.csv.gz")
     n = 0

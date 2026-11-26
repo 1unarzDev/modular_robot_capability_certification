@@ -580,3 +580,15 @@ scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting w
 - **conf-gate rows do not store raw parent observations.** They store E1's fitted quantities (fit-based `rho_par` /
   `rho_pi`, dominance, misfit) per probe set, plus fixed-reference truth. Probe-policy scoring on the C-GATE stream is
   therefore not possible from those files: report T2 probing on C-GATE as not scored.
+
+## A-POWER (77b17b0 §11) applied to the stress exporters
+- `scripts/stress_conf_merge.py` exports C-MERGE pairs 0–499 per arm only.
+- `scripts/stress_conf_gate.py export` keeps C-GATE episodes 3040–3639 at each severity only.
+- **The frozen margins are NOT committed yet.** Both confirmatory exports need them, and both refuse to run without
+  them:
+  - `results/stress/N4_margins.json` (C-MERGE) is written by `scripts/stress_N4.py analyze` once the cfcap-stress-n4
+    units are pulled back;
+  - `results/stress/gate_margins.json` (C-GATE) is written by `scripts/stress_conf_gate.py margins` once the
+    exploratory gate-cal units are pulled back.
+  - Stress commits each file before 01:45Z and before any confirmatory unit is read. If either campaign has not
+    returned by then, the corresponding export waits for it.
