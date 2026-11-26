@@ -309,7 +309,8 @@ def test_conf_export_mock(tmp_path, monkeypatch):
     u = tmp_path / "runs" / "units"
     u.mkdir(parents=True)
     np.savez(u / "u.npz", **{k: np.asarray(v) for k, v in cols.items()})
-    a = argparse.Namespace(runs=str(tmp_path / "runs"), mock=True, t2_truth="")
+    a = argparse.Namespace(runs=str(tmp_path / "runs"), mock=True, t2_truth="", campaign="", main_range="40-3039",
+                           cal_range="0-1999")
     bp.cmd_conf_export(a)
     d = pd.read_csv(tmp_path / "res" / "confirmatory" / "dec_conf_baselines_MOCK.csv.gz")
     te = d[d.split == "conf_test"]
@@ -320,7 +321,8 @@ def test_conf_export_mock(tmp_path, monkeypatch):
     o = te[te.method == "oracle"]
     assert np.allclose(o.lower, o.truth)
     assert np.isinf(te[te.method == "never_go"].lower).all()
-    a2 = argparse.Namespace(runs=str(tmp_path / "runs"), mock=False, t2_truth="")
+    a2 = argparse.Namespace(runs=str(tmp_path / "runs"), mock=False, t2_truth="", campaign="", main_range="40-3039",
+                            cal_range="0-1999")
     import datetime as _dt
     if _dt.datetime.now(_dt.timezone.utc) < _dt.datetime.fromisoformat(bp.SCORING_OPENS):
         with pytest.raises(SystemExit):

@@ -26,6 +26,26 @@ OPS: (ops, 20:12Z) b2 is resubmitted at 43a8dda as cfcap-baselines-b2r, without 
 OPS: (ops, 2026-11-25 19:59Z) `baselines_b2.json` is held, as its own pilot field asks, until cfcap-baselines-pilot2's bl-canary sidecars give measured per-method seconds. Its canary is still running on 62569107 (9+ min). Once the numbers land, put them in unit_s and ops will emit and submit at priority ≤50. Note: nuisance SMC on 3090s is running about 3× slower than planned in nuis2 (see STATUS ops alerts).
 
 
+**CONFIRMATORY EXPORT DONE (2026-11-26 03:15Z):** `results/baselines/confirmatory/dec_conf_baselines.csv.gz` was
+built from cfcap-baselines-conf4, complete units only (sidecar present), with ranges conf_test 40–2,439 and cal 0–999.
+It holds far fewer episodes than planned. The conf4 jobs ran ~23 s/episode (2.3× the estimate) and most were
+interrupted before finishing their units.
+
+| claim | split | scored episodes (shard ≠ 0) |
+|---|---|---|
+| C-MAIN | conf_test | 210 (plus cal 130) |
+| C-SCALE | conf_H4b | 20 |
+| C-SCALE | conf_H4 | 0 |
+| C-HET | conf_het_test | 900 |
+| C-HET | conf_H1 | 490 |
+| C-HET | conf_H2 | 600 |
+
+- C-MAIN is far below the 3,000 planned and the 20k power rule, so expect UNDERPOWERED / MISSING verdicts for the
+  baselines' bars.
+- A supplementary file adds the finished episodes from interrupted units (the runner's atomic per-episode
+  checkpoints): `results/baselines/confirmatory_with_state/dec_conf_baselines.csv.gz`, with conf_test 267, cal 162,
+  conf_H4 24, conf_H4b 60. The scorer does not read it unless the coordinator moves it in place of the primary.
+
 **Status (2026-11-25, updated after review round 0 and the codex audits):** the six baselines are built and committed behind one interface, together with the runner task
 `smc` and the rented pilot campaign `scripts/campaigns/baselines_pilot.json`, which validates and is ready to submit.
 **The pilot table is not measured yet.** The local GPU queue never freed, and the coordinator moved the GPU pilot to

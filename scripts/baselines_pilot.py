@@ -249,16 +249,33 @@ DEC_COLS = ("method", "route", "posterior", "train", "test_plant", "split", "sta
             "cand_size", "has_fault", "leg", "truth", "point", "scale", "lower", "alpha", "seconds")
 
 
-def load_runs(runs):
-    """Every dec-schema unit file (runner task `smc`) under `runs` -> one DataFrame (duplicates dropped)."""
+def load_runs(runs, campaign=None):
+    """Every dec-schema unit file (runner task `smc`) under `runs` -> one DataFrame (duplicates dropped). With
+    `campaign`, only job directories of that campaign (path component starting with '<campaign>.', canary jobs
+    excluded), and only complete units (the runner's .json sidecar exists next to the .npz)."""
     import glob
     import pandas as pd
     fs = sorted(glob.glob(os.path.join(os.path.expanduser(runs), "**", "units", "*.npz"), recursive=True))
+    if campaign:
+        fs = [f for f in fs if any(c.startswith(campaign + ".") and ".canary" not in c for c in f.split(os.sep))
+              and os.path.exists(f[:-4] + ".json")]
     parts = []
     for f in fs:
         z = np.load(f)
         if "method" in z:
             parts.append(pd.DataFrame({k: z[k] for k in z.files}))
+    if campaign and os.environ.get("CFCAP_BL_WITH_STATE"):
+        # finished episodes inside units that never completed (the runner's atomic per-episode checkpoints)
+        import pickle
+        for f in sorted(glob.glob(os.path.join(os.path.expanduser(runs), "**", "state", "*.state"), recursive=True)):
+            if not any(c.startswith(campaign + ".") and ".canary" not in c for c in f.split(os.sep)):
+                continue
+            try:
+                st = pickle.loads(open(f, "rb").read())
+            except Exception:
+                continue
+            for rows in st.get("done", {}).values():
+                parts.append(pd.DataFrame(rows))
     if not parts:
         raise SystemExit(f"no smc unit files under {runs}")
     df = pd.concat(parts, ignore_index=True)
@@ -504,10 +521,15 @@ def cmd_conf_export(a):
     import pandas as pd
     if not a.mock and dt.datetime.now(dt.timezone.utc) < dt.datetime.fromisoformat(SCORING_OPENS):
         raise SystemExit(f"confirmatory labels stay closed until {SCORING_OPENS} (docs/CONFIRMATORY.md 0.1)")
-    df = load_runs(a.runs)
+    df = load_runs(a.runs, a.campaign or None)
     conf = df[df.split.isin(list(CONF_CLAIM))].copy()
-    conf = conf[~((conf.split == "conf_test") & ((conf.eid < 40) | (conf.eid > 3039)))]
+    lo_t, hi_t = [int(x) for x in a.main_range.split("-")]
+    conf = conf[~((conf.split == "conf_test") & ((conf.eid < lo_t) | (conf.eid > hi_t)))]
     cal = df[df.split == "cal"].copy()
+    lo_c, hi_c = [int(x) for x in a.cal_range.split("-")]
+    cal = cal[(cal.eid >= lo_c) & (cal.eid <= hi_c)]
+    print("loaded", len(df), "rows;", conf.groupby("split").eid.nunique().to_dict(), "cal eps", cal.eid.nunique(),
+          flush=True)
     out = []
     t2 = pd.read_csv(a.t2_truth) if a.t2_truth else None
 
@@ -614,6 +636,9 @@ def cmd_conf_export(a):
     res = res[[c for c in cols if c in res.columns]]
     od = RES / "confirmatory"
     od.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("CFCAP_BL_WITH_STATE"):
+        od = RES / "confirmatory_with_state"            # NOT read by the scorer unless the coordinator moves it
+        od.mkdir(parents=True, exist_ok=True)
     f = od / ("dec_conf_baselines_MOCK.csv.gz" if a.mock else "dec_conf_baselines.csv.gz")
     res.to_csv(f, index=False, float_format="%.6g")
     print(f, len(res), res.groupby(["claim", "method", "split"]).size().to_string())
@@ -629,6 +654,9 @@ def main():
     ap.add_argument("--cal-split", default="", help="from-runs: fit every conformal layer on this split")
     ap.add_argument("--tag", default="pilot_", help="from-runs: results/baselines/<tag>metrics.csv")
     ap.add_argument("--mock", action="store_true", help="conf-export on mock data (writes *_MOCK; no time gate)")
+    ap.add_argument("--campaign", default="", help="conf-export: only this campaign's job dirs (complete units)")
+    ap.add_argument("--main-range", default="40-3039", help="conf-export: conf_test eid range (C-MAIN)")
+    ap.add_argument("--cal-range", default="0-1999", help="conf-export: exploratory cal eid range")
     ap.add_argument("--t2-truth", default="", help="conf-export: csv (split, eid, cand, leg, truth) of T2 labels")
     ap.add_argument("--per-shape", type=int, default=100)
     ap.add_argument("--baseline")
