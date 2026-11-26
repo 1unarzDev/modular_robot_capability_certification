@@ -497,3 +497,20 @@ authoritative times are the git commit times (UTC):
   on the `all` block.
 - (iv) The N4 / N7 margins used for C-MERGE sizing were fitted in-sample on exploratory pairs, so the A-POWER sizing
   for C-MERGE is optimistic.
+
+## 15. Pre-declaration of TOMORROW's confirmatory run (written 03:30Z, 11-26, after tonight's single scoring)
+Tonight's verdicts (77fc39b) are final for the cells they scored. Tomorrow's run is a **new, separate confirmatory
+run**. It uses only seeds that no role or scorer has read, has its own calibration (declared here), and keeps
+**every bar unchanged** from §1–§14. It is reported as "confirmatory run 2", next to run 1, never merged with it.
+
+| run-2 cell | stream (unread) | calibration (declared now) | plants |
+|---|---|---|---|
+| C-MAIN-2 | conf_test **3,640–5,639** (2,000 episodes; disjoint from C-MAIN 40–2,439 and C-GATE 3,040–3,639) | the generator's exploratory cal split, plated, **episodes 0–1,999**, for every method's conformal margin and for the matched point. Not the 100-composed-episode train-run cal | T1 **and** T2 (fixed reference) on the same episodes, which also scores P3 |
+| C-ENV-2 | conf-ID missions **1,500–2,099**; each E-H family **750–1,049** (never generated tonight) | as A-ENV: T1-constant primary; envcal from the 400 exploratory ID missions | T1 |
+| C-SCALE-2 | conf_H4b **0–599** (no row exported tonight) | as C-MAIN-2 | T1 |
+| C-GATE-2 | conf_test 3,040–3,639 episodes **absent** from tonight's `dec_conf_gate.csv.gz` (the unlanded units) | as A-GATE, with one declared correction: the `par`/`lawcal` margins are recomputed by the documented E1 construction, because tonight's CF(par) = 0.33 on dominated legs at s = 0 points to a construction defect. The correction is declared before any run-2 label is read | T2 knee |
+
+- The C-EXPLAIN and C-HET bars are not re-run.
+- Holm in run 2 covers the P-bars that are re-tested (P1–P5, P6′, P7), with m equal to the number tested.
+- The scorer is `confirmatory.py` with only the stream and calibration paths changed. Its sha is recorded before
+  scoring.

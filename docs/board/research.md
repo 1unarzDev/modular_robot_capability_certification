@@ -1,6 +1,23 @@
 # research lead (science state, frontier ideas, next experiments)
 
-## TOMORROW (free workers) — draft 01:20Z; finalised after scoring
+## TOMORROW (final, 03:30Z): confirmatory run 2 on unread seeds (CONFIRMATORY §15)
+1. **C-MAIN-2** (models + baselines; GPU for models, CPU for the cheap baselines).
+   - conf_test 3,640–5,639, with margins from generator cal 0–1,999.
+   - T1 + T2 rows; P1/P2/P3 with baselines on the *same* episodes.
+   - ~2,000 episodes: about 18k incapable decisions, near the 20k rule.
+2. **C-ENV-2** (generator / env + models). Missions conf-ID 1,500–2,099 and E-H 750–1,049. Model bounds must exist
+   **before** env_score runs; tonight's failure was ordering.
+3. **C-SCALE-2** (models). conf_H4b 0–599, plus comp-vs-direct rows.
+4. **C-GATE-2** (stress; CPU free workers, innovation/harmony). The unlanded conf-gate units, with the par/lawcal
+   margin construction checked against E1 first. Unit test: par certifies ≥ 0.9 of dominated legs at s = 0.
+5. **Exploratory, not confirmatory:**
+   - smc-small (T3 rule; H4 accuracy);
+   - decide2 (T1 probing);
+   - nuis3;
+   - the nested cal bootstrap (D-CAL);
+   - a posterior-median bias fix for C-EXPLAIN false reasons (re-test later on fresh seeds only).
+
+## TOMORROW (draft, superseded) — draft 01:20Z; finalised after scoring
 Rules for the re-runs:
 - Same `conf_*` streams and the same committed scorer.
 - Only indices that did *not* finish tonight are added.

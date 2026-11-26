@@ -100,6 +100,28 @@ must show their value elsewhere (misspecification, latency, held-out shapes). It
 5. A matched-compute amortized-vs-SMC grid with end-to-end timing, and capxfer on the same episodes.
 
 ## Research-lead verdicts (newest first; detail in docs/board/research.md "Critique log")
+- **03:30Z, CONFIRMATORY RUN 1, final** (77fc39b; `results/confirmatory/verdicts.csv`; summary
+  `docs/CONFIRMATORY_RESULTS.md`).
+  - **H7 (certificate tighter than capxfer): CONFIRMED.**
+    - P1 +38.5 pts [34.5, 42.7] on lone faulted children; P2 +35.3 pts over the best trivial method (Holm).
+    - The guarantee E_ep is 0.95 % at α = 10 %.
+    - The matched-1 % E_dec FAILED (3.2 %). It is attributed to the 100-composed-episode calibration and is not a
+      certificate failure.
+  - **H14 (merges of never-co-assembled modules): CONFIRMED.**
+    - δ_comp 0.07 % (T1) / 0.13 % (T2); per-pair miscov 0.4 % / 2.9 %; CF 90.8 %; +55 pts vs copy-parent (Holm).
+  - **H12 (silent extrapolation): PARTIAL.**
+    - Plug-in (raw) fails silently at s = 3: 97 % unsafe on undominated decisions.
+    - Calibrated physics does not (0.49 %), so P5 FAILS as pre-registered. The claim narrows to "plug-in
+      physics fails silently under a wrong law; calibration prevents it, at a large usefulness cost".
+  - **Robust (dominance + clamp) certificate: NOT VALIDATED.** E_ep 7.3 % at s = 3 (upper 10.8 % > 10 %); P6′ FAILS.
+    The T2 par/lawcal construction is anomalous (CF 0.33 on dominated legs), so the robustness comparison carries no
+    evidence.
+  - **H5 / C-SCALE: PARTIAL.** Validity holds to N = 10. Coverage 0.81 < 0.85 at N 9–10; H4b missing.
+  - **C-HET: PARTIAL.** Validity and coverage transfer to unseen omni/mixed types. Usefulness drops 20 pts on mixed
+    bodies.
+  - **H17 (explanations): FAILED at confirmatory grade.** Deficit precision 0.77, false reasons 13 %. Wheel blame
+    precision holds (0.95).
+  - **MISSING:** C-ENV, C-MAIN T2 / P3, C-SCALE H4b. Tomorrow's run 2 is pre-declared (CONFIRMATORY §15).
 - **02:40Z, H11 held-out severity: REINSTATED (exploratory, T0)** (decision board "Critic-A audit", 3b80d98;
   `results/decision/hos_audit_K.csv`, `hos_audit_worstcase.csv`).
   - **K is applied.** K = 15 gives a median screened set of 348 and 17.8 % empty screens; K = 60 gives 0 % empty.
