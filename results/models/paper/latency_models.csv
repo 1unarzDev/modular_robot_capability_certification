@@ -1,0 +1,45 @@
+method,shape,n_wheels,sec_per_decision,hardware,status,n,split
+amortized_comp,single,4,1.754453420639038,RTX 3090 (vast),exploratory,7,cal
+amortized_comp,pair,8,1.7741045951843262,RTX 3090 (vast),exploratory,8,cal
+amortized_comp,chain3,12,1.7741045951843262,RTX 3090 (vast),exploratory,6,cal
+amortized_comp,chain4,16,1.468449592590332,RTX 3090 (vast),exploratory,2,cal
+amortized_comp,chain6,24,1.8770129680633545,RTX 3090 (vast),exploratory,1,cal
+amortized_comp,L3,12,1.754453420639038,RTX 3090 (vast),exploratory,7,cal
+amortized_comp,L4,16,1.7741045951843262,RTX 3090 (vast),exploratory,11,cal
+amortized_comp,L5,20,1.468449592590332,RTX 3090 (vast),exploratory,4,cal
+amortized_comp,L6,24,1.468449592590332,RTX 3090 (vast),exploratory,1,cal
+amortized_comp,path4,16,1.468449592590332,RTX 3090 (vast),exploratory,5,cal
+amortized_comp,path5,20,1.8770129680633545,RTX 3090 (vast),exploratory,9,cal
+amortized_comp,path6,24,1.7741045951843262,RTX 3090 (vast),exploratory,25,cal
+amortized_comp,cyclic5,20,1.754453420639038,RTX 3090 (vast),exploratory,5,cal
+amortized_comp,cyclic6,24,1.7741045951843262,RTX 3090 (vast),exploratory,9,cal
+amortized_comp,single,4,1.5670655965805054,RTX 3090 (vast),exploratory,5,test
+amortized_comp,pair,8,1.5670655965805054,RTX 3090 (vast),exploratory,12,test
+amortized_comp,chain3,12,1.5892808437347412,RTX 3090 (vast),exploratory,3,test
+amortized_comp,chain4,16,1.5892808437347412,RTX 3090 (vast),exploratory,3,test
+amortized_comp,L3,12,1.5670655965805054,RTX 3090 (vast),exploratory,9,test
+amortized_comp,L4,16,1.5781731605529785,RTX 3090 (vast),exploratory,10,test
+amortized_comp,L5,20,1.5670655965805054,RTX 3090 (vast),exploratory,6,test
+amortized_comp,L6,24,1.5892808437347412,RTX 3090 (vast),exploratory,10,test
+amortized_comp,path4,16,1.5670655965805054,RTX 3090 (vast),exploratory,7,test
+amortized_comp,path5,20,1.572361707687378,RTX 3090 (vast),exploratory,2,test
+amortized_comp,path6,24,1.5670655965805054,RTX 3090 (vast),exploratory,16,test
+amortized_comp,cyclic5,20,1.5892808437347412,RTX 3090 (vast),exploratory,7,test
+amortized_comp,cyclic6,24,1.5892808437347412,RTX 3090 (vast),exploratory,9,test
+amortized_comp,square,16,1.713587999343872,RTX 3090 (vast),exploratory,1,test
+amortized_sim,all,-1,0.0012493316332499187,RTX 3090 (vast),exploratory,300,cal
+amortized_sim,all,-1,0.0028890458742777507,RTX 3090 (vast),exploratory,300,test
+amortized_sim,all,-1,0.0010953609148661296,RTX 3090 (vast),exploratory,300,H3
+amortized_sim,all,-1,0.003481144905090332,RTX 3090 (vast),exploratory,300,H4
+pilot_amortized_n4_s1,pair,8,0.00342,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_amortized_n2_s1,pair,8,0.00337,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_amortized_n4_s1,square,16,0.0035,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_amortized_n2_s1,square,16,0.0033799999999999998,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_amortized_n4_s1,2x3,24,0.0035299999999999997,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_amortized_n2_s1,2x3,24,0.00312,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_S16,pair,8,0.0177,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_oracle_mode_S8,pair,8,0.01416,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_S16,square,16,0.022789999999999998,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_oracle_mode_S8,square,16,0.0165,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_S16,2x3,24,0.030789999999999998,RTX 4070 Ti SUPER (local pilot),exploratory,0,
+pilot_compositional_oracle_mode_S8,2x3,24,0.02172,RTX 4070 Ti SUPER (local pilot),exploratory,0,

@@ -183,12 +183,15 @@ def headline_from_eval2(e2, status, calib_out=None):
             dec += dec_rows(f"blackbox_gnn{sfx}", "simultaneous", "none", evs, sim_lo, direct, sec_d, status)
             continue
         name = "amortized" if arch == "st" else f"amortized_{arch}"
-        dec += dec_rows(f"{name}_marg{sfx}", "marginal", "amortized", evs, mar_lo, direct, sec_d, status)
-        dec += dec_rows(f"{name}_sim{sfx}", "simultaneous", "amortized", evs, sim_lo, direct, sec_d, status)
+        # direct head of the posterior network: posterior "amortized_direct" (not "ours"; ours = *_comp)
+        dec += dec_rows(f"{name}_marg{sfx}", "marginal", "amortized_direct", evs, mar_lo, direct, sec_d, status)
+        dec += dec_rows(f"{name}_sim{sfx}", "simultaneous", "amortized_direct", evs, sim_lo, direct, sec_d, status)
         if np.isfinite(cal.cq50).any():
             c_lo, q_comp = lowers(cal, [df for _, df in evs], comp, "compositional")
             calib[tag]["q_comp"] = float(q_comp)
-            dec += dec_rows(f"{name}_comp{sfx}", "compositional", "amortized", evs, c_lo, comp, sec_c, status)
+            ours = arch == "st" and sfx == ""                       # exactly one "ours" (st-n6-2, compositional)
+            dec += dec_rows(f"{name}_comp{sfx}", "compositional", "amortized" if ours else "amortized_variant", evs,
+                            c_lo, comp, sec_c, status)
         for s, df in evs:
             ep = df.groupby("eid").first()
             for (topo, n), g in ep.groupby(["parent_topo", "parent_n"]):
@@ -482,8 +485,9 @@ def main():
                 dec += dec_rows("blackbox_gnn", "simultaneous", "none", evs, sim_lo, direct, sec_direct, a.status)
             else:
                 mar_lo, _ = lowers(cal, [df for _, df in evs], direct, "marginal")
-                dec += dec_rows("amortized_marg", "marginal", "amortized", evs, mar_lo, direct, sec_direct, a.status)
-                dec += dec_rows("amortized_sim", "simultaneous", "amortized", evs, sim_lo, direct, sec_direct,
+                dec += dec_rows("amortized_marg", "marginal", "amortized_direct", evs, mar_lo, direct, sec_direct,
+                                a.status)
+                dec += dec_rows("amortized_sim", "simultaneous", "amortized_direct", evs, sim_lo, direct, sec_direct,
                                 a.status)
                 cevs = [(s, df) for s, df in evs if s in ("cal", "test")]
                 if np.isfinite(cal.cq50).any():
@@ -514,7 +518,9 @@ def main():
             df["q50"], df["q05"] = q50.mean(0), q50.mean(0) - (hw.mean(0) + q50.std(0))
             base[k] = (base[k][0], df)
         e_lo, _ = lowers(base[0][1], [df for _, df in base], direct, "simultaneous")
-        dec += dec_rows("ensemble", "simultaneous", "amortized", base, e_lo, direct,
+        # posterior "none": a deep ensemble of DIRECT heads is not the amortized posterior; with posterior
+        # "amortized" the T3 grid (posterior in {smc, amortized}, route simultaneous) picked it up as "Amortized"
+        dec += dec_rows("ensemble", "simultaneous", "none", base, e_lo, direct,
                         lambda s, df: np.full(len(df), np.nan), a.status)
     e2 = load_eval2(a.roots)
     env = load_env(a.roots)

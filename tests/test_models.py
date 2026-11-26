@@ -414,3 +414,32 @@ def test_cand_index_is_generator_candidate_list_index():
         got = [int(x) for x in D["cm_mod"][k0:k1]]
         want = [int(mod0[D["ep_asm_off"][e] + r] + k) for r, k in cd.modules]
         assert got == want and D["cand_kind"][row] == cd.kind
+
+
+def test_ensemble_and_amortized_rows_distinct(tmp_path):
+    """Weakpoints B #1: the deep ensemble must never share a (posterior, route) identity or rows with ours."""
+    import json
+    import subprocess
+    import sys
+    import pandas as pd
+    rng = np.random.default_rng(5)
+    for shard in (16, 32, 1):                       # st n6 s2 (headline), st n6 s3 (ensemble member), bb n6 s1
+        d = tmp_path / f"run{shard}"
+        (d / "units").mkdir(parents=True)
+        (d / "manifest.json").write_text(json.dumps(dict(task="train", shard=shard, task_argv=["--grid", "b1"])))
+        for s in ("cal", "test"):
+            np.savez(d / "units" / f"eval-{s}.npz", **_fake_eval(rng))
+            (d / "units" / f"eval-{s}.json").write_text(json.dumps(dict(meta=dict(infer_ms_per_episode=3.0))))
+    out = tmp_path / "paper"
+    r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    dec = pd.read_csv(out / "dec_models.csv.gz")
+    assert {"ensemble", "amortized_comp", "amortized_sim"} <= set(dec.method)
+    ens, comp = dec[dec.method == "ensemble"], dec[dec.method == "amortized_comp"]
+    assert (ens.posterior != "amortized").all() and (comp.posterior == "amortized").all()
+    # exactly one "ours" under posterior amortized
+    assert set(dec[dec.posterior == "amortized"].method) == {"amortized_comp"}
+    t_e = ens[ens.split == "test"].sort_values(["eid", "cand", "leg"])
+    t_s = dec[(dec.method == "amortized_sim") & (dec.split == "test")].sort_values(["eid", "cand", "leg"])
+    assert not np.allclose(t_e.lower.to_numpy(), t_s.lower.to_numpy())
