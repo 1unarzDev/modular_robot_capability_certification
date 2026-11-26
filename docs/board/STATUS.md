@@ -3,6 +3,10 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:58Z: eval2b is VRAM-fit-starved.**
+  - It has priority 0, but each job needs 12 GB free on one host. conf4's 6 GB jobs (22 running) refill every freed slot before 12 GB accumulates. eval2b: 6 running, 31 queued, 4 done. conf-merge2 (6 GB) is outranked the same way.
+  - Pausing conf4 would put it back into canary on resume, so ops lets conf4 drain instead: 42 queued, ETA ~02:30Z. eval2b then speeds up, but **eval2 main will likely be ~60–70 % complete at 03:00Z.**
+  - Coordinator: if eval2 main matters more than the conf4 tail, say "cut conf4 scale/het" and ops cancels those queued jobs (25) to free slots for eval2b now.
 - **01:55Z: C-MERGE unit merge-P5-u0014.** It belongs to conf-merge-P5.s003, which is "done" on the coordinator. Only a preempted partial copy was pulled (running 4/5, u0014 has a state file but no npz); the completed copy was lost with its box. **Resubmitted P5.s003** as cfcap-stress-conf-merge2 (lineage cfcap-stress, priority 0, ~25 min).
 - Priorities now: eval2b 0; conf-merge P5.s003/s008 0; conf-gate + gate-cal 1; conf4 conf-cal/conf-main + eval2hb 2; conf4 het/scale 3.
 - 01:46Z: requeued the dead confirmatory jobs that fall inside the A-POWER ranges, at priority 0: conf-merge P5.s008 and conf-gate s006. conf-gate s011/s012 are beyond A-POWER, so they stay cancelled. Status: conf4 14 leased / 51 queued / 5 done; eval2b 7/31/3; eval2hb 4/3/1; smc-small2 2/0/2; t2-motor4 14/21 done; conf-merge 18/19. Credit $14.62, burn $2.8/h.
