@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 
 import common as C
+import conf_numbers
 import f1_ambiguity
 import f2_diversity
 import f3_throughput
@@ -24,7 +25,7 @@ import t2_heldout
 import t3_grid
 import t4_probing
 
-SCRIPTS = (stageA_numbers, t1_certificate, t2_heldout, t3_grid, t4_probing, merge_table, f1_ambiguity, f2_diversity,
+SCRIPTS = (conf_numbers, stageA_numbers, t1_certificate, t2_heldout, t3_grid, t4_probing, merge_table, f1_ambiguity, f2_diversity,
            f3_throughput, f4_gate, fig_teaser, fig_pipeline)
 
 
