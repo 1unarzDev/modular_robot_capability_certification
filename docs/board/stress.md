@@ -592,3 +592,32 @@ scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting w
     exploratory gate-cal units are pulled back.
   - Stress commits each file before 01:45Z and before any confirmatory unit is read. If either campaign has not
     returned by then, the corresponding export waits for it.
+
+## N4 results and frozen C-MERGE margins (01:15Z)
+- **Margins.** `results/stress/N4_margins.json` is committed at **460999c**, before any confirmatory label is read.
+  It holds q_cf_all ≈ 0.013 per arm (enum_known lower, E2 exploratory pairs) and q_pert_by_nmod
+  {2: 0.17, 3: 0.05, 4: 0.04–0.05, 5: 0.04, 6: 0.03}.
+- **Inputs.** All 20 N4 units (19 from cfcap-stress-n4 plus the local n4-P0-s0-000) are imported. Rows:
+  `results/stress/N4_merge.csv`, `N4_verdict.json`, `paper/dec_merge_n4.csv.gz` (ccf7511).
+
+| arm | plant | method | CF stratum | unsafe | miscov_pair |
+|---|---|---|---|---|---|
+| P0 | T1 | comp_enum (cross-fit) | 99.9 % | 0.03 % | **0.108** |
+| P0 | T2 | comp_enum_size | 97.6 % | 0.006 % | 0.034 |
+| P0 | T1 | copy_parent | 66.5 % | 0.05 % | 0.010 |
+| P5 | T1 | comp_enum (cross-fit) | 99.9 % | 0.03 % | **0.110** |
+| P5 | T2 | comp_enum_size | 98.0 % | 0.007 % | 0.036 |
+| P5 | T1 | copy_parent | 66.5 % | 0.02 % | 0.008 |
+
+- **Verdict against the pre-written N4 bar.**
+  - CF ≥ 85 % at unsafe ≤ 1 %: met (99.9 %).
+  - Beats copy_parent by ≥ 10 pts: met (+33 pts).
+  - Miscoverage ≤ 0.1 in T1 with cross-fit: **missed narrowly** (0.108 / 0.110; the two calibration directions give
+    0.10–0.12, which is split variance). It is ≤ 0.15 in T2 with the size-aware margin (0.034 / 0.036).
+- **gate_margins.json is NOT committed yet.** At 01:14Z only 11 of the 60 gate-cal units have come back, after
+  several interruptions and resumes.
+  - Plan: freeze it with `scripts/stress_conf_gate.py margins --runs <every gate-cal dir>` once gate-cal is
+    complete, or at the latest before the conf labels are read (~03:10Z), using whatever units exist by then. The
+    number of episodes is recorded in the JSON.
+  - The C-GATE export runs only after that commit. The C-MERGE export runs only after both margins files are
+    committed (coordinator rule).
