@@ -24,9 +24,11 @@ import t1_certificate
 import t2_heldout
 import t3_grid
 import t4_probing
+import tc_tables
+import expl_numbers
 
 SCRIPTS = (conf_numbers, stageA_numbers, t1_certificate, t2_heldout, t3_grid, t4_probing, merge_table, f1_ambiguity, f2_diversity,
-           f3_throughput, f4_gate, fig_teaser, fig_pipeline)
+           f3_throughput, f4_gate, fig_teaser, fig_pipeline, tc_tables, expl_numbers)
 
 
 def main(argv=None):
