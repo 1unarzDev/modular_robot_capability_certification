@@ -97,7 +97,25 @@ Detection uses each detector's own threshold at 1 % false alarm on healthy episo
   Stage B on. With ±8 % spread, weak g ≥ 0.85 is the same plant as a slower healthy motor, so the mild-fault misses
   there are partly irreducible.
 
-## Stage B training sweep: `scripts/campaigns/models_b1.json` (emitted and validated, not yet submitted)
+### Fixes after review (exploratory)
+- **T3 "Amortized" equal to "Deep ensemble" (weakpoints B #1): an export labelling bug, fixed in 8c96915.**
+  - Cause: the exploratory `dec_models` had no `amortized_*` rows. The headline was st seed 1, which was pre-empted.
+    The `ensemble` rows carried `posterior = amortized`, so the T3 grid (posterior ∈ {smc, amortized}, route
+    simultaneous) displayed the ensemble as "Amortized".
+  - Fix: `ensemble` and `blackbox_gnn` now carry posterior `none`, and the direct heads `amortized_marg` / `_sim`
+    carry `amortized_direct`. Exactly one method has posterior `amortized`: **`amortized_comp` (st-n6-2,
+    compositional) = ours**. Its route is `compositional`, so the T3 selection must take that route.
+  - Re-exported from the pulled runs; tested.
+  - The confirmatory export cannot have the same bug: its methods are a fixed (claim, method) → model-tag table, with
+    no ensemble and only st-n6-2 under `amortized_comp`.
+- **H5 with CIs** (`scripts/models_h5.py` → `results/models/paper/h5_ci.csv`).
+  - Data: the Stage-B train runs' eval-test rows, ρ_dec, on the 100 composed episodes per run, paired.
+  - Trained ≤ 4 (n4, seeds 1 and 3), on unseen parents N 5–6, faulted candidates: comp − direct 90 % coverage is
+    +0.10 [0.06, 0.15] (seed 1) and +0.06 [0.02, 0.10] (seed 3); pooled +0.08 [0.05, 0.11].
+  - n6 seeds 2 and 3, all sizes, faulted: +0.04 [0.02, 0.06] and +0.06 [0.04, 0.08].
+  - The pilot's 2×3-only, one-seed, n = 600 comparison is superseded. No 2×3 parent fell among the composed episodes.
+    These are raw quantile intervals: composition is also wider, and the pinball difference is in the CSV.
+: `scripts/campaigns/models_b1.json` (emitted and validated, not yet submitted)
 - **Grid b1** (shard = entry, seed 1 first):
   - `st`, `bb` and `ds` × diversity {n6, n4, n2, n6c, n4c} × seeds 1–3;
   - plus `stl` (h = 128, 4 layers) × n6 × 3 seeds;

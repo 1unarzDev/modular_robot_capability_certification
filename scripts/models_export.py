@@ -265,7 +265,25 @@ def confirmatory_wheels(roots, out_path, model=CONF_MODEL):
     return out_path
 
 
-def confirmatory_rows(e2, now=None, allow_early=False, methods=None):
+def train_cal_rows(runs):
+    """Fallback cal rows per model tag from the train runs' own eval-cal / eval-het_cal units (exploratory cal split,
+    same generator episodes 0..eval_n-1; compositional quantiles on the first compose_n), shaped like eval2 rows."""
+    out = {}
+    for run in runs:
+        c = run["cfg"]
+        tag = f"{c['arch']}-{c['div']}-{c['seed']}"
+        for split in ("cal", "het_cal"):
+            u = load_unit(run["dir"], split)
+            if u is None:
+                continue
+            df, meta = u
+            df = df.assign(sec_comp=df.get("comp_seconds", np.nan),
+                           sec_direct=meta.get("infer_ms_per_episode", np.nan) / 1e3, shard=-1)
+            out.setdefault(tag, {})[split] = df
+    return out
+
+
+def confirmatory_rows(e2, now=None, allow_early=False, methods=None, fallback=None):
     """dec_conf_models rows: per (claim, method) the T1-cal (exploratory) rows and the conf_* rows with lower
     (simultaneous) and lower_marg (marginal), fixed-T1-reference rho_dec truth, claim, shard, parent_n, variant."""
     import datetime as dt
@@ -274,8 +292,11 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None):
         raise SystemExit(f"confirmatory labels stay closed until {CONF_OPEN} (now {now:%Y-%m-%dT%H:%MZ})")
     out = []
     for (claim, method), (tag, pre) in (methods or CONF_METHODS).items():
-        by = e2.get(tag)
+        by = dict(e2.get(tag) or {})
         cal_split = CAL_OF[claim]
+        if cal_split not in by and fallback and cal_split in fallback.get(tag, {}):
+            by[cal_split] = fallback[tag][cal_split]            # stage-2 cal job missing: train-run eval-cal rows
+            print(f"confirmatory: {claim}/{method}: {tag} {cal_split} rows from the train run's eval unit")
         if not by or cal_split not in by:
             print(f"confirmatory: {claim}/{method}: no {tag} {cal_split} rows, skipped")
             continue
@@ -525,7 +546,8 @@ def main():
     e2 = load_eval2(a.roots)
     env = load_env(a.roots)
     if a.confirmatory:
-        rows = confirmatory_rows(e2, allow_early=a.allow_early)
+        fb = train_cal_rows(runs)
+        rows = confirmatory_rows(e2, allow_early=a.allow_early, fallback=fb)
         f = pathlib.Path(a.conf_out)
         f.parent.mkdir(parents=True, exist_ok=True)
         if rows:
@@ -533,7 +555,7 @@ def main():
         print(f"confirmatory rows {sum(len(r) for r in rows)} -> {f}")
         w = confirmatory_wheels(a.roots, f.parent / "wheels_conf_models.npz", model=CONF_MODEL)
         print(f"confirmatory wheels -> {w}")
-        sv = confirmatory_rows(e2, allow_early=a.allow_early, methods=SEEDVAR_METHODS)
+        sv = confirmatory_rows(e2, allow_early=a.allow_early, methods=SEEDVAR_METHODS, fallback=fb)
         if sv:                              # descriptive seed variation (A-SEED): not a dec_* file, never scored
             sv = [r.assign(method=r.method + "_seedvar", seedvar=1) for r in sv]
             pd.concat(sv).to_csv(f.parent / "seedvar_conf_models.csv.gz", index=False)
@@ -567,6 +589,15 @@ def main():
     if not env.empty:                       # C-ENV lower bounds (exploratory always; conf only with --confirmatory)
         cf = pathlib.Path(a.calib_out) / f"calib_{a.env_model}.json"
         q_comp = json.loads(cf.read_text()).get("q_comp") if cf.exists() else None
+        if q_comp is None:                  # no stage-2 cal rows: the train run's own exploratory eval-cal rows
+            tc = train_cal_rows(runs).get(a.env_model, {}).get("cal")
+            if tc is not None and np.isfinite(tc.cq50).any():
+                _, q_comp = lowers(tc, [], comp, "compositional")
+                q_comp = float(q_comp)
+                cf.parent.mkdir(parents=True, exist_ok=True)
+                cf.write_text(json.dumps(dict(alpha=ALPHA, q_comp=q_comp, source="train-run eval-cal (fallback)"),
+                                         indent=1))
+                print(f"env: q_comp {q_comp:.4f} from the train run's eval-cal rows (fallback)")
         if q_comp is None:
             print(f"env: no q_comp in {cf}; run with the env model's stage-2 cal rows first")
         else:
