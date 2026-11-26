@@ -134,7 +134,7 @@ def run(res, paper):
         ax.text(j + 0.5, -0.12, s, ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text(-0.12, -0.12, "child size", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text(6.1, -0.12, "with clamp", ha="left", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
-    fig.text(0.02 / W, (H - 0.03) / H, "(a) v2 observes straight legs and lone-module yaw", ha="left", va="top",
+    fig.text(0.02 / W, (H - 0.03) / H, "(a) Which legs the probe has seen, by child size", ha="left", va="top",
              fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     # key, in-line: solid = observed, hatched = extrapolated (% of legs extrapolated in the cells)
     ky = gy - 0.10
@@ -191,7 +191,7 @@ def run(res, paper):
     bx.set_xlabel("parent size N (modules)", labelpad=1)
     bx.set_ylabel("extrap. (%)", labelpad=2)
     bx.tick_params(length=2, pad=1.5)
-    fig.text(0.02 / W, (by + bh + 0.20) / H, "(b) Extrapolated share grows with parent size", ha="left",
+    fig.text(0.02 / W, (by + bh + 0.20) / H, "(b) Share answered by the motor model grows with robot size", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     S.save(fig, out)
     return N

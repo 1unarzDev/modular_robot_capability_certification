@@ -29,9 +29,9 @@ SEED_FIG = 5
 SEV = (0, 1, 2, 3)
 # display, code, probe, colour, marker, linestyle, macro label. Code 'raw' is T0 two-constant physics with the
 # faults known (not a posterior): displayed as 'plug-in physics'; macro keys keep 'raw'.
-METHODS = (("plug-in physics", "raw", "v2", S.TEAL, "x", (0, (3, 1.6)), "raw"),
-           ("robust", "robust", "v2+clamp", S.INK2, "v", (0, (1, 1.3)), "robust"),
-           ("calibrated physics", "par", "v2", S.TEAL, "s", "-", "par"))
+METHODS = (("uncalibrated physics model", "raw", "v2", S.TEAL, "x", (0, (3, 1.6)), "raw"),
+           ("data-only bound", "robust", "v2+clamp", S.INK2, "v", (0, (1, 1.3)), "robust"),
+           ("calibrated physics model", "par", "v2", S.TEAL, "s", "-", "par"))
 Y0, YMIN, YMAX = 0.0013, 0.003, 0.75       # log y with a broken zero for E_ep
 
 
@@ -76,38 +76,41 @@ def run(res, paper):
 
     # ---------------------------------------------------------------- figure
     S.apply()
-    W, H = S.W1, 2.0
+    W, H = S.W1, 2.1
     fig = S.plt.figure(figsize=(W, H))
-    L, Bm, T, gap, Rm = 0.37, 0.31, 0.20, 0.40, 0.04
-    pwa, pwb = 1.42, W - L - gap - Rm - 1.42
+    L, Bm, T, gap, Rm = 0.47, 0.30, 0.31, 0.48, 0.03
+    pwa = 1.33
+    pwb = W - L - gap - Rm - pwa
     ph = H - Bm - T
     axa = fig.add_axes([L / W, Bm / H, pwa / W, ph / H])
     axb = fig.add_axes([(L + pwa + gap) / W, Bm / H, pwb / W, ph / H])
-    dodge = {"raw": 0.0, "robust": 0.0, "par": 0.0}       # on the ticks; robust hollow where they overlap
+    X1 = 3.35                                   # data region of (a) is [-0.35, X1]; labels to its right
+    XR = -0.35 + 3.7 * pwa / (pwa - 0.66)       # leave 0.66 in for the direct labels
+    XS = XR + 0.35
 
     # (a) E_ep, log with a broken zero; region above alpha in orange tint; labels to the right of s = 3
     axa.set_yscale("log")
     axa.set_ylim(Y0 / 1.7, YMAX)
-    axa.set_xlim(-0.35, 5.25)
-    axa.spines["bottom"].set_bounds(-0.35, 3.35)
-    axa.axhspan(C.ALPHA, YMAX, xmax=(3.35 + 0.35) / 5.6, color=S.ORANGE, alpha=0.10, lw=0, zorder=0)
-    axa.plot([-0.35, 3.35], [C.ALPHA] * 2, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=1)
+    axa.set_xlim(-0.35, XR)
+    axa.spines["bottom"].set_bounds(-0.35, X1)
+    axa.axhspan(C.ALPHA, YMAX, xmax=(X1 + 0.35) / XS, color=S.ORANGE, alpha=0.10, lw=0, zorder=0)
+    axa.plot([-0.35, X1], [C.ALPHA] * 2, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=1)
     axa.text(-0.25, C.ALPHA * 1.12, "α = 10 %", fontsize=S.LABEL_PT, color=S.INK, va="bottom", ha="left")
     axa.set_yticks([Y0, 0.01, 0.1], ["0", "1", "10"])
     axa.yaxis.set_minor_locator(S.matplotlib.ticker.NullLocator())
     yb = np.sqrt(Y0 * YMIN)
     for f in (0.85, 1 / 0.85):
-        axa.plot([-0.035 * 5.6 / 3.7, 0.035 * 5.6 / 3.7], [yb * f / 1.1, yb * f * 1.1],
+        axa.plot([-0.04 / pwa, 0.04 / pwa], [yb * f / 1.1, yb * f * 1.1],
                  transform=axa.get_yaxis_transform(), color=S.GREY, lw=S.LW_AXES, clip_on=False)
-    axb.set_xlim(-0.35, 3.35)
+    axb.set_xlim(-0.35, X1)
     for ax in (axa, axb):
         ax.set_xticks(SEV)
-        ax.set_xlabel("knee severity $s$", labelpad=1.5)
     axb.yaxis.grid(True)
     for yv in (0.01, 0.1):
-        axa.plot([-0.35, 3.35], [yv] * 2, color=S.GRID, lw=S.LW_GRID, zorder=0)
+        axa.plot([-0.35, X1], [yv] * 2, color=S.GRID, lw=S.LW_GRID, zorder=0)
     for name, code, probe, col, mk, ls, lab in METHODS:
-        xs = np.array(SEV) + dodge[code]
+        xs = np.array(SEV, float)
+        hollow = code == "robust"                # data-only bound: hollow marker where it sits on the others
         y = np.array([R[code, s]["eep"] for s in SEV])
         lo = np.array([R[code, s]["eep_lo"] for s in SEV])
         hi = np.array([R[code, s]["eep_hi"] for s in SEV])
@@ -117,7 +120,6 @@ def run(res, paper):
             if h_ > 0 and yi > 0:
                 axa.plot([xi, xi], [l_, h_], color=col, lw=0.6, alpha=0.7, zorder=2, solid_capstyle="butt")
         axa.plot(xs, ypos(y), color=col, ls=ls, lw=S.LW_DATA, zorder=3)
-        hollow = code == "robust"
         axa.plot(xs, ypos(y), ls="none", marker=mk, ms=S.MS + (1.3 if hollow else 0.5), color=col,
                  mfc="none" if hollow else col, mec=col if (mk == "x" or hollow) else "white",
                  mew=0.9 if (mk == "x" or hollow) else 0.4, zorder=6 if hollow else 5, clip_on=False)
@@ -127,27 +129,32 @@ def run(res, paper):
         axb.fill_between(xs, 100 * lo, 100 * hi, color=col, alpha=S.CI_ALPHA, lw=0, zorder=1)
         axb.plot(xs, 100 * y, color=col, ls=ls, lw=S.LW_DATA, marker=mk, ms=S.MS + (1.0 if hollow else 0),
                  mec=col, mfc="white" if hollow else col, mew=0.9 if (mk == "x" or hollow) else 0.4, zorder=3)
-    # direct labels, (a): values at s = 3, set right of the last marker (dead space beyond the axis)
+    # direct labels, (a): values at s = 3, set right of the last marker
     r3 = {c: R[c, 3]["eep"] for _, c, *_ in METHODS}
-    for code, txt, col in (("raw", f"plug-in\nphysics\n{100 * r3['raw']:.1f} %", S.TEAL),
-                           ("robust", f"robust\n{100 * r3['robust']:.1f} %", S.INK2),
-                           ("par", f"calibrated\nphysics\n{100 * r3['par']:.1f} %", S.TEAL)):
-        axa.annotate(txt, (3 + dodge[code], r3[code]), xytext=(3.45, r3[code] * (0.68 if code == "par" else 1.0)),
-                     textcoords="data", ha="left", va="center", fontsize=S.LABEL_PT, color=col, linespacing=1.0)
-    axa.set_ylabel("episodes with an unsafe commit (%)", labelpad=1.5)
-    axa.xaxis.set_label_coords((1.5 + 0.35) / 5.6, -0.13)
-    S.panel(axa, "(a) Unsafe episodes climb …")
+    for code, txt, col, f in (("raw", f"uncalibrated\nphysics model\n{100 * r3['raw']:.1f} %", S.TEAL, 1.0),
+                              ("robust", f"data-only\nbound {100 * r3['robust']:.1f} %", S.INK2, 1.0),
+                              ("par", f"calibrated\nphysics model\n{100 * r3['par']:.1f} %", S.TEAL, 0.62)):
+        axa.annotate(txt, (3, r3[code]), xytext=(3.45, r3[code] * f), textcoords="data", ha="left",
+                     va="center", fontsize=S.LABEL_PT, color=col, linespacing=1.0)
+    axa.set_ylabel("episodes with any\nunsafe commitment (%)", labelpad=1.5, linespacing=1.0)
 
-    axb.set_ylim(0, 108)
+    axb.set_ylim(0, 122)
     axb.set_yticks([0, 25, 50, 75, 100])
-    axb.set_ylabel("certified (% of extrapolated)", labelpad=1.5)
-    for code, dy, txt, col in (("raw", -7, "plug-in physics", S.TEAL), ("robust", -8, "robust", S.INK2),
-                               ("par", 8, "calibrated physics", S.TEAL)):
+    axb.spines["left"].set_bounds(0, 108)
+    axb.set_ylabel("certified share of\nextrapolated decisions (%)", labelpad=1.5, linespacing=1.0)
+    for code, dy, txt, col in (("raw", 10, "uncalibrated\nphysics model", S.TEAL),
+                               ("robust", -8, "data-only bound", S.INK2),
+                               ("par", 12, "calibrated\nphysics model", S.TEAL),
+                               ("par", -12, "margin anomaly\n(App. B)", S.INK2)):
         axb.annotate(txt, (1.5, 100 * np.mean([R[code, 1]["cf"], R[code, 2]["cf"]])), xytext=(0, dy),
-                     textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=col)
-    axb.annotate("margin anomaly (App. B)", (1.5, 100 * R["par", 2]["cf"]), xytext=(0, -9),
-                 textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    S.panel(axb, "(b) … certifying no less", x=-0.22)
+                     textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=col,
+                     linespacing=1.0)
+    # one shared x label; two-line panel titles placed in figure inches
+    fig.text(0.5, 0.02 / H, "how wrong the motor model is (severity $s$)", ha="center", va="bottom",
+             fontsize=S.LABEL_PT, color=S.INK2)
+    tkw = dict(fontsize=S.TITLE_PT, fontweight="bold", color=S.INK, va="top", ha="left", linespacing=1.05)
+    fig.text(0.03 / W, 1 - 0.03 / H, "(a) Unsafe episodes rise as the\nmotor model gets more wrong …", **tkw)
+    fig.text(1.70 / W, 1 - 0.03 / H, "(b) … while the uncalibrated\nmodel keeps certifying", **tkw)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros

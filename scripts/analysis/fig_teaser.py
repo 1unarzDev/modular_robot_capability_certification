@@ -33,12 +33,21 @@ EPISODE, RENDER = ASSETS / "teaser_episode.json", ASSETS / "teaser_render.png"
 DEC = "models/confirmatory/dec_conf_models.csv.gz"
 TASKS = "annotations/task_library.csv"
 DOM = "theory/dominance_by_leg_size.csv"
-W, H = S.W2, 2.0
+W, H = S.W2, 2.2           # two-line panel titles (owner request, plain-language headings)
 CERT_FILL = "#d6e5f7"      # light blue: body certified for the job
 REF_FILL = "#a9a7a2"       # grey: body refused (darker than the blue tint in grayscale)
 LEG_ORDER = ("surge", "diag", "yaw")      # Fig. 2 / Fig. 5 order
 STATUS = "confirmatory run, one episode (descriptive)"
 MODE_WORD = {"coast": "coasting", "weak": "weak", "brake": "braking"}
+
+
+PLAIN_LEG = {"surge": "forward", "sway": "sideways", "diag": "diagonal", "yaw": "turn"}
+PLAIN_LEG_SIGNED = {"surge+": "forward", "surge-": "backward"}
+NUMBER_WORD = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
+
+
+def plain_leg(l):
+    return PLAIN_LEG_SIGNED.get(l, PLAIN_LEG[l.rstrip("+-")])
 
 
 def pretty_leg(l):
@@ -110,6 +119,9 @@ def panel_render(fig, ax, E, box):
     iax = fig.add_axes((ix / W, iy / H, iw / W, ih / H))
     iax.imshow(img, interpolation="none")       # "none": the PDF embeds the render at its native resolution
     iax.axis("off")
+    iax.set_zorder(0)
+    ax.set_zorder(1)                          # leaders and drive arrows (on `ax`) draw over the render
+    ax.patch.set_visible(False)
     pj = json.loads(RENDER.with_name(RENDER.stem + "_proj.json").read_text())
     res_x, res_y = pj["res"]
 
@@ -240,7 +252,7 @@ def key_line(ax, E, V, x0, y):
     n = {v: int((bv == v).sum()) for v in ("certify", "probe", "refuse")}
     c = 0.075
     x = x0
-    for v, word, adv in (("certify", "certified", 0.68), ("probe", "probe first", 0.70), ("refuse", "refused", 0.58)):
+    for v, word, adv in (("certify", "certified", 0.68), ("probe", "test first", 0.66), ("refuse", "refused", 0.58)):
         fill = {"certify": CERT_FILL, "refuse": REF_FILL, "probe": S.SURFACE}[v]
         ax.add_patch(Rectangle((x, y - c / 2), c, c, lw=0.5, ec=S.INK2, fc=fill))
         if v != "certify":
@@ -261,15 +273,15 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
     legs = V["legs"]
     taus = E["job"]["taus"]
     order = sorted(taus, key=lambda l: (LEG_ORDER.index(l.rstrip("+-")), l))
-    lab_w = 0.42                    # leg labels
+    lab_w = 0.50                    # leg labels
     gx = x1 - 0.13                  # verdict glyph column
     ax0, ax1 = x0 + lab_w, gx - 0.07
     lo_v, hi_v = 0.2, 1.2
     X = lambda v: ax0 + (v - lo_v) / (hi_v - lo_v) * (ax1 - ax0)
-    rh = 0.115
+    rh = 0.108
     c = 0.056
     y = y_top
-    blocks = (("refuse", "c1", "the faulted module alone"), ("probe", "c2", "with its healthy neighbour"))
+    blocks = (("refuse", "c1:", "the faulty module alone"), ("probe", "c2:", "with its healthy neighbour"))
     first = True
     for verdict, tag, words in blocks:
         cand = E["shown_bodies"][verdict]
@@ -277,14 +289,14 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
         body_icon(ax, E, cand, x0, y - h, c, verdict)
         tx = x0 + w + 0.05
         ax.text(tx, y - h / 2, tag, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK, fontweight="bold")
-        ax.text(tx + 0.13, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
+        ax.text(tx + 0.15, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
         mark(ax, gx, y - h / 2, verdict)
-        y -= h + (0.10 if first else 0.02)
+        y -= h + (0.15 if first else 0.03)
         g = legs[legs.cand == cand].set_index("legn")
         for leg in order:
             r = g.loc[leg]
             yc = y - rh / 2
-            ax.text(ax0 - 0.05, yc, pretty_leg(leg), ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+            ax.text(ax0 - 0.05, yc, plain_leg(leg), ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK2)
             lo = max(float(r.lower), lo_v)
             ax.add_patch(Rectangle((X(lo), yc - 0.045), X(float(r.point)) - X(lo), 0.09, lw=0.6, ec=S.BLUE,
                                    fc=S.SURFACE if r.ext else S.BLUE, hatch="//////" if r.ext else None, zorder=3))
@@ -292,12 +304,12 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
             ax.plot([X(r.tau)] * 2, [yc - 0.075, yc + 0.075], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5,
                     path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
             if first and leg == order[0]:           # direct labels on the first bar: what its two ends are
-                ax.text(X(lo), yc + 0.06, "bound", ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)
-                ax.text(X(float(r.point)), yc + 0.06, "estimate", ha="center", va="bottom", fontsize=S.LABEL_PT,
+                ax.text(X(lo) + 0.04, yc + 0.06, "lower bound", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)
+                ax.text(X(float(r.point)) - 0.04, yc + 0.06, "estimate", ha="left", va="bottom", fontsize=S.LABEL_PT,
                         color=S.INK2)
             mark(ax, gx, yc, r.verdict, size=7.5)
             y -= rh
-        y -= 0.03
+        y -= 0.02
         first = False
     # axis
     ya = y_axis
@@ -318,56 +330,70 @@ def draw(res, out):
     ax.set_xlim(0, W), ax.set_ylim(0, H)
     ax.axis("off")
     n = len(E["cands"])
-    XA, XB, XC = 0.0, 1.86, 4.70
+    XA, XB, XC = 0.0, 2.02, 4.76
     top = H - 0.02
-    tkw = dict(ha="left", va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
+    tkw = dict(ha="left", va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK, linespacing=1.15)
     secs = E["probe"]["twist_s"]
-    ax.text(XA, top, f"(a) One {secs:g}-s probe\u2026", **tkw)
-    ax.text(XB, top, f"(b) \u2026gives all {n} next bodies a verdict", **tkw)
-    ax.text(XC, top, "(c) Two bodies against one job", **tkw)
+    nm = len(E["parent"]["modules"])
+    ax.text(XA, top, f"(a) Today's robot: {NUMBER_WORD.get(nm, nm)} docked modules\nrun one {secs:g}-s test drive",
+            **tkw)
+    ax.text(XB, top, f"(b) Every body it could become ({n}),\neach with a verdict for one job", **tkw)
+    ax.text(XC, top, "(c) Inside a verdict: lower bound\nvs. what the job needs", **tkw)
+    top2 = top - 0.27                     # below the two-line titles
     # (a)
-    got = panel_render(fig, ax, E, (XA + 0.16, 0.44, 1.46, 1.20))
+    got = panel_render(fig, ax, E, (XA + 0.10, 0.40, 1.30, top2 - 0.40))
     if got:
         (ix, iy, iw, ih), to_in = got
-        f = E["faults"][0]
-        wx, wy = to_in(f"wheel{f['wheel']}")
         probe_arrows(ax, E, to_in)
-        ax.annotate(f"{MODE_WORD[f['mode']]} wheel\n(unknown to the robot)", (wx, wy), xytext=(XA + 1.78, 0.36),
-                    ha="right", va="top", fontsize=S.LABEL_PT, color=S.ORANGE_TX, zorder=6, linespacing=1.1,
-                    arrowprops=dict(arrowstyle="-", lw=0.4, color=S.ORANGE_TX, shrinkA=1, shrinkB=2.5))
-    ax.text(XA, 0.07, "blue: probe v2 twists, surge, sway, yaw \u00b1", ha="left", va="center",
-            fontsize=S.LABEL_PT, color=S.BLUE)
+        y_foot = 0.14                       # bottom line: clear of the wheel leader
+        lab = dict(fontsize=S.LABEL_PT, zorder=7, linespacing=1.05)
+        lead = dict(arrowstyle="-", lw=0.4, shrinkA=1, shrinkB=2.0)
+        mods = E["parent"]["modules"]
+        mk = max(range(len(mods)), key=lambda k: to_in(f"module{k}")[1])          # topmost module
+        ax.annotate("one module", tuple(to_in(f"module{mk}")), xytext=(XA + 1.93, top2 - 0.06), ha="right",
+                    va="center", color=S.INK, arrowprops={**lead, "color": S.INK2, "relpos": (0, 0.5)}, **lab)
+        fw = {f["wheel"] for f in E["faults"]}
+        wk = max((w for w in range(len(E["parent"]["wheel_pos"])) if w not in fw),
+                 key=lambda w: to_in(f"wheel{w}")[0])                              # rightmost healthy wheel
+        ax.annotate("mecanum wheel:\nangled rollers\nlet it drive\nsideways", tuple(to_in(f"wheel{wk}")),
+                    xytext=(XA + 1.93, top2 - 0.30), ha="right", va="top", color=S.INK,
+                    arrowprops={**lead, "color": S.INK2, "relpos": (0, 0.85)}, **lab)
+        f = E["faults"][0]
+        ax.annotate(f"{MODE_WORD[f['mode']]} wheel\n(unknown to\nthe robot)", tuple(to_in(f"wheel{f['wheel']}")),
+                    xytext=(XA + 1.93, 0.55), ha="right", va="top", color=S.ORANGE_TX,
+                    arrowprops={**lead, "color": S.ORANGE_TX, "relpos": (0, 0.85)}, **lab)
+    ax.text(XA, y_foot if got else 0.14, "blue arrows: the test drive\n(forward/back, sideways, turn)", ha="left", va="center",
+            fontsize=S.LABEL_PT, color=S.BLUE, linespacing=1.1)
     if V is None:
         ax.text(XB + 1.3, 1.0, "awaiting " + DEC, ha="center", va="center", color=S.ORANGE_TX)
         S.save(fig, out)
         return E, V, srcs, None
     # (b)
-    yb = panel_bodies(ax, E, V, XB, top - 0.20, XC - XB - 0.12)
+    yb = panel_bodies(ax, E, V, XB, top2, XC - XB - 0.10)
     counts = key_line(ax, E, V, XB, max(0.07, min(yb - 0.12, 0.30)))
     # (c)
     kinds = [k for k in LEG_ORDER if any(l.startswith(k) for l in E["job"]["taus"])]
-    words = {"surge": "surge", "diag": "a diagonal", "yaw": "yaw", "sway": "sway"}
-    ax.text(XC, top - 0.18, f"job: {E['job']['domain']} run (needs {', '.join(words[k] for k in kinds)})",
+    ax.text(XC, top2, f"job: {E['job']['domain']} run (needs {', '.join(PLAIN_LEG[k] for k in kinds)})",
             ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
-    yk = top - 0.36
-    for i, (ext, lab) in enumerate(((False, "observed"), (True, "extrapolated"))):
-        xk = XC + 0.02 + i * 0.70
-        ax.add_patch(Rectangle((xk, yk - 0.04), 0.16, 0.08, lw=0.6, ec=S.BLUE, fc=S.SURFACE if ext else S.BLUE,
+    yk = top2 - 0.19
+    for i, (ext, lab) in enumerate(((False, "observed by the test drive"), (True, "extrapolated by the motor model"))):
+        yy = yk - i * 0.12
+        ax.add_patch(Rectangle((XC + 0.02, yy - 0.04), 0.16, 0.08, lw=0.6, ec=S.BLUE, fc=S.SURFACE if ext else S.BLUE,
                                hatch="//////" if ext else None))
-        ax.text(xk + 0.20, yk, lab, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    yk2 = yk - 0.13
-    ax.plot([XC + 0.10] * 2, [yk2 - 0.06, yk2 + 0.06], color=S.INK, lw=1.0, solid_capstyle="butt")
-    ax.text(XC + 0.22, yk2, "need \u03c4 per leg (task library)", ha="left", va="center", fontsize=S.LABEL_PT,
+        ax.text(XC + 0.24, yy, lab, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    yk2 = yk - 0.24
+    ax.plot([XC + 0.10] * 2, [yk2 - 0.055, yk2 + 0.055], color=S.INK, lw=1.0, solid_capstyle="butt")
+    ax.text(XC + 0.24, yk2, "what the job needs (task library)", ha="left", va="center", fontsize=S.LABEL_PT,
             color=S.INK2)
-    panel_legs(ax, E, V, XC, W - 0.01, yk2 - 0.10, 0.35)
+    panel_legs(ax, E, V, XC, W - 0.01, yk2 - 0.09, 0.33)
     S.save(fig, out)
     return E, V, srcs, counts
 
 
 def probe_arrows(ax, E, to_in):
-    """The v2 twists drawn on the render, in its ground plane: surge along the body's right side, sway along its
-    rear, yaw as an arc around its left side (the render's empty corner). Cell coordinates (i forward, j left)
-    are mapped to inches through the projected module centres."""
+    """The test drive drawn on the render, in its ground plane: a forward/back and a sideways double arrow crossing
+    on the rear half of the body, and a turn arc around its right side (the render's empty corner). Cell
+    coordinates (i forward, j left) are mapped to inches through the projected module centres."""
     cells = [tuple(c) for c in E["parent_cells"]]
     m = {cells[k]: to_in(f"module{k}") for k in range(len(cells))}
     imax, jmax = max(c[0] for c in cells), max(c[1] for c in cells)
@@ -375,20 +401,18 @@ def probe_arrows(ax, E, to_in):
     df = (m[(imax, 0)] - o) / imax
     dl = (m[(0, jmax)] - o) / jmax
     P = lambda i, j: o + i * df + j * dl
-    kw = dict(arrowstyle="<|-|>,head_length=3.0,head_width=1.7", mutation_scale=1, lw=1.1, color=S.BLUE,
-              shrinkA=0, shrinkB=0, zorder=6, path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
-    ax.add_patch(FancyArrowPatch(tuple(P(0.2, -0.8)), tuple(P(imax - 0.2, -0.8)), **kw))       # surge
-    ax.add_patch(FancyArrowPatch(tuple(P(-0.8, -0.1)), tuple(P(-0.8, jmax + 0.1)), **kw))      # sway
-    ci, cj = imax / 2, jmax / 2
-    ph = np.radians(np.linspace(15, 120, 80))
-    pts = np.array([P(ci + (imax / 2 + 0.75) * np.cos(a), cj + (jmax / 2 + 0.85) * np.sin(a)) for a in ph])
-    ax.plot(pts[:-2, 0], pts[:-2, 1], color=S.BLUE, lw=1.1, zorder=6,
-            path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
+    halo = [pe.withStroke(linewidth=3.0, foreground=S.SURFACE)]
+    kw = dict(arrowstyle="<|-|>,head_length=3.2,head_width=1.8", mutation_scale=1, lw=1.2, color=S.BLUE,
+              shrinkA=0, shrinkB=0, zorder=6, path_effects=halo)
+    ci, cj = 0.5, jmax / 2                               # rear half: clear of the faulted wheel
+    ax.add_patch(FancyArrowPatch(tuple(P(ci - 0.55, cj)), tuple(P(ci + 0.55, cj)), **kw))    # forward / back
+    ax.add_patch(FancyArrowPatch(tuple(P(ci, cj - 0.55)), tuple(P(ci, cj + 0.55)), **kw))    # sideways
+    gi, gj = imax / 2, jmax / 2
+    ph = np.radians(np.linspace(200, 325, 80))
+    pts = np.array([P(gi + (imax / 2 + 0.75) * np.cos(a), gj + (jmax / 2 + 0.85) * np.sin(a)) for a in ph])
+    ax.plot(pts[:-2, 0], pts[:-2, 1], color=S.BLUE, lw=1.2, zorder=6, path_effects=halo)
     ax.add_patch(FancyArrowPatch(tuple(pts[-4]), tuple(pts[-1]), **{**kw, "arrowstyle":
-                                                                   "-|>,head_length=3.0,head_width=1.7"}))
-    for (i, j), t in (((ci - 0.3, -1.25), "surge"), ((-1.25, cj + 0.4), "sway"), ((ci + 1.0, jmax + 1.35), "yaw")):
-        x, y = P(i, j)
-        ax.text(x, y, t, ha="center", va="center", fontsize=S.LABEL_PT, color=S.BLUE, zorder=7)
+                                                                   "-|>,head_length=3.2,head_width=1.8"}))
 
 
 def run(res, paper):

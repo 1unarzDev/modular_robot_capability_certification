@@ -60,6 +60,10 @@ def run(res, paper):
             r"Method & Episodes & CF & $E_{\mathrm{dec}}$ & $E_{\mathrm{unsafe}}$ & CF & $E_{\mathrm{dec}}$ & CF & $E_{\mathrm{dec}}$ & CF & $E_{\mathrm{dec}}$\\\midrule" "\n"
             + "\n".join(rows) + "\n" r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_main.tex", body, src, "confirmatory run 1 (77fc39b); percentages")
+    plain = (body.replace(r"\multicolumn{3}{c}{Stratum}", r"\multicolumn{3}{c}{Hard cases}")
+             .replace(r"\multicolumn{2}{c}{Stratum}", r"\multicolumn{2}{c}{Hard cases}")
+             .replace(r"\multicolumn{2}{c}{Lone faulted}", r"\multicolumn{2}{c}{Faulty module alone}"))
+    C.write_table(paper / "tables/tc_main_plain.tex", plain, src, "IEEE wording; same numbers as tc_main.tex")
 
     # ---- merge
     def vb(claim, bar, metric=None, plant=None):

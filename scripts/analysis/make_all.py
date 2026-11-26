@@ -27,11 +27,13 @@ import t4_probing
 import tc_tables
 import expl_numbers
 import f2_provenance
+import f2_concept
 import fig_own_bound
 import fig_silent
 
 SCRIPTS = (conf_numbers, stageA_numbers, t1_certificate, t2_heldout, t3_grid, t4_probing, merge_table, f1_ambiguity, f2_diversity,
-           f3_throughput, f4_gate, fig_teaser, fig_pipeline, tc_tables, expl_numbers, f2_provenance, fig_own_bound, fig_silent)
+           f3_throughput, f4_gate, fig_teaser, fig_pipeline, tc_tables, expl_numbers, f2_provenance, fig_own_bound, fig_silent,
+           f2_concept)
 
 
 def main(argv=None):

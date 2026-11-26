@@ -17,7 +17,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 import common as C
 import figstyle as S
 
-W, H = S.W2, 1.2
+W, H = S.W2, 1.42          # numbered plain-language headings (owner request)
 LEARN_FILL = "#e3edf9"
 FILL = dict(learned=LEARN_FILL, physics=S.TINT, calib=S.SURFACE, data=S.SURFACE, out=S.SURFACE)
 EDGE = dict(learned=S.BLUE, physics=S.INK2, calib=S.BLUE, data=S.GREY, out=S.INK2)
@@ -25,19 +25,17 @@ TAG = dict(learned="learned (trained once)", physics="physics (simulator T1)", c
            data="data", out="")
 
 
-def box(ax, x, y, w, h, kind, title, lines, tag=None, ls="-", top_pad=0.045, line_y=0.205):
+def box(ax, x, y, w, h, kind, title, lines, tag=None, ls="-", top_pad=0.045):
+    """Box with a bold (possibly multi-line) plain-language heading and grey body lines below it."""
     ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=f"round,pad=0,rounding_size={S.BOX_ROUND}", lw=S.LW_BOX,
                                 ec=EDGE[kind], fc=FILL[kind], ls=ls, zorder=2))
+    nt = title.count("\n") + 1 if title else 0
     if title:
         ax.text(x + w / 2, y + h - top_pad, title, ha="center", va="top", fontsize=7.5, fontweight="bold",
-                color=S.INK, zorder=3)
+                color=S.INK, zorder=3, linespacing=1.1)
     if lines:
-        ax.text(x + w / 2, y + h - line_y, "\n".join(lines), ha="center", va="top", fontsize=S.LABEL_PT,
-                color=S.INK2, linespacing=1.3, zorder=3)
-    t = TAG[kind] if tag is None else tag
-    if t:
-        ax.text(x + 0.03, y + h + 0.022, t, ha="left", va="bottom", fontsize=S.LABEL_PT, style="italic",
-                color=S.BLUE if kind in ("learned", "calib") else S.INK2)
+        ax.text(x + w / 2, y + h - top_pad - nt * 0.128 - 0.04, "\n".join(lines), ha="center", va="top",
+                fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.2, zorder=3)
     return (x, y, w, h)
 
 
@@ -65,64 +63,64 @@ def draw(path):
     ax = fig.add_axes((0, 0, 1, 1))
     ax.set_xlim(0, W), ax.set_ylim(0, H)
     ax.axis("off")
-    y0, h = 0.33, 0.52
-    gap = 0.20
+    y0, h = 0.36, 0.80
+    gap = 0.14
     specs = [
-        (0.92, "data", "Probe $y$", ["12-s v2 twists:", "duty, speed, IMU"]),
-        (1.16, "learned", "Amortized posterior", [r"$q(\theta\mid y)$ over each", "module's faults, motors"]),
-        (1.34, "physics", "Compose every body", [r"each $B\in\mathcal{M}(m)$, 10 legs,",
-                                                 r"16 draws $\to$ estimate $\hat\rho$, scale $\sigma$"]),
-        (1.30, "calib", "One simultaneous margin", [r"bound $\ell=\hat\rho-\hat q\,\sigma$",
-                                                    r"$\hat q$ from episodes' worst error"]),
+        (0.92, "data", "Today's robot:\n12-s test drive", ["wheel commands,", "wheel speeds,", "motion sensor"]),
+        (1.36, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
+         ["faults, friction, motor", "strength, from the drive"]),
+        (1.42, "physics", "2 Build each candidate\nbody in the simulator\n(physics)",
+         ["every split and merge, 10", r"directions $\to$ estimate $\hat\rho$, spread $\sigma$"]),
+        (1.28, "calib", "3 Add one calibrated\nsafety margin",
+         [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: worst error over", "past episodes"]),
     ]
     B = []
     x = 0.01
     for w, kind, title, lines in specs:
         B.append(box(ax, x, y0, w, h, kind, title, lines))
         x += w + gap
-    # verdict box: three outcomes, one per line
+    # verdict box: three outcomes, one per line; "test first" last so the loop leaves from its row
     vw = W - 0.01 - x
-    B.append(box(ax, x, y0, vw, h, "out", "", [], tag="per job \u03c4"))
+    B.append(box(ax, x, y0, vw, h, "out", "4 Verdict per\nbody and job", []))
     rows = (("certify", S.BLUE, "certify", r"$\ell\geq\tau$"),
             ("refuse", S.INK2, "refuse", r"$\hat\rho<\tau$"),
-            ("probe", S.BLUE, "probe first", r"$\hat\rho\geq\tau>\ell$"))
-    for k, (g, col, word, cond) in enumerate(rows):
-        yy = y0 + h - 0.10 - k * 0.155
+            ("probe", S.BLUE, "test first", r"$\hat\rho\geq\tau>\ell$"))
+    ys = [y0 + h - 0.36 - k * 0.14 for k in range(3)]
+    for (g, col, word, cond), yy in zip(rows, ys):
         mark(ax, x + 0.06, yy, g)
         ax.text(x + 0.20, yy, word, ha="left", va="center", fontsize=S.LABEL_PT, color=col, zorder=3)
         ax.text(x + vw - 0.05, yy, cond, ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK2, zorder=3)
     # chain arrows (one meaning: data flow)
     for (ax0, ay, aw, ah), (bx, by, bw, bh) in zip(B[:-1], B[1:]):
         arrow(ax, (ax0 + aw, ay + ah / 2), (bx, by + bh / 2))
-    # merges: the other team's posterior enters composition from below
-    px, _, pw, _ = B[1]
+    # merges: the other team's estimate enters the simulator step from below
+    px = B[1][0]
     cx, cy, cw, _ = B[2]
-    ow, oh, oy = 1.16, 0.18, 0.105
-    box(ax, px, oy, ow, oh, "learned", "", [], tag="")
-    ax.text(px + ow / 2, oy + oh / 2, "other team's posterior", ha="center", va="center", fontsize=S.LABEL_PT,
+    ow, oh, oy = B[1][2], 0.18, 0.12
+    box(ax, px, oy, ow, oh, "learned", "", [])
+    ax.text(px + ow / 2, oy + oh / 2, "other team's estimate", ha="center", va="center", fontsize=S.LABEL_PT,
             color=S.INK, zorder=3)
     xm = cx + 0.22
     ax.plot([px + ow, xm], [oy + oh / 2] * 2, color=S.INK2, lw=0.8, ls=(0, (2.5, 1.5)), zorder=1)
     arrow(ax, (xm, oy + oh / 2), (xm, cy), ls=(0, (2.5, 1.5)))
-    ax.text(xm + 0.05, oy + oh / 2 + 0.03, "merges", ha="left", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
-    # decision-EVOI loop: from "? probe first" back to the probe, along the bottom (below the merge box)
-    vx = x + 0.095                                       # under the '?' of "probe first" (bottom row)
-    yl = 0.03
+    ax.text(xm + 0.05, oy + oh / 2 + 0.02, "for merges", ha="left", va="bottom", fontsize=S.LABEL_PT,
+            color=S.INK2)
+    # test-first loop (decision-EVOI, exploratory): from the "test first" row back into the test drive
+    vx = x + 0.095
+    yl = 0.035
     bx0 = B[0][0] + B[0][2] / 2
-    yq = y0 + h - 0.10 - 2 * 0.155                       # the "probe first" row (last of `rows`)
-    ax.plot([vx, vx, bx0], [yq - 0.055, yl, yl], color=S.BLUE, lw=0.8, zorder=4, solid_joinstyle="miter")
-    ax.plot([vx], [yq - 0.055], "o", ms=2.0, color=S.BLUE, zorder=4)
+    ax.plot([vx, vx, bx0], [ys[2] - 0.055, yl, yl], color=S.BLUE, lw=0.8, zorder=4, solid_joinstyle="miter")
+    ax.plot([vx], [ys[2] - 0.055], "o", ms=2.0, color=S.BLUE, zorder=4)
     arrow(ax, (bx0, yl), (bx0, y0), color=S.BLUE)
-    ax.text(vx - 0.06, yl + 0.025, "decision value (EVOI), exploratory: probe again only where it pays",
-            ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)
-    # the one guarantee: a bracket over the calibrated chain (posterior -> margin)
+    ax.text(vx - 0.06, yl + 0.025, "test first, if worth the time (exploratory)", ha="right", va="bottom",
+            fontsize=S.LABEL_PT, color=S.BLUE)
+    # the one guarantee: a bracket over the calibrated chain (steps 1-3)
     gx0, gx1 = B[1][0], B[3][0] + B[3][2]
-    yb = y0 + h + 0.205
+    yb = y0 + h + 0.10
     ax.plot([gx0, gx0, gx1, gx1], [yb - 0.035, yb, yb, yb - 0.035], color=S.INK, lw=0.6)
     ax.text((gx0 + gx1) / 2, yb + 0.012,
-            r"calibrated end to end on whole episodes:  Pr(some bound $\ell$ of the episode is above the true "
-            r"$\rho$) $\leq\alpha$", ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK,
-            bbox=dict(fc=S.SURFACE, ec="none", pad=0.6))
+            r"calibrated end to end on whole episodes:  P(any unsafe commitment in the episode) $\leq\alpha$",
+            ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK, bbox=dict(fc=S.SURFACE, ec="none", pad=0.6))
     S.save(fig, path)
 
 

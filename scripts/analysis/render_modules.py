@@ -219,7 +219,7 @@ bpy.ops.render.render(write_still=True)
 # camera projection of the faulted wheel(s) and module centres -> sidecar JSON for the figure's leaders
 from bpy_extras.object_utils import world_to_camera_view  # noqa: E402
 proj = {}
-for i in sorted(fault_wheels):
+for i in range(len(A["wheel_pos"])):          # every wheel (leaders in Fig. 1a)
     v = world_to_camera_view(sc, cam, Vector((*A["wheel_pos"][i], R)))
     proj[f"wheel{i}"] = [v[0], v[1]]
 for k, (x, y) in enumerate(A["module_pos"]):

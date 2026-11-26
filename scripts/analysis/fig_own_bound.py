@@ -39,7 +39,8 @@ METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
            ("Copy parent", "copy_parent", S.GREY, "s", 3.8),
            ("Shape metadata", "metadata_nf", S.GREY, "o", 6.0))     # hollow ring around Copy parent at (0, 0)
 SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
-BLOCKS = (("stratum", "stratum", "Stratum"), ("lone-faulted", "lone", "Lone"), ("merge", "merge", "Merges"))
+BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "A faulty module alone"),
+          ("merge", "merge", "Merged bodies"))
 # Direct labels per block. ("off", dx, dy, ha[, lines]): offset in points from the marker, no leader.
 # ("at", x_rate, y_pct, ha[, lines]): text placed in data coordinates with a 0.4 pt leader to the marker.
 # lines: 2 or 3 line layout of the Ours/CapXfer number label (default Ours 1, CapXfer 3).
@@ -177,11 +178,11 @@ def run(res, paper):
         if i:
             ax.tick_params(labelleft=False)
         else:
-            ax.set_ylabel("certified share of capable (%)", labelpad=1.5)
+            ax.set_ylabel("certified (% of capable decisions)", labelpad=1.5)
         o, c = P["amortized_comp", blk], P["capxfer", blk]
-        verdict = "safer" if o["ed"] < c["ed"] else "not safer"
-        S.panel(ax, f"({'abc'[i]}) {short}: {100 * (o['cf'] - c['cf']):+.0f} pts, {verdict}",
-                x=-0.12 if i == 0 else None)
+        if blk == "stratum":       # plain-language finding; asserted so the words cannot drift from the data
+            assert o["cf"] > c["cf"] and o["ed"] < c["ed"], "fig4(a) title no longer true"
+        S.panel(ax, f"({'abc'[i]}) {short}", x=-0.12 if i == 0 else None)
         g, mm = P["ghat_physics", blk], P["min_over_members", blk]
         same = abs(g["cf"] - mm["cf"]) < 0.005 and abs(g["ed"] - mm["ed"]) < 5e-4   # lone modules: one member
         for name, code, col, mk, ms in METHODS[::-1]:
@@ -224,7 +225,7 @@ def run(res, paper):
                 ax.annotate(txt, (x, y), xytext=(spec[1], spec[2]), textcoords="data", ha=spec[3],
                             arrowprops=lk, **kw)
         if i == 1:
-            ax.set_xlabel("unsafe commits at the method's own bound (%, log scale)", labelpad=1.5)
+            ax.set_xlabel("unsafe commitments (% of incapable decisions, log scale)", labelpad=1.5)
     axs[0].annotate("better", xy=(X0 * 1.1, 80), xytext=(0.0006, 52), textcoords="data", fontsize=S.LABEL_PT,
                     color=S.INK2, ha="center", va="center",
                     arrowprops=dict(arrowstyle="-|>", lw=0.5, color=S.INK2, shrinkA=2, shrinkB=S.ARROW_SHRINK,
@@ -263,7 +264,7 @@ def run(res, paper):
         N.num(f"fig4.merge.entries.{plant.lower()}", len(g), "results/" + MERGE, SD)
         N.pct(f"fig4.merge.missrate.{plant.lower()}", nm / len(g), "results/" + MERGE, SD, d=2)
         N.num(f"fig4.merge.pairs.{plant.lower()}", g.groupby(["arm", "eid"]).ngroups, "results/" + MERGE, SD)
-    S.panel(axd[0], "(d) Never-docked: bound under truth", x=-0.27)
+    S.panel(axd[0], "(d) Never-docked merges: bound below truth", x=-0.72)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros
