@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 00:55Z) conf3 (vram 12) could not lease beside the eval2 jobs, so it is resubmitted as **cfcap-baselines-conf4** with vram 6, based on your 1.3 GB peak; everything else is unchanged. Export from `cfcap-baselines-conf4.*` (the conf3 canary is the only conf3 output).
+
+
 OPS: (ops, 00:45Z) cfcap-baselines-conf3 is submitted at a8dba51 (conf-cal p1, conf-main p2, conf-het p3, conf-scale p4). It runs on rented boxes only, because the capxfer_v2 input is not pushed to free workers.
 
 
