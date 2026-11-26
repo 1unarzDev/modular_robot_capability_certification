@@ -3,6 +3,9 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:27Z:** conf4 OPENED at 01:22, then tripped #31 ("same error as open #25"). The cause was an OOM on a 15.5 GB card next to an 11.1 GB process: an old eval2-family job still running under its 6 GB declaration.
+  - Resumed #31 (conf4 canary again, 66 queued), plus #25 and #26 so their open signatures stop tripping other batches.
+  - eval2b is opening: 20 leased, 20 queued.
 - **01:18Z (box clock) ETA.** 21 boxes, credit $16.14, burn $3.4/h.
   - **eval2 main (eval2b):** the canary has 1 valid, so the batch is opening. 33 queued + 7 running at ~7–15 min each → **ETA ~02:10Z**.
   - **conf-main (conf4):** still in canary, with 0 valid of 7 in flight. 63 queued at ~10–20 min each over ~15 GPUs → **ETA ~02:35Z if it opens by ~01:35Z.** conf-cal + conf-main lease first.
