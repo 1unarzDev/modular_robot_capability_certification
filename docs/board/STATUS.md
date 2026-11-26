@@ -3,6 +3,10 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:02Z: OOM cascade.** #26 eval2h, and #27–#29 (nuis3, nuis2, decide2, the leftovers of cut campaigns) tripped with the same co-location OOM.
+  - The eval2h remainder (10 queued + 2 dead) is resubmitted at **vram 12** as **cfcap-models-eval2hb** (priority 1).
+  - #27–#29 stay closed, because those campaigns are cut for the window.
+  - Only these remain: eval2b (46), eval2hb (12), conf4 (85; canary re-validating), conf-gate (21 queued; CPU).
 - **01:00Z (box clock): #24 conf4 and #25 eval2 tripped on CUDA OOM from co-location.**
   - On 16–20 GB cards, eval2 conf-env jobs held ~9.4 GB each against a declared 6 GB, so conf4 jobs (~3.5 GB, declared 6) and other eval2 jobs ran out of memory beside them.
   - Fix: the 46 queued eval2 jobs are resubmitted unchanged except **vram 12**, as **cfcap-models-eval2b** (priority 1, same lineage, so it opens at once).
