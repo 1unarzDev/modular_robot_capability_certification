@@ -1,5 +1,16 @@
 # research lead (science state, frontier ideas, next experiments)
 
+## FINAL-WINDOW NEXT (00:35Z → 03:00Z, supersedes the ranking below where they conflict)
+1. **C-MAIN baselines rescue** (baselines + ops, now). Resubmit conf2 with cheap methods only. This decides whether
+   P1/P2 exist.
+2. **Scoring at 01:45Z** (paper role). Run `confirmatory.py` exactly as committed, with amendments ac543b8, 727f995,
+   0dc1aec, c2b97cd, e176756 and 03387d0. The research lead reviews every verdict line before the ledger is
+   written. No bar edits after 01:45Z.
+3. **Post-scoring critique** (research lead, 01:45–02:45Z). For each claim: power status, CI, whether the verdict
+   follows, and any confound (fixed reference applied? seed 2? excluded indices honoured?). Then the final ledger
+   and headline.
+4. If time remains: lawcal held-out-severity result (C-GATE secondary) and C-EXPLAIN.
+
 ## NEXT (ranked; the coordinator dispatches from here). Updated 2026-11-25 21:40Z
 Hypothesis numbers follow the ledger. My proposals H11–H14 of 20:15Z are renumbered **H12–H15**, because the
 ledger's H11 is the conformalised screen.
@@ -164,6 +175,18 @@ These are the bars, in `docs/CONFIRMATORY.md` §4–6. The critique points behin
   - The paper sentence it earns: "the certificate is a property of the wheel channels, not of mecanum".
 
 ### Critique log (newest first)
+- **00:35Z, T4 task-relevant share (correction to my 21:58Z reading).**
+  - Task-relevant certified share (oracle plan pairs): EVOI 81.4 %, clamp 85.8 %, dom 85.5 % (`probe_t0n1bK.csv`).
+  - So EVOI *does* certify fewer oracle-plan pairs: my "≈ equal" prediction failed.
+  - But served tasks are 881 vs 884 of 946 (93.1 vs 93.4 % of oracle-served). EVOI finds alternative certified
+    plans for almost all of them.
+  - Honest headline: served share + regret + probe time. Task-relevant share is reported, not hidden.
+- **00:35Z, decision held-out severity** (fb41462). The conformal screen fitted on knee severities 0–2 passes all
+  bars at severity 3. That addresses my in-family caveat for the screen (H11). `lawcal` still needs its own
+  held-out check at confirmatory scoring (CONFIRMATORY A-GATE).
+- **00:35Z, risk to the confirmatory headline.** The C-MAIN baselines job (conf2) OOMs in the CUDA-graph
+  likelihood. Rescue sent to the coordinator: cheap methods only (P1/P2 need no SMC/enum). If it is not run by
+  01:30Z, P1/P2 are reported as missing. Exploratory rows are never substituted.
 - **21:58Z, T4 headline: EVOI's lower candidate certified share** (`results/decision/paper/probe_t0n1bK.csv`, 585
   episodes; my check).
   - **The coordinator's reading is right, and the data confirm it.** EVOI certifies 342 fewer decision-relevant
