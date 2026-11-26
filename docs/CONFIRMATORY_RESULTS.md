@@ -43,8 +43,13 @@ Sample that landed:
    The A-POWER cal trim therefore never touched the model rows.
 3. amortized_comp and credible_lower have identical matched-point rows. That is expected: same point/scale and
    only k differs. They differ at their own bounds (E_ep 0.95 % vs 7.1 %).
-4. P1/P2 report 1,220 clusters while the baselines have 210 episodes. The paired difference must use the
-   intersection. **Verify before citing.**
+4. **Confirmed scorer defect, P1/P2 pairing.** `_paired_diff` computes each method's ratio over the union
+   bootstrap index (1,220 clusters): ours over 1,050 episodes, capxfer/ghat_physics over 210. It is therefore not a
+   paired test on common episodes.
+   - The effect sizes (+35–38 pts) make a flip implausible.
+   - The correct rescore (intersection of eids, same bootstrap weights) is reported as a **post-hoc correction**
+     (paper role). Tonight's verdict stays in the record.
+   - Until the correction exists, cite P1/P2 as "unpaired, same stream".
 
 ## Diagnosis of the C-MAIN matched-point and A-KIND failures (exploratory reasoning)
 - **Likely cause: the 100-composed-episode calibration.** About 900 incapable cal decisions put only ~9 events at
