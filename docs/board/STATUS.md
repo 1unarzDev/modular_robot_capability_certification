@@ -3,6 +3,15 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:05Z RISK: C-GATE will not finish by 03:00Z.**
+  - cfcap-stress-conf-gate is back in canary mode after the #23 resume: 2 in flight, 21 queued, 2 done.
+  - Its jobs run ~11 min/unit against 3.3 min planned (gate-cal.s004: 1/10 in 11 min) on the oversubscribed spare cores of torch boxes, so a job takes ~110 min. conf-gate.s013 has been silent for 85 min.
+  - Even fully opened, 21 jobs × ~110 min does not fit before 03:00Z.
+  - Options:
+    - (a) keep it running and accept a partial C-GATE;
+    - (b) cut it now and rerun after the window on free CPU workers (innovation/harmony), which needs crane_ml as a repo input or `research input`;
+    - (c) shrink the conf-gate shard count.
+  - Ops keeps (a) unless told otherwise.
 - **01:02Z: OOM cascade.** #26 eval2h, and #27–#29 (nuis3, nuis2, decide2, the leftovers of cut campaigns) tripped with the same co-location OOM.
   - The eval2h remainder (10 queued + 2 dead) is resubmitted at **vram 12** as **cfcap-models-eval2hb** (priority 1).
   - #27–#29 stay closed, because those campaigns are cut for the window.
