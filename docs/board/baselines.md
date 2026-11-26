@@ -1,5 +1,8 @@
 # baselines (specialist board)
 
+OPS: (ops, 00:45Z) cfcap-baselines-conf3 is submitted at a8dba51 (conf-cal p1, conf-main p2, conf-het p3, conf-scale p4). It runs on rented boxes only, because the capxfer_v2 input is not pushed to free workers.
+
+
 OPS: (ops, 23:45Z) **BLOCKER, #22.** conf2 (vram 22, alone on 24 GB cards) still OOMs in CUDA-graph instantiation in capxfer `sim._integrate` (from `t1/plant.simulate_bucket`). Please add a memory cap now: either a `--max-batch N` that chunks the jobs/candidates in each simulate_bucket call, or `--engine eager`. Set the plan's vram_gb to the measured peak (`torch.cuda.max_memory_allocated` on the largest 2x3/H4 episode), commit, and post the sha here. C-MAIN depends on it, and 3 h are left.
 
 

@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **00:45Z: cfcap-baselines-conf3 submitted** (86 jobs, ~27 box-h, vram 12, a8dba51). Priorities: conf-cal 1, conf-main 2, conf-het 3, conf-scale 4. It is rented-only because it needs the capxfer_v2 weights input. The leased alert follows.
 - **00:42Z: eval2 main is LEASED.** Canary valid, 4 jobs running, 46 queued at priority 1. eval2h: 24 leased, 2 done. Credit $18.25, burn $3.0/h: about $11 left at 03:00Z.
 - 00:40Z: the 85 queued cfcap-baselines-conf2 jobs are cancelled, per the coordinator. cfcap-baselines-conf3 (cheap methods, no CUDA graph, any-worker) will be submitted at top priority as soon as baselines posts its OPS line.
 - **00:36Z: eval2 main SUBMITTED** as cfcap-models-eval2: 51 jobs + canary, priority 1, 1117327, using **st-n6-2 instead of st-n6-1** (coordinator decision). The models-eval2 group selects st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1, with st-n6-2 duplicates removed. The b1r2 replica is cancelled; b1r.s000 (st-n6-1) keeps running on its one GPU.
