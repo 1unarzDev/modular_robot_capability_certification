@@ -55,10 +55,14 @@ def main(runs, mock=False):
         w = csv.DictWriter(fh, fieldnames=list(COLS))
         w.writeheader()
         # confirmatory rows
+        seen = set()
         for d in runs:
             for f in sorted(glob.glob(os.path.join(d, "**/units/merge-*.npz"), recursive=True)):
                 if f.endswith("-spare.npz"):
                     continue                                      # shard 0 timing spare: exploratory, never scored
+                if pathlib.Path(f).name in seen:
+                    continue                                      # the same unit pulled from a resumed job twice
+                seen.add(pathlib.Path(f).name)
                 shard = int(json.loads((pathlib.Path(f).parents[1] / "manifest.json").read_text())["shard"])
                 z = np.load(f)
                 for i in range(len(z["pair"])):

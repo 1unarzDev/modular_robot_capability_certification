@@ -31,11 +31,14 @@ PKEY = {"v2": "v2", "v2+clamp": "v2clamp"}
 
 
 def _load(runs, spare=False):
-    parts = []
+    parts, seen = [], set()
     for d in runs:
         for f in sorted(glob.glob(os.path.join(d, "**/units/gate-*.npz"), recursive=True)):
             if f.endswith("-spare.npz") and not spare:
                 continue
+            if pathlib.Path(f).name in seen:
+                continue                                          # the same unit pulled from a resumed job twice
+            seen.add(pathlib.Path(f).name)
             z = dict(np.load(f))
             man = pathlib.Path(f).parents[1] / "manifest.json"
             z["shard"] = np.full(len(z["leg"]), json.loads(man.read_text()).get("shard", -1) if man.exists() else -1)
