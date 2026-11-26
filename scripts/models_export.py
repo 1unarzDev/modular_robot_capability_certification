@@ -213,7 +213,7 @@ CLAIM_OF = {"conf_test": "C-MAIN", "conf_H4": "C-SCALE", "conf_H4b": "C-SCALE", 
 CAL_OF = {"C-MAIN": "cal", "C-SCALE": "cal", "C-HET": "het_cal"}
 # (claim, method) -> (model tag, quantile column prefix: "" direct, "c" compositional, "b" type-blind compositional)
 CONF_METHODS = {
-    ("C-MAIN", "amortized_comp"): ("st-n6-2", "c"),
+    ("C-MAIN", "amortized_comp"): ("st-n6-2", "c"), ("C-MAIN", "credible_lower"): ("st-n6-2", "c"),
     ("C-SCALE", "amortized_comp"): ("st-n6-2", "c"), ("C-SCALE", "st_direct"): ("st-n6-2", ""),
     ("C-SCALE", "blackbox_gnn"): ("bb-n6-1", ""),
     ("C-HET", "amortized_comp"): ("sth-het-1", "c"), ("C-HET", "amortized_comp_blind"): ("sth-het-1", "b"),
@@ -257,6 +257,7 @@ def confirmatory_wheels(roots, out_path, model=CONF_MODEL):
     o = np.lexsort((out["ep_wheel"], out["eid"]))
     out = {k: v[o] for k, v in out.items()}
     pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    out["model_tag"] = np.full(len(out["eid"]), model)
     np.savez_compressed(out_path, classes=np.array(["ok", "weak", "coast", "brake"]), model=np.array(model), **out)
     return out_path
 
@@ -285,8 +286,12 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None):
         if not np.isfinite(fn(cal)[0]).any():
             continue
         evs = [("cal", cal)] + tests
-        sim_lo, q = lowers(cal, [df for _, df in evs], fn, "simultaneous")
-        mar_lo, _ = lowers(cal, [df for _, df in evs], fn, "marginal")
+        if method == "credible_lower":      # Bayes q05 of the compositional posterior samples (no conformal layer)
+            sim_lo = mar_lo = [df[pre + "q05"].to_numpy(float) for _, df in evs]
+            q = 0.0
+        else:
+            sim_lo, q = lowers(cal, [df for _, df in evs], fn, "simultaneous")
+            mar_lo, _ = lowers(cal, [df for _, df in evs], fn, "marginal")
         secs = (lambda split, df: df.sec_comp.to_numpy()) if pre else (lambda split, df: df.sec_direct.to_numpy())
         for (split, df), lo, lm in zip(evs, sim_lo, mar_lo):
             p_, s_ = fn(df)
@@ -294,9 +299,10 @@ def confirmatory_rows(e2, now=None, allow_early=False, methods=None):
             d = df[keep]
             st = "exploratory" if split == "cal" else "confirmatory"
             out.append(pd.DataFrame(dict(
-                claim=claim, method=method, variant=f"{tag}:{'comp' if pre == 'c' else 'comp_blind' if pre == 'b' else 'direct'}"
+                claim=claim, method=method, model_tag=tag, variant=f"{tag}:{'comp' if pre == 'c' else 'comp_blind' if pre == 'b' else 'direct'}"
                                                     f"+simultaneous(q={q:.3f})",
-                route="compositional" if pre else "simultaneous", posterior="amortized", train="T1", test_plant="T1",
+                route=("none" if method == "credible_lower" else "compositional" if pre else "simultaneous"),
+                posterior="amortized", train="T1", test_plant="T1",
                 split=split, status=st, eid=d.eid.to_numpy(), shard=d["shard"].to_numpy() if "shard" in d else -1,
                 shape=[shape_name(t, n) for t, n in zip(d.parent_topo, d.parent_n)], parent_n=d.parent_n.to_numpy(),
                 family=d.cand_family.to_numpy(), cand=d.cand.to_numpy(), kind=d.kind.map(KIND).to_numpy(),
@@ -359,7 +365,7 @@ def q_envcal(env, truth):
     return float(core.split_quantile(sc, ALPHA)), len(sc)
 
 
-def env_lowers(env, q_comp, out_dir, conf, q_env=None):
+def env_lowers(env, q_comp, out_dir, conf, q_env=None, model_tag="st-n6-2"):
     """Per-row bounds for scripts/env_score.py --lower NAME=PATH (columns family, mission, cand, seg, lower):
       raw                    plug-in posterior median (q = 0): a point, NOT a bound (bound_kind plugin_median)
       amortized_comp         q50 - q_comp * max(q50 - q05, 0.01), q_comp the T1-cal simultaneous compositional
@@ -375,13 +381,15 @@ def env_lowers(env, q_comp, out_dir, conf, q_env=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     keep = ["family", "mission", "building", "cand", "seg", "leg", "cond", "shard"]
     sc = np.maximum(d.q50 - d.q05, ENV_FLOOR)
-    meths = [("raw", d.q50, "plugin_median"), ("amortized_comp", d.q50 - q_comp * sc, f"bound_q_comp={q_comp:.4f}")]
+    meths = [("raw", d.q50, "plugin_median"), ("amortized_comp", d.q50 - q_comp * sc, f"bound_q_comp={q_comp:.4f}"),
+             ("credible_lower", d.q05, "posterior_q05")]
     if q_env is not None:
         meths.append(("amortized_comp_envcal", d.q50 - q_env * sc, f"bound_q_env={q_env:.4f}"))
     files = []
     for name, lo, kind in meths:
         f = out_dir / f"{'env_conf' if conf else 'env'}_lower_{name}.csv.gz"
         d[keep].assign(lower=np.where(np.isfinite(lo), lo, -np.inf), point=d.q50, scale=sc, method=name,
+                       model_tag=model_tag,
                        bound_kind=kind, status="confirmatory" if conf else "exploratory").to_csv(f, index=False)
         files.append(f)
     return files
@@ -517,7 +525,7 @@ def main():
         if rows:
             pd.concat(rows).to_csv(f, index=False)
         print(f"confirmatory rows {sum(len(r) for r in rows)} -> {f}")
-        w = confirmatory_wheels(a.roots, f.parent / "wheels_conf_models.npz")
+        w = confirmatory_wheels(a.roots, f.parent / "wheels_conf_models.npz", model=CONF_MODEL)
         print(f"confirmatory wheels -> {w}")
         sv = confirmatory_rows(e2, allow_early=a.allow_early, methods=SEEDVAR_METHODS)
         if sv:                              # descriptive seed variation (A-SEED): not a dec_* file, never scored
@@ -563,10 +571,12 @@ def main():
                 if q_env is not None:
                     (pathlib.Path(a.calib_out) / f"calib_env_{a.env_model}.json").write_text(
                         json.dumps(dict(alpha=ALPHA, q_env=q_env, n_missions=n_m, floor=ENV_FLOOR), indent=1))
-            fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False, q_env=q_env)
+            fs = env_lowers(env, q_comp, pathlib.Path(a.env_out) / "env", conf=False, q_env=q_env,
+                            model_tag=a.env_model)
             if a.confirmatory:
                 confirmatory_rows({}, allow_early=a.allow_early)          # the 01:45Z guard
-                fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True, q_env=q_env)
+                fs += env_lowers(env, q_comp, pathlib.Path(a.env_out) / "confirmatory", conf=True, q_env=q_env,
+                                 model_tag=a.env_model)
             print("env lower files:", [str(f) for f in fs])
     print(f"dec rows {sum(len(x) for x in dec)}  diversity rows {len(div)}  latency rows {len(lat)}  -> {out}")
 

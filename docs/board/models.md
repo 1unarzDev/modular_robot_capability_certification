@@ -205,6 +205,10 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - st-n6-1, if it lands, is selected and composed but goes only to
     `results/models/confirmatory/seedvar_conf_models.csv.gz` (methods `*_seedvar`). That file is outside the `dec_*`
     glob and never a bar.
+- **model_tag** (scorer f9f3975). Every confirmatory model row carries `model_tag`. This covers dec_conf_models (st-n6-2,
+  bb-n6-1 / het tags, and st-n6-1 in seedvar), the env lower files and the wheels npz (array `model_tag`).
+  - `credible_lower` (the posterior q05 of the compositional samples, route `none`, no conformal layer) is exported
+    for C-MAIN with cal rows, and for C-ENV.
 - **Confirmatory labels stay closed until 2026-11-26 01:45Z.** `models_export.py` and `models_scaling.py` drop
   `conf_*` splits. `models_export.py --confirmatory` refuses to run before then.
   - After 01:45Z it writes `results/models/confirmatory/dec_conf_models.csv.gz` with the §5a columns plus `claim`,

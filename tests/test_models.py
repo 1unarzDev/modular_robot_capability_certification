@@ -334,9 +334,15 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
     assert (c[c.split == "cal"].status == "exploratory").all()
     assert c.variant.str.startswith("st-n6-2").all() or (c.method == "blackbox_gnn").any()
     assert not c.variant.str.startswith("st-n6-1").any()
+    assert c.model_tag.notna().all() and (c[c.method != "blackbox_gnn"].model_tag == "st-n6-2").all()
+    cl = c[(c.method == "credible_lower") & (c.claim == "C-MAIN")]
+    am = c[(c.method == "amortized_comp") & (c.claim == "C-MAIN")]
+    assert len(cl) == len(am) and (cl.route == "none").all() and np.allclose(cl.lower, cl.point - (cl.point - cl.lower))
     sv = pd.read_csv(tmp_path / "seedvar_conf_models.csv.gz")
     assert sv.variant.str.startswith("st-n6-1").all() and sv.method.str.endswith("_seedvar").all()
+    assert (sv.model_tag == "st-n6-1").all()
     w = np.load(tmp_path / "wheels_conf_models.npz")
+    assert (w["model_tag"] == "st-n6-2").all()
     assert w["p"].shape[1] == 4 and w["eid"].min() >= 40 and "mode" not in w.files
     p = pd.read_csv(tmp_path / "p" / "latency_models.csv") if (tmp_path / "p" / "latency_models.csv").exists() else None
 
@@ -368,7 +374,9 @@ def test_env_lower_export(tmp_path):
     raw = pd.read_csv(root / "env_lower_raw.csv.gz")
     assert {"family", "mission", "cand", "seg", "lower"} <= set(comp.columns)
     assert np.allclose(raw.lower, 0.9) and np.allclose(comp.lower, 0.9 - 2.0 * 0.1, atol=1e-5)
-    assert (raw.bound_kind == "plugin_median").all()
+    assert (raw.bound_kind == "plugin_median").all() and (raw.model_tag == "st-n6-2").all()
+    cred = pd.read_csv(root / "env_lower_credible_lower.csv.gz")
+    assert np.allclose(cred.lower, 0.8)
     # envcal: truth rows of the exploratory ID missions -> q_env, a third file
     t = tmp_path / "envrun" / "units"
     t.mkdir(parents=True)
