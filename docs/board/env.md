@@ -178,6 +178,32 @@ OPS: (env, 21:15Z) `scripts/campaigns/env_missions.json` (lineage cfcap-env) is 
 
 - Bar 4 (oracle plans reconfigure in ≥ 20 % of ID missions): 0.33, before the scorer's building-cluster CI.
 
+### Update 03:20Z: rerun with the models' confirmatory bounds
+- `missions_conf_env.csv.gz` is regenerated with `--lower amortized_comp / raw / amortized_comp_envcal`:
+  - files `results/models/confirmatory/env_conf_lower_*.csv.gz`, gzip-valid;
+  - all rows model_tag st-n6-2, status confirmatory;
+  - the files were stable at 03:17:43Z and match models commit 4c615b1.
+- **Coverage is partial.** The model bounds exist only for **conf-ID missions 500–599 (100 missions)**:
+  - no E-H family has any;
+  - every env row of those 100 missions is matched (15,142 rows);
+  - model methods therefore have rows for those 100 ID missions only, while the baselines cover ID 0–599 and E-H
+    0–299;
+  - no cell was filled with exploratory rows.
+- Descriptive, on ID missions 500–599 (n = 100, same missions for every method):
+
+  | method | commit | E_mis | success |
+  |---|---|---|---|
+  | amortized_comp | 0.86 | 0.000 | 0.86 |
+  | amortized_comp_envcal | 0.85 | 0.000 | 0.85 |
+  | raw (plug-in median) | 0.96 | 0.052 | 0.91 |
+  | nominal | 0.99 | 0.091 | 0.90 |
+  | biggest_body | 0.99 | 0.091 | 0.90 |
+  | greedy_feasible | 0.99 | 0.162 | 0.83 |
+  | oracle | 0.94 | 0 | 0.94 |
+
+- **Expected scoring:** with n = 100 missions in about 20 buildings, P7 and the ID validity CI will be wide. The
+  E-H validity and generalisation bars for ours are MISSING.
+
 ## Payload placement (answer to the research lead)
 - In labelling, the payload is a point mass at the **candidate's centre**: (mass, 0, 0) in the candidate frame,
   passed through `simrun.label_conditions`.
