@@ -20,9 +20,10 @@ import json
 import pathlib
 
 import matplotlib.image as mpimg
+import matplotlib.patheffects as pe
 import numpy as np
 import pandas as pd
-from matplotlib.patches import Rectangle
+from matplotlib.patches import FancyArrowPatch, Rectangle
 
 import common as C
 import figstyle as S
@@ -98,7 +99,7 @@ def panel_render(fig, ax, E, box):
                 color=S.ORANGE_TX)
         return
     img = mpimg.imread(RENDER)
-    a = img[..., 3] > 0.02
+    a = img[..., 3] > 0.15                                 # shadow catcher: ignore the faint halo
     r0, r1 = np.flatnonzero(a.any(1))[[0, -1]]
     c0, c1 = np.flatnonzero(a.any(0))[[0, -1]]
     img = img[r0:r1 + 1, c0:c1 + 1]
@@ -107,13 +108,17 @@ def panel_render(fig, ax, E, box):
     iw, ih = w_px * s, h_px * s
     ix, iy = x0 + (bw - iw) / 2, y0 + (bh - ih)          # top-aligned, centred
     iax = fig.add_axes((ix / W, iy / H, iw / W, ih / H))
-    iax.imshow(img, interpolation="lanczos")
+    iax.imshow(img, interpolation="none")       # "none": the PDF embeds the render at its native resolution
     iax.axis("off")
     pj = json.loads(RENDER.with_name(RENDER.stem + "_proj.json").read_text())
     res_x, res_y = pj["res"]
-    u, v = pj["proj"][f"wheel{E['faults'][0]['wheel']}"]
-    px, py = u * res_x - c0, (1 - v) * res_y - r0                     # crop pixels
-    return (ix, iy, iw, ih), (ix + px * s, iy + ih - py * s)          # inches
+
+    def to_in(key):
+        u, v = pj["proj"][key]
+        px, py = u * res_x - c0, (1 - v) * res_y - r0                 # crop pixels
+        return np.array([ix + px * s, iy + ih - py * s])              # inches
+
+    return (ix, iy, iw, ih), to_in
 
 
 # ------------------------------------------------------------------------------------------------- panel (b)
@@ -153,13 +158,16 @@ def body_icon(ax, E, cand, x, y, c, verdict):
 
 
 def mark(ax, x, y, verdict, size=8):
+    """Verdict mark with its left edge at x, centred on y (inches): drawn tick and cross, STIX bold '?'."""
+    e = size / 72 * 0.62                                     # mark height ~ cap height of `size` pt type
     if verdict == "probe":
-        ax.text(x, y, "?", ha="left", va="center", fontsize=size, color=S.BLUE, fontweight="bold", zorder=5)
+        ax.text(x, y, "?", ha="left", va="center", fontsize=size + 1, color=S.BLUE, fontweight="bold", zorder=5)
     elif verdict == "refuse":
-        ax.text(x, y, "✗", ha="left", va="center", fontsize=size - 1, color=S.INK2, zorder=5,
-                fontfamily="DejaVu Sans")
+        for a, b in (((x, y - e / 2), (x + 0.85 * e, y + e / 2)), ((x, y + e / 2), (x + 0.85 * e, y - e / 2))):
+            ax.plot(*zip(a, b), color=S.INK2, lw=1.1, solid_capstyle="round", zorder=5)
     else:
-        ax.text(x, y, r"$\checkmark$", ha="left", va="center", fontsize=size - 0.5, color=S.BLUE, zorder=5)
+        ax.plot([x, x + 0.33 * e, x + e], [y, y - 0.45 * e, y + 0.55 * e], color=S.BLUE, lw=1.2,
+                solid_capstyle="round", solid_joinstyle="round", zorder=5)
 
 
 def dims(E, cand, c):
@@ -168,12 +176,12 @@ def dims(E, cand, c):
     return (max(jj) - min(jj) + 1) * c, (max(ii) - min(ii) + 1) * c
 
 
-def flow(ax, E, V, cands, x0, y_top, width, c, gap=0.05, row_gap=0.055, mark_w=0.075):
+def flow(ax, E, V, cands, x0, y_top, width, c, gap=0.055, row_gap=0.06, mark_w=0.10, tags=None):
     """Lay icons left to right (bottom-aligned per row), wrapping at `width`. Returns the y of the last row bottom."""
     rows, cur, cw = [], [], 0.0
     for k in cands:
         w, h = dims(E, k, c)
-        extra = mark_w if V["body"][k] != "certify" else 0.0
+        extra = (mark_w if V["body"][k] != "certify" else 0.0) + (0.12 if tags and k in tags else 0.0)
         if cur and cw + w + extra > width + 1e-9:
             rows.append(cur)
             cur, cw = [], 0.0
@@ -186,38 +194,42 @@ def flow(ax, E, V, cands, x0, y_top, width, c, gap=0.05, row_gap=0.055, mark_w=0
         x = x0
         for k, w, h, extra in r:
             body_icon(ax, E, k, x, y - rh, c, V["body"][k])
-            if extra:
-                mark(ax, x + w + 0.012, y - rh + h / 2, V["body"][k])
+            if V["body"][k] != "certify":
+                mark(ax, x + w + 0.015, y - rh + h / 2, V["body"][k])
+            if tags and k in tags:
+                ax.text(x + w + mark_w, y - rh + h / 2, tags[k], ha="left", va="center", fontsize=S.LABEL_PT,
+                        color=S.INK, fontweight="bold")
             x += w + extra + gap
         y -= rh + row_gap
     return y + row_gap
 
 
 def panel_bodies(ax, E, V, x0, y_top, width):
-    c = 0.072
+    c = 0.078
     kinds = {k: E["cands"][k]["kind"] for k in range(len(E["cands"]))}
     size = {k: len(E["cands"][k]["modules"]) for k in kinds}
     kids = [k for k in kinds if kinds[k] == "child"]
     merges = [k for k in kinds if kinds[k] == "merge"]
     selfc = [k for k in kinds if kinds[k] == "self"]
+    tags = {E["shown_bodies"]["refuse"]: "c1", E["shown_bodies"]["probe"]: "c2"}
     T = dict(ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
-    # children, wrapped by size: 1+2 | 3 | 4 | 5 (+ today's body at the end)
-    left_w = 2.06
-    ax.text(x0, y_top, f"{len(kids)} children (splits), by size", **T)
-    y = y_top - 0.15
+    ax.text(x0, y_top, f"today's body + {len(kids)} children (splits) + {len(merges)} merges = {len(kinds)}", **T)
+    # children, wrapped by size: 1+2 | 3 | 4 | 5
+    left_w = 2.05
+    y = y_top - 0.17
     for grp in ((1, 2), (3,), (4,), (5,)):
         ks = sorted([k for k in kids if size[k] in grp], key=lambda k: (size[k], k))
-        y = flow(ax, E, V, ks, x0, y, left_w, c) - 0.10
-    y_kids_bottom = y
+        y = flow(ax, E, V, ks, x0, y, left_w, c, tags=tags) - 0.075
+    y_kids_bottom = y + 0.075
     # right column: today's body, then the merges
-    xr = x0 + left_w + 0.10
+    xr = x0 + left_w + 0.07
     wr = x0 + width - xr
-    ax.text(xr, y_top, "today's body", **T)
-    yb = flow(ax, E, V, selfc, xr, y_top - 0.15, wr, c)
-    ax.text(xr, yb - 0.07, f"{len(merges)} merges", **T)
-    ax.text(xr, yb - 0.07 - 0.125, "dashed: the other\nteam's modules", ha="left", va="top", fontsize=S.LABEL_PT,
-            color=S.GREY, linespacing=1.1)
-    ym = flow(ax, E, V, sorted(merges), xr, yb - 0.07 - 0.43, wr, c)
+    yb = flow(ax, E, V, selfc, xr, y_top - 0.17, wr, c)
+    ax.text(xr + 2 * c + 0.04, yb + 1.5 * c, "today's\nbody", ha="left", va="center", fontsize=S.LABEL_PT,
+            color=S.INK2, linespacing=1.05)
+    ax.text(xr, yb - 0.07, "merges;\ndashed: the\nother team", ha="left", va="top", fontsize=S.LABEL_PT,
+            color=S.INK2, linespacing=1.05)
+    ym = flow(ax, E, V, sorted(merges), xr, yb - 0.07 - 0.36, wr, c)
     return min(y_kids_bottom, ym)
 
 
@@ -229,12 +241,12 @@ def key_line(ax, E, V, x0, y):
     ax.add_patch(Rectangle((x, y - c * 0.43), c * 0.86, c * 0.86, lw=0.5, ec=S.INK2, fc=CERT_FILL))
     x += c + 0.03
     ax.text(x, y, f"certified ({n['certify']})", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    x += 0.62
+    x += 0.60
     mark(ax, x, y, "probe")
-    ax.text(x + 0.075, y, f"probe first ({n['probe']})", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    x += 0.78
+    ax.text(x + 0.08, y, f"probe first ({n['probe']})", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    x += 0.80
     mark(ax, x, y, "refuse")
-    ax.text(x + 0.085, y, f"refuse ({n['refuse']})", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    ax.text(x + 0.10, y, f"refuse ({n['refuse']})", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
     x += 0.62
     ax.plot(x + 0.03, y, "o", ms=2.4, mfc=S.ORANGE, mec="none")
     ax.text(x + 0.08, y, f"{MODE_WORD[E['faults'][0]['mode']]} wheel", ha="left", va="center", fontsize=S.LABEL_PT,
@@ -254,18 +266,20 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
     ax0, ax1 = x0 + lab_w, gx - 0.07
     lo_v, hi_v = 0.2, 1.2
     X = lambda v: ax0 + (v - lo_v) / (hi_v - lo_v) * (ax1 - ax0)
-    rh = 0.148
+    rh = 0.125
     c = 0.056
     y = y_top
-    blocks = (("refuse", "the faulted module alone"), ("probe", "with its healthy neighbour"))
-    for verdict, words in blocks:
+    blocks = (("refuse", "c1", "the faulted module alone"), ("probe", "c2", "with its healthy neighbour"))
+    first = True
+    for verdict, tag, words in blocks:
         cand = E["shown_bodies"][verdict]
         w, h = dims(E, cand, c)
         body_icon(ax, E, cand, x0, y - h, c, verdict)
         tx = x0 + w + 0.05
-        ax.text(tx, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
+        ax.text(tx, y - h / 2, tag, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK, fontweight="bold")
+        ax.text(tx + 0.13, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
         mark(ax, gx, y - h / 2, verdict)
-        y -= h + 0.02
+        y -= h + (0.10 if first else 0.02)
         g = legs[legs.cand == cand].set_index("legn")
         for leg in order:
             r = g.loc[leg]
@@ -275,17 +289,23 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
             ax.add_patch(Rectangle((X(lo), yc - 0.045), X(float(r.point)) - X(lo), 0.09, lw=0.6, ec=S.BLUE,
                                    fc=S.SURFACE if r.ext else S.BLUE, hatch="//////" if r.ext else None, zorder=3))
             ax.plot([X(lo)] * 2, [yc - 0.06, yc + 0.06], color=S.BLUE, lw=S.LW_OURS, solid_capstyle="butt", zorder=4)
-            ax.plot([X(r.tau)] * 2, [yc - 0.075, yc + 0.075], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5)
+            ax.plot([X(r.tau)] * 2, [yc - 0.075, yc + 0.075], color=S.INK, lw=1.0, solid_capstyle="butt", zorder=5,
+                    path_effects=[pe.withStroke(linewidth=2.6, foreground=S.SURFACE)])
+            if first and leg == order[0]:           # direct labels on the first bar: what its two ends are
+                ax.text(X(lo), yc + 0.06, "bound", ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)
+                ax.text(X(float(r.point)), yc + 0.06, "estimate", ha="center", va="bottom", fontsize=S.LABEL_PT,
+                        color=S.INK2)
             mark(ax, gx, yc, r.verdict, size=7.5)
             y -= rh
         y -= 0.03
+        first = False
     # axis
     ya = y_axis
     ax.plot([ax0, ax1], [ya, ya], color=S.GREY, lw=S.LW_AXES)
     for v in (0.25, 0.5, 0.75, 1.0):
         ax.plot([X(v)] * 2, [ya, ya - 0.03], color=S.INK2, lw=S.LW_AXES)
         ax.text(X(v), ya - 0.04, f"{v:g}", ha="center", va="top", fontsize=S.LABEL_PT, color=S.INK2)
-    ax.text((ax0 + ax1) / 2, ya - 0.155, r"capability $\rho^{\mathrm{dec}}$ (1 = healthy)", ha="center", va="top",
+    ax.text((ax0 + ax1) / 2, ya - 0.155, "capability \u03c1 (1 = healthy reference)", ha="center", va="top",
             fontsize=S.LABEL_PT, color=S.INK2)
     return X, y
 
@@ -304,41 +324,62 @@ def draw(res, out):
     secs = E["probe"]["twist_s"]
     ax.text(XA, top, f"(a) One {secs:g}-s probe of today's body…", **tkw)
     ax.text(XB, top, f"(b) …gives all {n} next bodies a verdict", **tkw)
-    ax.text(XC, top, "(c) Bound vs the job's need, per leg", **tkw)
+    ax.text(XC, top, "(c) Two bodies against one job", **tkw)
     # (a)
     got = panel_render(fig, ax, E, (XA, 0.40, 1.78, 1.38))
     if got:
-        (ix, iy, iw, ih), (wx, wy) = got
+        (ix, iy, iw, ih), to_in = got
         f = E["faults"][0]
+        wx, wy = to_in(f"wheel{f['wheel']}")
+        probe_arrows(ax, E, to_in, ix + 0.80 * iw, iy + 0.80 * ih)
         ax.annotate(f"{MODE_WORD[f['mode']]} wheel\n(unknown to the robot)", (wx, wy), xytext=(XA + 1.78, 0.38),
                     ha="right", va="top", fontsize=S.LABEL_PT, color=S.ORANGE_TX, zorder=6, linespacing=1.1,
                     arrowprops=dict(arrowstyle="-", lw=0.4, color=S.ORANGE_TX, shrinkA=1, shrinkB=2.5))
-    ax.text(XA, 0.08, "↕ ↔ ↻", ha="left", va="center", fontsize=S.LABEL_PT,
-            color=S.BLUE, fontfamily="DejaVu Sans")
-    ax.text(XA + 0.30, 0.08, "probe v2: surge, sway, yaw ±", ha="left", va="center", fontsize=S.LABEL_PT,
-            color=S.BLUE)
+    ax.text(XA, 0.08, "blue: probe v2, surge, sway and yaw \u00b1", ha="left", va="center",
+            fontsize=S.LABEL_PT, color=S.BLUE)
     if V is None:
         ax.text(XB + 1.3, 1.0, "awaiting " + DEC, ha="center", va="center", color=S.ORANGE_TX)
         S.save(fig, out)
         return E, V, srcs, None
     # (b)
-    panel_bodies(ax, E, V, XB, top - 0.20, XC - XB - 0.14)
-    counts = key_line(ax, E, V, XB, 0.08)
+    yb = panel_bodies(ax, E, V, XB, top - 0.20, XC - XB - 0.12)
+    counts = key_line(ax, E, V, XB, max(0.07, min(yb - 0.13, 0.30)))
     # (c)
     job = E["job"]["title"]
-    ax.text(XC, top - 0.18, f"job: {job.lower()}", ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2,
+    ax.text(XC, top - 0.18, f"one job: {job.lower()}", ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2,
             style="italic")
-    yk = top - 0.37
+    yk = top - 0.385
     for i, (ext, lab) in enumerate(((False, "observed"), (True, "extrapolated"))):
         xk = XC + 0.02 + i * 0.66
         ax.add_patch(Rectangle((xk, yk - 0.04), 0.16, 0.08, lw=0.6, ec=S.BLUE, fc=S.SURFACE if ext else S.BLUE,
                                hatch="//////" if ext else None))
         ax.text(xk + 0.20, yk, lab, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    ax.plot([XC + 1.55] * 2, [yk - 0.06, yk + 0.06], color=S.INK, lw=1.0, solid_capstyle="butt")
-    ax.text(XC + 1.60, yk, "need τ", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    panel_legs(ax, E, V, XC, W - 0.01, top - 0.47, 0.36)
+    ax.plot([XC + 1.43] * 2, [yk - 0.06, yk + 0.06], color=S.INK, lw=1.0, solid_capstyle="butt")
+    ax.text(XC + 1.48, yk, "job's need \u03c4", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    panel_legs(ax, E, V, XC, W - 0.01, top - 0.49, 0.37)
     S.save(fig, out)
     return E, V, srcs, counts
+
+
+def probe_arrows(ax, E, to_in, cx, cy, L=0.11):
+    """The v2 twists drawn in the render's ground plane: surge (forward axis), sway (left axis), yaw (arc)."""
+    m = {k: to_in(f"module{k}") for k in range(len(E["parent"]["modules"]))}
+    cells = E["parent_cells"]
+    k0 = cells.index([0, 0])
+    fwd = m[cells.index([max(c[0] for c in cells), 0])] - m[k0]
+    left = m[cells.index([0, max(c[1] for c in cells)])] - m[k0]
+    fwd, left = fwd / np.linalg.norm(fwd), left / np.linalg.norm(left)
+    c = np.array([cx, cy])
+    kw = dict(arrowstyle="<|-|>,head_length=2.6,head_width=1.5", mutation_scale=1, lw=0.9, color=S.BLUE,
+              shrinkA=0, shrinkB=0, zorder=6)
+    for v in (fwd, left):
+        ax.add_patch(FancyArrowPatch(tuple(c - L * v), tuple(c + L * v), **kw))
+    ph = np.radians(np.linspace(20, 290, 60))
+    R = 1.45 * L
+    pts = c[None] + R * (np.cos(ph)[:, None] * fwd[None] + np.sin(ph)[:, None] * left[None])
+    ax.plot(pts[:-3, 0], pts[:-3, 1], color=S.BLUE, lw=0.9, zorder=6)
+    ax.add_patch(FancyArrowPatch(tuple(pts[-4]), tuple(pts[-1]), **{**kw, "arrowstyle":
+                                                                   "-|>,head_length=2.6,head_width=1.5"}))
 
 
 def run(res, paper):

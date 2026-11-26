@@ -141,6 +141,7 @@ def run(res, paper):
     put("conf.het.covdrop.hone", bar("C-HET", "2 degradation", "coverage drop ID -> conf_H1 (faulted)"), pts=True)
     put("conf.het.covdrop.htwo", bar("C-HET", "2 degradation", "coverage drop ID -> conf_H2 (all)"), pts=True)
     put("conf.het.cfdrop.htwo", bar("C-HET", "2 degradation", "CF drop ID -> conf_H2 (all)"), pts=True)
+    put("conf.het.cfdirect.hone", bar("C-HET", "2 degradation", "CF drop: direct - ours (conf_H1, faulted)"), pts=True)
     put("conf.het.covgain.hone", bar("C-HET", "2 degradation", "coverage drop: direct - ours (conf_H1, faulted)"), pts=True)
 
     # ---- C-EXPLAIN
@@ -151,4 +152,34 @@ def run(res, paper):
 
     # ---- C-ENV prerequisite / descriptive
     _p(N, "conf.env.reconfig", bar("C-ENV", "4 reconfiguration").estimate, V, sd)
+
+    # ---- post-hoc: episode miscoverage (Eq. 2 coverage event), ours, C-MAIN T1 (not a pre-registered bar)
+    dm = res / "models/confirmatory/dec_conf_models.csv.gz"
+    if dm.exists():
+        d = pd.read_csv(dm, usecols=["claim", "method", "test_plant", "split", "eid", "lower", "truth", "shard"])
+        d = d[(d.claim == "C-MAIN") & (d.method == "amortized_comp") & (d.test_plant == "T1") &
+              (d.split == "conf_test") & (d.shard != 0)]
+        ep = (d.lower > d.truth + 1e-12).groupby(d.eid).any().to_numpy(float)
+        rng = np.random.default_rng(92599)
+        bs = rng.choice(ep, size=(2000, len(ep))).mean(1)
+        src = "results/models/confirmatory/dec_conf_models.csv.gz"
+        _p(N, "conf.posthoc.miscov", ep.mean(), src, "posthoc")
+        _p(N, "conf.posthoc.miscov.lo", np.percentile(bs, 2.5), src, "posthoc")
+        _p(N, "conf.posthoc.miscov.hi", np.percentile(bs, 97.5), src, "posthoc")
+        # calibration-conditional spread of split-conformal miscoverage with n = 100, alpha = 0.1: Beta(n+1-k, k)
+        n, a = 100, 0.10
+        k = int(np.ceil((n + 1) * (1 - a)))
+        A, Bb = n + 1 - k, k
+        sd = np.sqrt(A * Bb / ((A + Bb) ** 2 * (A + Bb + 1)))
+        _pts(N, "conf.posthoc.calsd", sd, "Beta(n+1-k,k), n=100 composed cal episodes (FACTS.md)", "posthoc")
+    oc = res / "confirmatory/posthoc_p1p2/ownbound_common.csv"
+    if oc.exists():
+        o = pd.read_csv(oc)
+        for _, r in o.iterrows():
+            if r.block == "merge":
+                continue
+            k = f"conf.posthoc.common.{r.method}.{'lone' if r.block == 'lone-faulted' else 'stratum'}"
+            src = "results/confirmatory/posthoc_p1p2/ownbound_common.csv"
+            _p(N, k + ".cf", r.CF_own, src, "posthoc")
+            _p(N, k + ".edec", r.E_dec_own, src, "posthoc", small=True)
     return N

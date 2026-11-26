@@ -48,16 +48,16 @@ def run(res, paper):
         ours = code == "amortized_comp"
         b = (lambda t: rf"\textbf{{{t}}}") if ours else (lambda t: t)
         rows.append(" & ".join([b(name), f"{int(s.n_ep):,}", b(f(s.CF_own)), f(s.E_dec_own, 2), f(s.E_ep, 2),
-                                b(f(lo.CF_own)), f(lo.E_dec_own, 2), f(s.CF_matched), f(lo.CF_matched),
-                                f(s.E_dec_matched, 2)]) + r" \\")
+                                b(f(lo.CF_own)), f(lo.E_dec_own, 2), f(s.CF_matched), f(s.E_dec_matched, 2),
+                                f(lo.CF_matched), f(lo.E_dec_matched, 2)]) + r" \\")
         if ours:
             rows.append(r"\midrule")
-    body = (r"\begin{tabular}{@{}lrrrrrrrrr@{}}\toprule" "\n"
-            r"& & \multicolumn{5}{c}{Own bound ($\alpha=0.10$)} & \multicolumn{3}{c}{Matched point ($U^\ast=1\,\%$ on cal)}\\"
-            r"\cmidrule(lr){3-7}\cmidrule(l){8-10}" "\n"
-            r"& & \multicolumn{3}{c}{Stratum} & \multicolumn{2}{c}{Lone faulted} & Stratum & Lone & Stratum\\"
-            r"\cmidrule(lr){3-5}\cmidrule(lr){6-7}" "\n"
-            r"Method & Episodes & CF & $E_{\mathrm{dec}}$ & $E_{\mathrm{ep}}$ & CF & $E_{\mathrm{dec}}$ & CF & CF & $E_{\mathrm{dec}}$\\\midrule" "\n"
+    body = (r"\begin{tabular}{@{}lrrrrrrrrrr@{}}\toprule" "\n"
+            r"& & \multicolumn{5}{c}{Own bound ($\alpha=0.10$)} & \multicolumn{4}{c}{Matched point (target $U^\ast=1\,\%$)}\\"
+            r"\cmidrule(lr){3-7}\cmidrule(l){8-11}" "\n"
+            r"& & \multicolumn{3}{c}{Stratum} & \multicolumn{2}{c}{Lone faulted} & \multicolumn{2}{c}{Stratum} & \multicolumn{2}{c}{Lone faulted}\\"
+            r"\cmidrule(lr){3-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}\cmidrule(l){10-11}" "\n"
+            r"Method & Episodes & CF & $E_{\mathrm{dec}}$ & $E_{\mathrm{unsafe}}$ & CF & $E_{\mathrm{dec}}$ & CF & $E_{\mathrm{dec}}$ & CF & $E_{\mathrm{dec}}$\\\midrule" "\n"
             + "\n".join(rows) + "\n" r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_main.tex", body, src, "confirmatory run 1 (77fc39b); percentages")
 
@@ -82,7 +82,7 @@ def run(res, paper):
             cf = vb("C-MERGE", "P4", "CF@U* comp_enum_size")
         else:
             cf = vb("C-MERGE", "P4 (T2, reported)", "CF@U* comp_enum_size")
-        mr.append(f"{plant} & {f(fl.estimate, 2)} {{\\scriptsize($\\le${f(fl.ci_hi, 2)})}} & {ci(mc, 1)} & {f(ep.estimate, 2)} & {ci(cf, 1)}" + r" \\")
+        mr.append(f"{plant} & {f(fl.estimate, 2)} {{\\scriptsize($\\le${f(fl.upper95, 2)})}} & {ci(mc, 1)} & {f(ep.estimate, 2)} & {ci(cf, 1)}" + r" \\")
     body = (r"\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lrrrr@{}}\toprule" "\n"
             r"Plant & Flips & Miscov. & $E_{\mathrm{ep}}$ & CF \\\midrule" "\n" + "\n".join(mr) + "\n"
             r"\bottomrule\end{tabular}")
@@ -93,15 +93,15 @@ def run(res, paper):
     for cell, lab in (("N 7-8", "7--8"), ("N 9-10", "9--10")):
         e = v[(v.claim == "C-SCALE") & (v.metric == "E_ep") & (v.cell == cell)].iloc[0]
         cv = v[(v.claim == "C-SCALE") & (v.metric == "stratum coverage") & (v.cell == cell)].iloc[0]
-        tr.append(f"{lab} modules & {ci(e)} & {f(cv.estimate)} & \\textemdash" + r" \\")
+        tr.append(f"{lab} modules & {ci(e)} & {f(cv.estimate)} & \\textemdash & \\textemdash" + r" \\")
     for cell, lab, met in (("conf_H1", "Omniwheel", "E_ep (faulted)"), ("conf_H2", "Mixed types", "E_ep (all)")):
         e = v[(v.claim == "C-HET") & (v.metric == met) & (v.cell == cell) & (v.method == "amortized_comp")].iloc[0]
         tag = "conf_H1 (faulted)" if cell == "conf_H1" else "conf_H2 (all)"
         cd = v[(v.claim == "C-HET") & (v.metric == f"coverage drop ID -> {tag}")].iloc[0]
         fd = v[(v.claim == "C-HET") & (v.metric == f"CF drop ID -> {tag}")].iloc[0]
-        tr.append(f"{lab} & {ci(e)} & {sg(-cd.estimate)} pts & {sg(-fd.estimate)} pts" + r" \\")
-    body = (r"\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lrrr@{}}\toprule" "\n"
-            r"Shift & $E_{\mathrm{ep}}$ & Coverage & CF \\\midrule" "\n" + "\n".join(tr) + "\n"
+        tr.append(f"{lab} & {ci(e)} & \\textemdash & {sg(-cd.estimate)} & {sg(-fd.estimate)}" + r" \\")
+    body = (r"\setlength{\tabcolsep}{3.5pt}\begin{tabular}{@{}lrrrr@{}}\toprule" "\n"
+            r"Shift & $E_{\mathrm{unsafe}}$ & Cov. & $\Delta$Cov. & $\Delta$CF \\\midrule" "\n" + "\n".join(tr) + "\n"
             r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_transfer.tex", body, src, "confirmatory run 1; percentages")
     return N

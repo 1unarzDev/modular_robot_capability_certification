@@ -28,23 +28,34 @@ BASES = "baselines/confirmatory/dec_conf_baselines.csv.gz"
 MERGE = "stress/confirmatory/dec_conf_merge.csv.gz"
 B_FIG, SEED_FIG = 1000, 4
 
-# display name, code, colour, marker, marker size, label in panel (a)
-METHODS = (("Ours", "amortized_comp", S.BLUE, "o", 4.2),
-           ("CapXfer", "capxfer", S.VIOLET, ">", 3.8),
-           ("ĝ-physics", "ghat_physics", S.TEAL, "D", 3.2),
-           ("min-over-members", "min_over_members", S.GREY, "<", 3.5),
-           ("detector-gated", "detector_gated", S.GREY, "^", 3.5))
+# display name, code, colour, marker, marker size (>= 4.5 pt for the three that must separate in grayscale)
+METHODS = (("Ours", "amortized_comp", S.BLUE, "o", 5.0),
+           ("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
+           ("ĝ-physics", "ghat_physics", S.TEAL, "D", 4.5),
+           ("min-over-members", "min_over_members", S.GREY, "<", 4.2),
+           ("detector-gated", "detector_gated", S.GREY, "^", 4.2),
+           ("copy-parent", "copy_parent", S.GREY, "s", 3.8))
 BLOCKS = (("stratum", "stratum", "(a) Stratum"), ("lone-faulted", "lone", "(b) Lone faulted"),
           ("merge", "merge", "(c) Merges"))
-# label offsets (points) and alignment per block: Ours one line above, CapXfer two lines below
-LABEL_AT = {"stratum": {"amortized_comp": (-8, 8, "left"), "capxfer": (-5, -8, "right")},
-            "lone-faulted": {"amortized_comp": (-12, 8, "left"), "capxfer": (0, -14, "center")},
-            "merge": {"amortized_comp": (-30, 8, "left"), "capxfer": (4, -11, "right")}}
+# Direct labels per block. ("off", dx, dy, ha): offset in points from the marker, no leader.
+# ("at", x_rate, y_pct, ha): text placed in data coordinates with a 0.4 pt leader to the marker.
+LABEL_AT = {
+    "stratum": {"amortized_comp": ("off", -8, 8, "left"), "capxfer": ("at", 0.17, 42, "center"),
+                "ghat_physics": ("at", 0.0088, 64.1, "right"), "min_over_members": ("at", 0.0050, 36.3, "right"),
+                "detector_gated": ("off", 0, 7.5, "center"), "copy_parent": ("off", 5, 0, "left")},
+    "lone-faulted": {"amortized_comp": ("off", -10, 10, "left"), "capxfer": ("at", 0.17, 66, "center"),
+                     "ghat_physics": ("at", 0.045, 37, "center"), "detector_gated": ("off", 0, -10.5, "center"),
+                     "copy_parent": ("off", 5, 0, "left")},
+    "merge": {"amortized_comp": ("off", -24, 8, "left"), "capxfer": ("at", 0.17, 20, "center"),
+              "ghat_physics": ("off", -6, 7, "right"), "min_over_members": ("off", 5, 0, "left"),
+              "detector_gated": ("off", 5, 6, "left"), "copy_parent": ("off", 5, -1, "left")}}
+NOLEAD = {("stratum", "ghat_physics"), ("stratum", "min_over_members")}   # 'at' labels set beside the CI, no leader
+TWO_LINE = {"min-over-members": "min-over-\nmembers"}
 USE = ("claim", "method", "model_tag", "test_plant", "split", "status", "eid", "shard", "cand", "kind", "cand_size",
        "has_fault", "leg", "truth", "lower")
 
 # log x axis with a broken zero: zero is drawn at X0, the axis is broken between X0 and XMIN
-X0, XMIN, XMAX = 0.00022, 0.0005, 0.4
+X0, XMIN, XMAX = 0.00022, 0.0005, 1.0
 
 
 def load_scored(res, rel, claim, extra=()):
@@ -142,9 +153,10 @@ def run(res, paper):
     dw = (W - dL - 0.06 - 0.06) / 2
     axd = [fig.add_axes([(dL + i * (dw + 0.06)) / W, Bm / H, dw / W, ph / H]) for i in range(2)]
 
+    lead = dict(arrowstyle="-", lw=0.4, color=S.INK2, shrinkA=1.0, shrinkB=S.ARROW_SHRINK)
     for i, (ax, (blk, bl, title)) in enumerate(zip(axs, BLOCKS)):
         zero_axis(ax)
-        ax.set_ylim(0, 110)
+        ax.set_ylim(-6, 110)
         ax.set_yticks([0, 25, 50, 75, 100])
         ax.yaxis.grid(True)
         if i:
@@ -152,35 +164,44 @@ def run(res, paper):
         else:
             ax.set_ylabel("certified share of capable (%)", labelpad=1.5)
         S.panel(ax, title)
+        g, mm = P["ghat_physics", blk], P["min_over_members", blk]
+        same = abs(g["cf"] - mm["cf"]) < 0.005 and abs(g["ed"] - mm["ed"]) < 5e-4   # lone modules: one member
         for name, code, col, mk, ms in METHODS[::-1]:
+            if same and code == "min_over_members":
+                continue
             p = P[code, blk]
             x, y = float(xpos(p["ed"])), 100 * p["cf"]
             xe = [[x - float(xpos(p["ed_lo"]))], [float(xpos(p["ed_hi"])) - x]]
             ye = [[y - 100 * p["cf_lo"]], [100 * p["cf_hi"] - y]]
-            lw = S.LW_OURS if code == "amortized_comp" else S.LW_DATA * 0.8
-            ax.errorbar([x], [y], xerr=xe, yerr=ye, fmt="none", ecolor=col, elinewidth=0.6 if code !=
-                        "amortized_comp" else 0.9, capsize=0, alpha=0.75, zorder=3)
-            ax.plot([x], [y], marker=mk, ms=ms, color=col, mec="white", mew=0.4, ls="none", zorder=4)
-        # direct labels: Ours above its marker, CapXfer below (offsets in points, per panel)
-        for code, col in (("amortized_comp", S.BLUE), ("capxfer", S.VIOLET)):
-            p = P[code, blk]
-            x, y = float(xpos(p["ed"])), 100 * p["cf"]
-            txt = f"{100 * p['cf']:.1f} % at {100 * p['ed']:.2f} %"
-            nm = "Ours" if code == "amortized_comp" else "CapXfer"
-            dx, dy, ha = LABEL_AT[blk][code]
-            ax.annotate(f"{nm} {txt}" if code == "amortized_comp" else f"{nm}\n{txt}", (x, y), xytext=(dx, dy),
-                        textcoords="offset points", fontsize=S.LABEL_PT, color=col, va="center", ha=ha, zorder=6,
-                        linespacing=1.0)
+            ours = code == "amortized_comp"
+            ax.errorbar([x], [y], xerr=xe, yerr=ye, fmt="none", ecolor=col, elinewidth=0.9 if ours else 0.6,
+                        capsize=0, alpha=0.75, zorder=3)
+            ax.plot([x], [y], marker=mk, ms=ms, color=col, mec="white", mew=0.5, ls="none", zorder=4, clip_on=False)
+            # direct label
+            spec = LABEL_AT[blk].get(code)
+            if spec is None:
+                continue
+            if code in ("amortized_comp", "capxfer"):
+                txt = (f"{name} {100 * p['cf']:.1f} % at {100 * p['ed']:.2f} %" if ours else
+                       f"{name}\n{100 * p['cf']:.1f} % at\n{100 * p['ed']:.2f} %")
+                tc = col
+            else:
+                txt = "ĝ-physics ≈\nmin over members" if (same and code == "ghat_physics") else name
+                if spec[0] == "at" and (blk, code) in NOLEAD:
+                    txt = TWO_LINE.get(txt, txt)
+                tc = S.INK2
+            kw = dict(fontsize=S.LABEL_PT, color=tc, va="center", linespacing=1.0, zorder=6)
+            if spec[0] == "off":
+                ax.annotate(txt, (x, y), xytext=spec[1:3], textcoords="offset points", ha=spec[3], **kw)
+            else:
+                ax.annotate(txt, (x, y), xytext=(spec[1], spec[2]), textcoords="data", ha=spec[3],
+                            arrowprops=None if (blk, code) in NOLEAD else lead, **kw)
         if i == 1:
             ax.set_xlabel("unsafe commits at the method's own bound (%, log scale)", labelpad=1.5)
-    # baseline names in (a) only (markers carry identity across panels)
-    name_at = {"ghat_physics": (5, 0, "left"), "min_over_members": (0, 7, "center"), "detector_gated": (0, 7, "center")}
-    for name, code, col, mk, ms in METHODS[2:]:
-        p = P[code, "stratum"]
-        dx, dy, ha = name_at[code]
-        axs[0].annotate(name, (float(xpos(p["ed"])), 100 * p["cf"]), xytext=(dx, dy), textcoords="offset points",
-                        fontsize=S.LABEL_PT, color=S.INK2, va="center", ha=ha)
-    axs[2].text(0.30, 0.30, "\u2196 better", transform=axs[2].transAxes, fontsize=S.LABEL_PT, color=S.INK2)
+    axs[0].annotate("better", xy=(X0 * 1.1, 80), xytext=(0.0006, 52), textcoords="data", fontsize=S.LABEL_PT,
+                    color=S.INK2, ha="center", va="center",
+                    arrowprops=dict(arrowstyle="-|>", lw=0.5, color=S.INK2, shrinkA=2, shrinkB=S.ARROW_SHRINK,
+                                    mutation_scale=5))
 
     # (d) hexbins
     cmap = LinearSegmentedColormap.from_list("blue", ["#e3edf9", S.BLUE, "#0d3f7a"])
@@ -220,7 +241,7 @@ def run(res, paper):
 
     # ---------------------------------------------------------------- macros
     lab = {"amortized_comp": "ours", "capxfer": "capxfer", "ghat_physics": "ghat", "min_over_members": "minmem",
-           "detector_gated": "detector"}
+           "detector_gated": "detector", "copy_parent": "copy"}
     for (code, blk), p in P.items():
         bl = dict((b, s) for b, s, _ in BLOCKS)[blk]
         k = f"fig4.{lab[code]}.{bl}"

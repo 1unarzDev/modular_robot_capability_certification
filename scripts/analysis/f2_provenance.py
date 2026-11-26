@@ -26,8 +26,9 @@ KINDS = ("surge", "sway", "diag", "yaw")
 SIZES = ("1", "2", "3", "4", "5", "6+")
 # probe set code -> (display name, colour, linestyle, marker, macro key part)
 PROBES = {"v2": ("v2", S.BLUE, "-", "o", "vtwo"),
-          "v2+clamp": ("v2+clamp", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
-          "v2+clamp+yawhi": ("+2× yaw", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+          "v2+clamp": ("v2 + clamp", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
+          "v2+clamp+yawhi": ("v2 + clamp +\nfast yaw", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+HTINT = "#dce8f7"   # light blue under the sparse hatching, so dark numbers stay legible
 NWORD = {4: "NFour", 8: "NEight", 16: "NSixteen"}
 
 
@@ -93,7 +94,7 @@ def run(res, paper):
 
     # ---- figure
     S.apply()
-    W, H = S.W1, 2.0
+    W, H = S.W1, 2.25
     fig = S.plt.figure(figsize=(W, H))
     inch = lambda x, y, w, h: [x / W, y / H, w / W, h / H]  # noqa: E731
 
@@ -113,12 +114,12 @@ def run(res, paper):
             if ob > 1e-9:
                 ax.add_patch(Rectangle((x0, y0), ob, h, fc=S.BLUE, ec="none", lw=0))
             if x > 1e-9:
-                ax.add_patch(Rectangle((x0 + ob, y0), w * x, h, fc="white", ec=S.BLUE, lw=0, hatch="/////"))
+                ax.add_patch(Rectangle((x0 + ob, y0), w * x, h, fc=HTINT, ec=S.BLUE, lw=0, hatch="//"))
             ax.add_patch(Rectangle((x0, y0), w, h, fc="none", ec=S.BLUE, lw=0.5))
-            ext = x >= 0.5
-            ax.text(j + 0.5, i + 0.5, _cell_txt(x), ha="center", va="center", fontsize=S.LABEL_PT,
-                    color=S.INK if ext else "white",
-                    bbox=dict(fc="white", ec="none", pad=0.6) if ext else None)
+            if x >= 0.005:     # observed cells carry no number (solid = 0 % extrapolated)
+                ax.text(j + 0.5, i + 0.5, _cell_txt(x), ha="center", va="center", fontsize=S.LABEL_PT,
+                        color=S.INK, bbox=dict(boxstyle="round,pad=0.12,rounding_size=0.25", fc="white",
+                                               ec="none"))
         ax.text(-0.12, i + 0.5, k, ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK)
         # with clamp: one word per row, from the data
         c = Ac.loc[k]
@@ -142,9 +143,9 @@ def run(res, paper):
     fig.text((kx + 0.2) / W, ky / H, "observed by v2", ha="left", va="center", fontsize=S.LABEL_PT,
              color=S.INK2)
     kx2 = kx + 1.0
-    fig.patches.append(Rectangle((kx2 / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc="white", ec=S.BLUE, lw=0.5,
-                                 hatch="/////", transform=fig.transFigure))
-    fig.text((kx2 + 0.2) / W, ky / H, "extrapolated via motor law, % of legs", ha="left", va="center",
+    fig.patches.append(Rectangle((kx2 / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
+                                 hatch="//", transform=fig.transFigure))
+    fig.text((kx2 + 0.2) / W, ky / H, "extrapolated via motor law (% of legs)", ha="left", va="center",
              fontsize=S.LABEL_PT, color=S.INK2)
 
     # (b) extrapolated share vs parent size
@@ -154,8 +155,10 @@ def run(res, paper):
     if len(cov):
         bx.axvspan(7, 10, color=S.TINT, lw=0, zorder=0)
         c78, c910 = cov.get("N 7-8", np.nan), cov.get("N 9-10", np.nan)
-        bx.text(8.5, 36, f"confirmatory, N 7–10\ncoverage {c78:.2f}→{c910:.2f}", ha="center", va="center",
-                fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.0)
+        bx.annotate(f"tested sizes (N 7–10)\nmeasured coverage {c78:.2f} → {c910:.2f}", xy=(10, 37),
+                    xytext=(10.6, 38), ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
+                    linespacing=1.1, bbox=dict(fc="white", ec="none", pad=0.5),
+                    arrowprops=dict(arrowstyle="-", lw=0.4, color=S.INK2, shrinkA=0, shrinkB=0))
     ends = {}
     for code, (lab, col, ls, mk, _) in PROBES.items():
         d = v[v.probe_set == code].sort_values("N")
@@ -165,14 +168,16 @@ def run(res, paper):
         bx.plot(d.N, y, color=col, ls=ls, lw=lw, marker=mk, ms=2.6, mfc=col, mec=col, mew=0, zorder=3)
         ends[code] = (int(d.N.iloc[-1]), y[-1], lab, col)
     ly = {k: e[1] for k, e in ends.items()}
-    gap = 1.2 * S.LABEL_PT / 72 / bh * (64 + 2)   # one 7-pt line, in data units of this axis
+    line = 1.2 * S.LABEL_PT / 72 / bh * (64 + 2)   # one 7-pt line, in data units of this axis
+    half = {k: 0.5 * line * (1 + e[2].count("\n")) for k, e in ends.items()}
     ks = sorted(ly, key=ly.get)
-    for lo, hi in zip(ks, ks[1:]):
-        if ly[hi] - ly[lo] < gap:
+    for lo, hi in zip(ks, ks[1:]):   # push labels apart (lower one down, upper one up) until they clear
+        need = half[lo] + half[hi] + 0.15 * line
+        if ly[hi] - ly[lo] < need:
             mid = (ly[hi] + ly[lo]) / 2
-            ly[lo], ly[hi] = mid - gap / 2, mid + gap / 2
+            ly[lo], ly[hi] = mid - need / 2, mid + need / 2
     for code, (n, y, lab, col) in ends.items():
-        bx.text(n + 0.6, ly[code], f"{lab}  {y:.0f} %", ha="left", va="center", fontsize=S.LABEL_PT, color=col
+        bx.text(n + 0.6, ly[code], f"{lab}  {y:.0f} %", ha="left", va="center", fontsize=S.LABEL_PT, linespacing=1.0, color=col
                 if col != S.GREY else S.INK2)
     nmax = int(v.N.max())
     bx.set_xlim(1.6, nmax + 0.4)
