@@ -84,7 +84,7 @@ def run(res, paper):
             cf = vb("C-MERGE", "P4 (T2, reported)", "CF@U* comp_enum_size")
         mr.append(f"{plant} & {f(fl.estimate, 2)} {{\\scriptsize($\\le${f(fl.upper95, 2)})}} & {ci(mc, 1)} & {f(ep.estimate, 2)} & {ci(cf, 1)}" + r" \\")
     body = (r"\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lrrrr@{}}\toprule" "\n"
-            r"Plant & Flips & Miscov. & $E_{\mathrm{ep}}$ & CF \\\midrule" "\n" + "\n".join(mr) + "\n"
+            r"Plant & Flips & Miscov. & $E_{\mathrm{unsafe}}$ & CF \\\midrule" "\n" + "\n".join(mr) + "\n"
             r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_merge.tex", body, src, "confirmatory run 1; percentages [95% CI]")
 
