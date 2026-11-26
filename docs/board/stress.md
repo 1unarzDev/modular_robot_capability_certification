@@ -621,3 +621,15 @@ scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting w
     number of episodes is recorded in the JSON.
   - The C-GATE export runs only after that commit. The C-MERGE export runs only after both margins files are
     committed (coordinator rule).
+
+## C-MERGE confirmatory export (01:47Z)
+- `results/stress/confirmatory/dec_conf_merge.csv.gz` is committed at **21f864f**. The exporter ran at 01:47Z with
+  the margins frozen at 460999c, and it de-duplicates units pulled from resumed jobs (7eb1c11).
+- **Content.** Pairs 0–499 per arm (A-POWER): P0 500 pairs (2864 merges), P5 **475 pairs**. Unit merge-P5-u0014
+  (pairs 350–374) is missing from the pulled outputs. There are 5 methods × T1 / T2, plus exploratory `cal` rows
+  (comp_enum_size, copy_parent) from the N4 E2 pairs.
+- I did not look at any labels (structure counts only). If ops pulls u0014 later, rerun
+  `scripts/stress_conf_merge.py --runs <conf-merge dirs>` and recommit; the margins are unchanged.
+- **C-GATE.** `gate_margins.json` will be frozen at ~02:55Z from the gate-cal units that exist by then, with the
+  episode count recorded, and committed before the C-GATE export. gate-cal is not extended after any conf output is
+  seen.
