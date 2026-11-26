@@ -383,3 +383,15 @@ def test_t3_selects_ours_by_posterior_amortized_compositional(tmp_path):
     assert picked == ["amortized_comp"]
     tex = (tmp_path / "paper/tables/t3_grid.tex").read_text()
     assert "compositional" in tex.split("\n")[1]
+
+
+def test_fig_own_bound_zero_is_drawn_not_dropped():
+    import fig_own_bound as F4
+    x = F4.xpos([0.0, 0.0002, 0.05])
+    assert x[0] == F4.X0 and x[1] > F4.X0 and np.isclose(x[2], 0.05)
+
+
+def test_fig_silent_zero_is_drawn_not_dropped():
+    import fig_silent as F5
+    y = F5.ypos([0.0, 0.345])
+    assert y[0] == F5.Y0 and np.isclose(y[1], 0.345)

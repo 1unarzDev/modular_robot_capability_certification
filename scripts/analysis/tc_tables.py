@@ -82,25 +82,25 @@ def run(res, paper):
             cf = vb("C-MERGE", "P4", "CF@U* comp_enum_size")
         else:
             cf = vb("C-MERGE", "P4 (T2, reported)", "CF@U* comp_enum_size")
-        mr.append(f"{plant} & {ci(fl, 2)} & {ci(mc, 1)} & {ci(ep, 2)} & {ci(cf, 1)}" + r" \\")
-    body = (r"\begin{tabular}{@{}lrrrr@{}}\toprule" "\n"
-            r"Plant & Flips & Miscov./pair & $E_{\mathrm{ep}}$/pair & CF \\\midrule" "\n" + "\n".join(mr) + "\n"
+        mr.append(f"{plant} & {f(fl.estimate, 2)} {{\\scriptsize($\\le${f(fl.ci_hi, 2)})}} & {ci(mc, 1)} & {f(ep.estimate, 2)} & {ci(cf, 1)}" + r" \\")
+    body = (r"\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lrrrr@{}}\toprule" "\n"
+            r"Plant & Flips & Miscov. & $E_{\mathrm{ep}}$ & CF \\\midrule" "\n" + "\n".join(mr) + "\n"
             r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_merge.tex", body, src, "confirmatory run 1; percentages [95% CI]")
 
     # ---- transfer
     tr = []
-    for cell, lab in (("N 7-8", "7--8 modules"), ("N 9-10", "9--10 modules")):
+    for cell, lab in (("N 7-8", "7--8"), ("N 9-10", "9--10")):
         e = v[(v.claim == "C-SCALE") & (v.metric == "E_ep") & (v.cell == cell)].iloc[0]
         cv = v[(v.claim == "C-SCALE") & (v.metric == "stratum coverage") & (v.cell == cell)].iloc[0]
-        tr.append(f"Larger parents, {lab} & {ci(e)} & {ci(cv)} & \\textemdash" + r" \\")
-    for cell, lab, met in (("conf_H1", "New module type", "E_ep (faulted)"), ("conf_H2", "Mixed module types", "E_ep (all)")):
+        tr.append(f"{lab} modules & {ci(e)} & {f(cv.estimate)} & \\textemdash" + r" \\")
+    for cell, lab, met in (("conf_H1", "Omniwheel", "E_ep (faulted)"), ("conf_H2", "Mixed types", "E_ep (all)")):
         e = v[(v.claim == "C-HET") & (v.metric == met) & (v.cell == cell) & (v.method == "amortized_comp")].iloc[0]
         tag = "conf_H1 (faulted)" if cell == "conf_H1" else "conf_H2 (all)"
         cd = v[(v.claim == "C-HET") & (v.metric == f"coverage drop ID -> {tag}")].iloc[0]
         fd = v[(v.claim == "C-HET") & (v.metric == f"CF drop ID -> {tag}")].iloc[0]
         tr.append(f"{lab} & {ci(e)} & {sg(-cd.estimate)} pts & {sg(-fd.estimate)} pts" + r" \\")
-    body = (r"\begin{tabular}{@{}lrrr@{}}\toprule" "\n"
+    body = (r"\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lrrr@{}}\toprule" "\n"
             r"Shift & $E_{\mathrm{ep}}$ & Coverage & CF \\\midrule" "\n" + "\n".join(tr) + "\n"
             r"\bottomrule\end{tabular}")
     C.write_table(paper / "tables/tc_transfer.tex", body, src, "confirmatory run 1; percentages")
