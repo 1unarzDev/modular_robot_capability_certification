@@ -636,3 +636,16 @@ scatter the body moves noticeably (up to ~0.7 m/s on a pair), because fighting w
 - **C-GATE.** `gate_margins.json` will be frozen at ~02:55Z from the gate-cal units that exist by then, with the
   episode count recorded, and committed before the C-GATE export. gate-cal is not extended after any conf output is
   seen.
+
+## N4 split-variance check (exploratory; critic A; `scripts/stress_N4_split_repeats.py` → `results/stress/N4_split_repeats.csv`)
+I repeated the cal/test split 20 times with fresh random halves of the exploratory N4 pairs (250 cal / 250 test
+pairs). The statistic is comp_enum's T1 per-pair miscoverage at α = 0.1. The frozen margins are untouched.
+
+| arm | mean | sd | 5–95 % | share of splits > 0.10 |
+|---|---|---|---|---|
+| P0 | 0.101 | 0.019 | 0.075–0.125 | 35 % |
+| P5 | 0.092 | 0.025 | 0.063–0.125 | 40 % |
+
+- The reported 0.108 / 0.110 sit inside the 5–95 % range of the split distribution, whose mean is at the nominal 0.10.
+- So the miss is split variance at n = 250 test pairs (sd ≈ 0.02), not a calibration failure. The verdict stays as
+  pre-written: narrowly missed on the reported split.
