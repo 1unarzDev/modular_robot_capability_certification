@@ -177,7 +177,7 @@ def summarise(df):
         unsafe_commit_rate=d.n_unsafe.sum() / max(d.n_assigned.sum(), 1),
         useful=d.n_served.sum() / max(d.oracle_served.sum(), 1), abstain=d.abstain.mean(),
         regret=d.regret.mean(), regret_se=d.regret.std(ddof=1) / np.sqrt(len(d)), probe_s=d.probe_s.mean(),
-        probed_share=d.probed.mean(),
+        regret_decision=(d.regret - d.probe_s).mean(), probed_share=d.probed.mean(),
         cert_pairs=d.n_certified.sum() / max(d.n_capable.sum(), 1),
         unsafe_pairs=d.n_unsafe_cert.sum() / max(d.n_incapable.sum(), 1),
         task_rel_cert=d.oracle_pairs_cert.sum() / max(d.oracle_pairs.sum(), 1),
@@ -207,7 +207,8 @@ def write_paper(rows, path, pred="env_cal", v2_s=12.0, test_plant="T0-knee", sta
                             task_rel_cert_share=d.oracle_pairs_cert / d.oracle_pairs.where(d.oracle_pairs > 0),
                             n_served=d.n_served, oracle_served=d.oracle_served,
                             n_certified_task=d.oracle_pairs_cert, n_capable_task=d.oracle_pairs,
-                            clamp_bought=d.seed.map(bought).astype(int)))
+                            clamp_bought=d.seed.map(bought).astype(int),
+                            regret_decision=d.regret - d.probe_s))
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
 

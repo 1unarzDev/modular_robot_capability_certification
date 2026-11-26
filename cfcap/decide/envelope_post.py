@@ -155,7 +155,7 @@ def episode(seed, P, th, iters=40, sizes=SIZES, lik=None, cover=None, k_screen=N
             slc = slice(6, 10)
             yc = y[slc]
             sdc = KNEE_INFL * SD_INFLATE * O.sigma(yc, "floor", True, O.nuisance_sd(
-                nplant, legs[6:], np.random.default_rng((61_000 + seed,)), 8))
+                nplant, legs[6:], np.random.default_rng((seed, 61_000)), 8))   # tagged root (nonzero last word: SeedSequence pads zeros)
             rc = qs.solve(nplant, HM[alive], HG[alive], om_ref[slc])
             zc = (O.signals(rc) - yc[None]) / sdc[None]
             lwc = lwc - 0.5 * (T_DF + 1) * np.log1p(zc * zc / T_DF).reshape(len(alive), -1).sum(1)

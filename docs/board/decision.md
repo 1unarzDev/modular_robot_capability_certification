@@ -589,6 +589,58 @@ Source: `results/decision/hos_K02_*` and `hos_Kpool_*`; appendix files `paper/pr
 - **Context.** Severity 3 alone is harder than the pooled headline (useful 88.5 % vs 93.1 %, unsafe 1.1 % vs 0.34 %).
   A certificate calibrated without any severity-3 episode still stays far inside α.
 
+## Critic-A audit (`scripts/decide_hos_audit.py` → `results/decision/hos_audit_K.csv`, `hos_audit_worstcase.csv`)
+**(1) Is K actually applied?** Yes: no plumbing bug. 48 severity-3 seeds, 45 converged; the certificate comes from
+external calibration at severities 0–2.
+
+| K | median screened set | empty screen | mean kept | evoi useful | evoi ep unsafe | bounds = K 26.9? |
+|---|---|---|---|---|---|---|
+| 15 | 348 | 17.8 % | 1.68 | 79.4 % | 4.4 % | no |
+| 26.9 | 1,845 | 2.2 % | 1.62 | 95.2 % | 4.4 % | — |
+| 28.7 | 1,851 | 2.2 % | 1.62 | 95.2 % | 4.4 % | **yes** |
+| 60 | 1,853 | 0 % | 1.60 | 96.8 % | 4.4 % | no |
+
+- The screened sets grow with K, and the low and high K values change the bounds.
+- Between 26.9 and 28.7 only a handful of hypotheses enter the screened set. They carry negligible posterior mass, so
+  they never reach the ≤ 6 top-mass set, and the bounds come out bit-identical.
+- That is why the hos_K02 and hos_Kpool rows are byte-identical: a real property of the kept set, not a bug.
+- On this 45-episode subset the episode-unsafe rate is 4.4 % (2/45) at every K; the full 267-episode held-out run
+  gave 1.1 %.
+
+**(2) Held-out severity with the 33 non-converged episodes as worst case** (300 severity-3 episodes; dropped =
+abstain, regret = the oracle's utility):
+
+| policy | useful | ep unsafe | regret | probe s |
+|---|---|---|---|---|
+| evoi | 78.2 % | 1.0 % | 43.3 | 2.05 |
+| clamp | 78.4 % | 1.0 % | 48.2 | 7.83 |
+| dom | 78.4 % | 1.0 % | 44.4 | 4.05 |
+| v2 | 70.8 % | 0.7 % | 50.7 | 0 |
+
+- Paired evoi − clamp −5.0 [−5.8, −4.1]; evoi − dom −1.2 [−1.9, −0.4].
+- The pre-registered bars (empty ≤ 10 %, unsafe ≤ 10 %, useful within 5 pts of the pooled-K arm) still hold.
+
+**(3) Decision regret, excluding probe time** (n1bK, env_cal; column `regret_decision` in
+`paper/probe_t0n1bK.csv`; `n1bK_paired_decision_regret.csv`):
+- Means: clamp 14.1 s, dom 14.3 s, **evoi 15.2 s**, v2 31.9 s.
+- Paired Δ: evoi − clamp **+1.13 [+0.21, +2.15]**; evoi − dom +0.92 [+0.10, +1.85]; dom − clamp +0.21 [0.00, +0.62].
+- So EVOI's *decisions* are slightly worse, by about 1 s of regret. Its total-regret win (−6.0 s) is the probe time it
+  saves (6.5 s).
+- The honest headline: **the same usefulness (93.1 % vs 93.5 %) at about ¼ of the probe time (1.71 s vs 8.8 s),
+  with a total-regret win that comes from the probing time saved.**
+
+**RNG stream fix (critic C).**
+- `envelope_post` used `default_rng((61_000 + seed,))` for the clamp-leg nuisance sd on the **robust-likelihood path
+  only**. It collided with the v2 stream `(60_000 + seed',)` for seed' = seed + 1000.
+- It is now `default_rng((seed, 61_000))`. Note that `(61_000, 0)` would still have collided, because SeedSequence
+  pads trailing zeros. Test: `test_envelope_post_rng_streams_distinct`.
+- **Affected result: only the NEXT-1 robust arm** (seeds 2700–3299). Its clamp-leg sd estimate shared draws with the
+  v2-leg sd estimate of seeds 3700–4299, which includes the n1bK seeds 3900–4299.
+- The streams feed only an auxiliary healthy-draw sd, not truth, noise or tasks, and they belong to different
+  experiments. The NEXT-1 verdict (useful 64.8 % vs the 75 % bar) cannot plausibly flip: the robust arm equalled the
+  unaffected v2 arm, and the cause of failure was the empty screen.
+- The headline (knee-tolerant, v2-only) path is unaffected.
+
 ## NEXT queue (not started)
 - **N-post-1b: DONE (see NEXT-1b result).** Original note: a knee-robust screen. Options:
   - (a) a conformalized screen threshold calibrated on knee-law calibration episodes (truth's max |z| at α_s);

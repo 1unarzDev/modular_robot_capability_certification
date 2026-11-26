@@ -343,3 +343,15 @@ def test_mission_certificate_simultaneous_within_alpha():
     assert np.mean(miss) <= 0.1 + 0.03
     rows = Mi.lower_rows(recs[0], pts[0], scs[0], q[0])
     assert len(rows["lower"]) == 3 * 6 and np.isneginf(Mi.lower_rows(recs[0], pts[0], scs[0], np.inf)["lower"]).all()
+
+
+def test_envelope_post_rng_streams_distinct():
+    """critic C: (61000 + s,) collided with (60000 + s',) for s' = s + 1000; the robust clamp stream is now tagged."""
+    import inspect
+    from cfcap.decide import envelope_post as EP
+    src = inspect.getsource(EP.episode)
+    assert "default_rng((seed, 61_000))" in src and "61_000 + seed" not in src
+    for s in range(0, 9000, 37):
+        a = np.random.default_rng((60_000 + s + 1000,)).random(4)
+        b = np.random.default_rng((s, 61_000)).random(4)
+        assert not np.allclose(a, b)
