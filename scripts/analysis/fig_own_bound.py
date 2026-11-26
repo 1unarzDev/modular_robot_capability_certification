@@ -7,7 +7,8 @@ Confirmatory run 1 (77fc39b), descriptive cells of the same run; nothing is re-s
         and selectors (confirmatory.split_seeds / exclusions / apply_ranges / cluster_stats / _sel). The rebuilt
         point estimate must equal cells.csv, else the script raises.
   (d)   C-MERGE, comp_enum_size (Ours on merges): lower bound vs truth per (pair, candidate, leg), T1 and T2, hexbin;
-        misses (lower > truth) in orange.
+        bounds too high (lower > truth) in orange. These are the exported certificate bounds (`lower`, the
+        bound of the scorer's C-MERGE validity bar), not a matched operating point.
 No matched (U* = 1 %) operating point appears anywhere in this figure (CLAIMS.md must-not list).
 Outputs: paper/figs/f4_own_bound.pdf; macros cfFigFour*.
 """
@@ -39,7 +40,7 @@ METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
            ("Copy parent", "copy_parent", S.GREY, "s", 3.8),
            ("Shape metadata", "metadata_nf", S.GREY, "o", 5.2))     # hollow ring around Copy parent at (0, 0)
 SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
-BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "A faulty module alone"),
+BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "Lone faulty module"),
           ("merge", "merge", "Merged configurations"))
 # Direct labels per block. ("off", dx, dy, ha[, lines]): offset in points from the marker, no leader.
 # ("at", x_rate, y_pct, ha[, lines]): text placed in data coordinates with a 0.4 pt leader to the marker.
@@ -253,17 +254,18 @@ def run(res, paper):
         ax.text(0.05, 0.96, plant, transform=ax.transAxes, fontsize=S.LABEL_PT, fontweight="bold", color=S.INK,
                 va="top")
         nm = int(len(miss))
-        ax.text(0.22, 0.96, f"{nm} misses\nin {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
+        ax.text(0.20, 0.96, f"{nm} bounds\ntoo high\n/ {len(g):,}", transform=ax.transAxes, fontsize=S.LABEL_PT,
                 color=S.ORANGE_TX, ha="left", va="top", linespacing=1.0)
         if j == 0:      # density key in the dead space above the diagonal
-            ax.text(0.06, 0.82, "entries per\nhexagon", transform=ax.transAxes, fontsize=S.LABEL_PT, color=S.INK2,
+            ax.text(0.06, 0.735, "per hexagon", transform=ax.transAxes, fontsize=S.LABEL_PT, color=S.INK2,
                     ha="left", va="top", linespacing=1.0)
-            cax = ax.inset_axes([0.07, 0.63, 0.24, 0.04])
+            cax = ax.inset_axes([0.07, 0.545, 0.30, 0.04])
             cb = fig.colorbar(hb, cax=cax, orientation="horizontal")
             cb.outline.set_linewidth(0.3)
             cb.set_ticks([1, 1000], labels=["1", "1000"])
             cax.tick_params(labelsize=S.LABEL_PT, length=1.5, width=0.4, pad=1)
             cax.xaxis.set_minor_locator(S.matplotlib.ticker.NullLocator())
+            cax.xaxis.set_ticks_position("top")
         ax.set_xlabel("true capability", labelpad=1.5)
         if j:
             ax.tick_params(labelleft=False)
@@ -273,7 +275,7 @@ def run(res, paper):
         N.num(f"fig4.merge.entries.{plant.lower()}", len(g), "results/" + MERGE, SD)
         N.pct(f"fig4.merge.missrate.{plant.lower()}", nm / len(g), "results/" + MERGE, SD, d=2)
         N.num(f"fig4.merge.pairs.{plant.lower()}", g.groupby(["arm", "eid"]).ngroups, "results/" + MERGE, SD)
-    S.panel(axd[0], "(d) Never-docked merges: bound ≤ truth", x=-0.27)
+    S.panel(axd[0], "(d) Never-docked merges: bound vs. truth", x=-0.27)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros

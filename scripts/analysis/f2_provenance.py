@@ -97,7 +97,7 @@ def run(res, paper):
 
     # ---- figure
     S.apply()
-    W, H = S.W1, 2.3
+    W, H = S.W1, 2.45
     fig = S.plt.figure(figsize=(W, H))
     inch = lambda x, y, w, h: [x / W, y / H, w / W, h / H]  # noqa: E731
 
@@ -128,40 +128,40 @@ def run(res, paper):
         # with clamp: one word per row, from the data
         c = Ac.loc[k]
         if (c < 0.5).all():
-            ct = "seen"
+            ct = "observed"
         else:
             first = next(s for s in SIZES if c[s] >= 0.5)
-            ct = f"not seen if size ≥ {first}"
+            ct = f"extrapolated, size ≥ {first}"
         ax.text(6.1, i + 0.5, ct, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
     for j, s in enumerate(SIZES):
         ax.text(j + 0.5, -0.12, s, ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text(-0.12, -0.12, "child size", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text(6.1, -0.12, "with fast test\ndrive (clamp)", ha="left", va="bottom", fontsize=S.LABEL_PT,
             color=S.INK2, linespacing=1.0)
-    fig.text(0.02 / W, (H - 0.03) / H, "(a) Which directions the test drive has seen, by child size", ha="left", va="top",
+    fig.text(0.02 / W, (H - 0.03) / H, "(a) Which directions the test drive has observed, by child size", ha="left", va="top",
              fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     # key, in-line: solid = observed, hatched = extrapolated (% of legs extrapolated in the cells)
     ky = gy - 0.10
     kx = 0.36
     fig.patches.append(Rectangle((kx / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=S.BLUE, ec=S.BLUE, lw=0.5,
                                  transform=fig.transFigure))
-    fig.text((kx + 0.2) / W, ky / H, "seen by the test drive", ha="left", va="center", fontsize=S.LABEL_PT,
+    fig.text((kx + 0.2) / W, ky / H, "observed by the test drive", ha="left", va="center", fontsize=S.LABEL_PT,
              color=S.INK2)
-    kx2 = kx + 1.25
-    fig.patches.append(Rectangle((kx2 / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
+    kx2, ky2 = kx, ky - 0.15          # second key on its own row (long label)
+    fig.patches.append(Rectangle((kx2 / W, (ky2 - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
                                  hatch="////////", hatch_linewidth=0.4, transform=fig.transFigure))
-    fig.text((kx2 + 0.2) / W, ky / H, "motor model only (% of legs)", ha="left", va="center",
+    fig.text((kx2 + 0.2) / W, ky2 / H, "extrapolated by the motor model (% of directions)", ha="left", va="center",
              fontsize=S.LABEL_PT, color=S.INK2)
 
     # (b) extrapolated share vs parent size
     by = 0.30
-    bh = ky - 0.36 - by
+    bh = ky2 - 0.36 - by
     bx = fig.add_axes(inch(0.36, by, 1.92, bh))
     if len(cov):
         bx.axvspan(7, 10, color=S.TINT, lw=0, zorder=0)
         # band header above the curves (measured coverage goes in the caption, not on this axis)
-        bx.text(8.5, 71, "tested sizes (N 7–10)", ha="center", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    bx.text(2.3, 23, "closed form\n(Prop. 2b)", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
+        bx.text(8.5, 71, "sizes tested in Sec. VI-E (7–10 modules)", ha="center", va="center", fontsize=S.LABEL_PT, color=S.INK2)
+    bx.text(2.3, 28, "closed form\n(Prop. 2b)", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
             linespacing=1.05)
     ends = {}
     for code, (lab, col, ls, mk, _) in PROBES.items():

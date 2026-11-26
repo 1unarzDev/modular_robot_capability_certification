@@ -85,7 +85,7 @@ def run(res, paper):
     axa = fig.add_axes([L / W, Bm / H, pwa / W, ph / H])
     axb = fig.add_axes([(L + pwa + gap) / W, Bm / H, pwb / W, ph / H])
     X1 = 3.35                                   # data region of (a) is [-0.35, X1]; labels to its right
-    XR = -0.35 + 3.7 * pwa / (pwa - 0.88)       # leave 0.88 in for the direct labels
+    XR = -0.35 + 3.7 * pwa / (pwa - 0.75)       # leave 0.75 in for the direct labels
     XS = XR + 0.35
 
     # (a) E_ep, log with a broken zero; region above alpha in orange tint; labels to the right of s = 3
@@ -95,7 +95,8 @@ def run(res, paper):
     axa.spines["bottom"].set_bounds(-0.35, X1)
     axa.axhspan(C.ALPHA, YMAX, xmax=(X1 + 0.35) / XS, color=S.ORANGE, alpha=0.10, lw=0, zorder=0)
     axa.plot([-0.35, X1], [C.ALPHA] * 2, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=1)
-    axa.text(-0.25, C.ALPHA * 1.12, "α = 10 %", fontsize=S.LABEL_PT, color=S.INK, va="bottom", ha="left")
+    axa.text(-0.25, C.ALPHA * 1.12, "α = 10 %\nbound for a\ncalibrated\ncertificate", fontsize=S.LABEL_PT,
+              color=S.INK, va="bottom", ha="left", linespacing=1.0)
     axa.set_yticks([Y0, 0.01, 0.1], ["0", "1", "10"])
     axa.yaxis.set_minor_locator(S.matplotlib.ticker.NullLocator())
     yb = np.sqrt(Y0 * YMIN)
@@ -145,7 +146,7 @@ def run(res, paper):
     for code, dy, txt, col in (("raw", 10, "uncalibrated\nphysics model", S.TEAL),
                                ("robust", -8, "data-only bound", S.INK2),
                                ("par", 12, "calibrated\nphysics model", S.TEAL),
-                               ("par", -12, "margin\nanomaly (App. B)", S.INK2)):
+                               ("par", -15, "margin appears\nmis-built\n(App. D)", S.INK2)):
         axb.annotate(txt, (1.5, 100 * np.mean([R[code, 1]["cf"], R[code, 2]["cf"]])), xytext=(0, dy),
                      textcoords="offset points", ha="center", va="center", fontsize=S.LABEL_PT, color=col,
                      linespacing=1.0)

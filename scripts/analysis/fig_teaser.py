@@ -33,7 +33,7 @@ EPISODE, RENDER = ASSETS / "teaser_episode.json", ASSETS / "teaser_render.png"
 DEC = "models/confirmatory/dec_conf_models.csv.gz"
 TASKS = "annotations/task_library.csv"
 DOM = "theory/dominance_by_leg_size.csv"
-W, H = S.W2, 2.2           # two-line panel titles (owner request, plain-language headings)
+W, H = S.W2, 2.68          # two-line panel titles (owner request, plain-language headings)
 CERT_FILL = "#d6e5f7"      # light blue: body certified for the job
 REF_FILL = "#a9a7a2"       # grey: body refused (darker than the blue tint in grayscale)
 LEG_ORDER = ("surge", "diag", "yaw")      # Fig. 2 / Fig. 5 order
@@ -44,6 +44,11 @@ MODE_WORD = {"coast": "coasting", "weak": "weak", "brake": "braking"}
 PLAIN_LEG = {"surge": "forward", "sway": "sideways", "diag": "diagonal", "yaw": "turn"}
 PLAIN_LEG_SIGNED = {"surge+": "forward", "surge-": "backward"}
 NUMBER_WORD = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
+
+
+VERDICT_WORD = {"certify": "certified", "probe": "test first", "refuse": "refused"}
+RULE = ("certified only if every direction the job\nneeds is certified; test first if any direction\n"
+        "is uncertain and none fails; else refused")
 
 
 def plain_leg(l):
@@ -237,7 +242,7 @@ def panel_bodies(ax, E, V, x0, y_top, width):
     y = y_top - 0.08
     for z in sizes:
         ks = sorted(k for k in kids if size[k] == z)
-        yb = grid_row(ax, E, V, ks, x0 + lab_w, y, slot, c, tags, glyph_h=0.095)
+        yb = grid_row(ax, E, V, ks, x0 + lab_w, y, slot, c, tags, glyph_h=0.205)
         rh = max(dims(E, k, c)[1] for k in ks)
         ax.text(x0, yb + rh / 2, f"{z} module{'s' if z > 1 else ''}\n({len(ks)})", ha="left", va="center",
                 fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.0)
@@ -289,7 +294,7 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
     ax0, ax1 = x0 + lab_w, gx - 0.07
     lo_v, hi_v = 0.2, 1.2
     X = lambda v: ax0 + (v - lo_v) / (hi_v - lo_v) * (ax1 - ax0)
-    rh = 0.108
+    rh = 0.098
     c = 0.056
     y = y_top
     blocks = (("refuse", "c1:", "the faulty module alone"), ("probe", "c2:", "with its healthy neighbour"))
@@ -301,7 +306,6 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
         tx = x0 + w + 0.05
         ax.text(tx, y - h / 2, tag, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK, fontweight="bold")
         ax.text(tx + 0.15, y - h / 2, words, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK)
-        mark(ax, gx, y - h / 2, verdict)
         y -= h + 0.03
         g = legs[legs.cand == cand].set_index("legn")
         for leg in order:
@@ -317,16 +321,24 @@ def panel_legs(ax, E, V, x0, x1, y_top, y_axis):
             ax.plot([X(float(r.point))] * 2, [yc - 0.055, yc + 0.055], color=S.INK2, lw=0.9, zorder=4)  # estimate
             mark(ax, gx, yc, r.verdict, size=7.5)
             y -= rh
-        y -= 0.02
+        # combined verdict of the configuration for this job (body_verdict: the rule printed under the axis)
+        ax.plot([x0 + 0.05, x1], [y - 0.005] * 2, color=S.GREY, lw=0.4)
+        yv = y - 0.068
+        ax.text(gx - 0.06, yv, f"verdict: {VERDICT_WORD[verdict]}", ha="right", va="center", fontsize=S.LABEL_PT,
+                color=S.INK, fontweight="bold")
+        mark(ax, gx, yv, verdict, size=7.5)
+        y = yv - 0.085
         first = False
     # axis
-    ya = y_axis
+    ya = y - 0.035 if y_axis is None else y_axis
     ax.plot([ax0, ax1], [ya, ya], color=S.GREY, lw=S.LW_AXES)
     for v in (0.25, 0.5, 0.75, 1.0):
         ax.plot([X(v)] * 2, [ya, ya - 0.03], color=S.INK2, lw=S.LW_AXES)
         ax.text(X(v), ya - 0.04, f"{v:g}", ha="center", va="top", fontsize=S.LABEL_PT, color=S.INK2)
     ax.text((ax0 + ax1) / 2, ya - 0.15, "capability \u03c1 (1 = healthy reference)", ha="center", va="top",
             fontsize=S.LABEL_PT, color=S.INK2)
+    ax.text(x0, ya - 0.265, RULE, ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2, style="italic",
+            linespacing=1.1)
     return X, y
 
 
@@ -346,7 +358,7 @@ def draw(res, out):
     ax.text(XA, top, f"(a) Today's robot: {NUMBER_WORD.get(nm, nm)} docked\nmodules run one {secs:g}-s test drive",
             **tkw)
     ax.text(XB, top, f"(b) Every configuration it could become ({n}),\neach with a verdict for one job", **tkw)
-    ax.text(XC, top, "(c) Inside one verdict", **tkw)
+    ax.text(XC, top, "(c) Inside two verdicts", **tkw)
     ax.text(XC, top - 0.145, "lower bound vs. what the job needs", ha="left", va="top", fontsize=S.LABEL_PT,
             color=S.INK2)
     top2 = top - 0.29                     # below the two-line titles
@@ -393,22 +405,22 @@ def draw(res, out):
             ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
     yk = top2 - 0.19
     for i, (ext, lab) in enumerate(((False, "observed by the test drive"), (True, "extrapolated by the motor model"))):
-        yy = yk - i * 0.12
+        yy = yk - i * 0.105
         ax.add_patch(Rectangle((XC + 0.02, yy - 0.04), 0.16, 0.08, lw=0.6, ec=S.BLUE, fc=S.SURFACE if ext else S.BLUE,
                                hatch="//////" if ext else None))
         ax.text(XC + 0.24, yy, lab, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
-    yk2 = yk - 0.24
-    ax.plot([XC + 0.10] * 2, [yk2 - 0.055, yk2 + 0.055], color=S.INK, lw=1.0, solid_capstyle="butt")
+    yk2 = yk - 0.21
+    ax.plot([XC + 0.10] * 2, [yk2 - 0.04, yk2 + 0.04], color=S.INK, lw=1.0, solid_capstyle="butt")
     ax.text(XC + 0.24, yk2, "what the job needs", ha="left", va="center", fontsize=S.LABEL_PT,
             color=S.INK2)
-    yk3 = yk2 - 0.12                          # bar key: thick start = lower bound, end tick = estimate
+    yk3 = yk2 - 0.105                         # bar key: thick start = lower bound, end tick = estimate
     bx0, bx1 = XC + 0.02, XC + 0.18
     ax.add_patch(Rectangle((bx0, yk3 - 0.04), bx1 - bx0, 0.08, lw=0.6, ec=S.BLUE, fc=S.BLUE))
     ax.plot([bx0] * 2, [yk3 - 0.055, yk3 + 0.055], color=S.BLUE, lw=S.LW_OURS, solid_capstyle="butt")
     ax.plot([bx1] * 2, [yk3 - 0.055, yk3 + 0.055], color=S.INK2, lw=0.9)
     ax.text(XC + 0.24, yk3, "start: lower bound, end tick: estimate", ha="left", va="center",
             fontsize=S.LABEL_PT, color=S.INK2)
-    panel_legs(ax, E, V, XC, W - 0.01, yk3 - 0.10, 0.33)
+    panel_legs(ax, E, V, XC, W - 0.01, yk3 - 0.09, None)
     S.save(fig, out)
     return E, V, srcs, counts
 

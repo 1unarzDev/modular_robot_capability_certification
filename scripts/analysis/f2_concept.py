@@ -23,7 +23,7 @@ import figstyle as S
 SEV = 3
 FW = 0.75          # speed-knee fraction for this wheel; asserted inside envelope.SEVERITY[3] and above the probe
 WHEEL = 2          # parent wheel index (module 0 of the 2x3 parent); kept by the 2x2 child as its wheel 2
-W_IN, H_IN = 3.5, 3.15
+W_IN, H_IN = 3.5, 3.2
 
 
 def _t0_points():
@@ -157,10 +157,10 @@ def run(res, paper):
     S.apply()
     fig = S.plt.figure(figsize=(W_IN, H_IN))
     # ---- (a) masking: needed power of the weak wheel per body, and how much motion the body keeps
-    HA = 0.95                                    # inches for panel (a), title included
+    HA = 1.15                                    # inches for panel (a), title included
     fig.text(0.02 / W_IN, (H_IN - 0.03) / H_IN, "(a) Why an assembly hides a weak wheel", ha="left", va="top",
              fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
-    a_y0, a_h = H_IN - HA + 0.26, HA - 0.26 - 0.2
+    a_y0, a_h = H_IN - HA + 0.26, HA - 0.26 - 0.42
     am = fig.add_axes([1.12 / W_IN, a_y0 / H_IN, 1.45 / W_IN, a_h / H_IN])
     umax = max(r_["u_need"] for r_ in mask)
     xr = 1.0 + 1.15 * (umax - 1.0) + 0.05
@@ -174,13 +174,19 @@ def run(res, paper):
                 if u > 1 else S.INK2)
         am.text(xr * 1.30, i, f"{100 * r_['rho']:.1f} %", ha="right", va="center", fontsize=S.LABEL_PT,
                 color=S.INK if r_["rho"] > 0.95 else S.ORANGE_TX, clip_on=False)
-    am.text(xr * 1.30, -0.75, "motion kept", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2,
-            clip_on=False)
-    am.axvline(1.0, color=S.INK, lw=S.LW_THEORY, ymin=-0.02, ymax=1.02, clip_on=False)
+    # header row: the reference line and the orange segment named where they are
+    hy = -0.62
+    am.text(xr * 1.30, hy, "motion\nkept", ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.INK2,
+            clip_on=False, linespacing=1.0)
+    am.text(1.0 - 0.02 * xr, hy, "full duty\n(u = 1)", ha="right", va="bottom", fontsize=S.LABEL_PT,
+            color=S.INK, clip_on=False, linespacing=1.0)
+    am.text(1.0 + 0.02 * xr, hy, "duty beyond full\n(shortfall)", ha="left", va="bottom", fontsize=S.LABEL_PT,
+            color=S.ORANGE_TX, clip_on=False, linespacing=1.0)
+    am.plot([1.0, 1.0], [len(mask) - 0.5, hy], color=S.INK, lw=S.LW_THEORY, clip_on=False)
     am.set_ylim(len(mask) - 0.5, -0.5)
     am.set_xlim(0, xr)
     am.set_yticks([])
-    am.set_xticks([0, 1], ["0", "1 = full duty"])
+    am.set_xticks([0, 1], ["0", "1"])
     am.spines["left"].set_visible(False)
     am.tick_params(length=2, pad=1.5)
     am.set_xlabel("duty a half-strength wheel needs on a diagonal", labelpad=1)
@@ -190,16 +196,13 @@ def run(res, paper):
     fig.text(0.02 / W_IN, (HB - 0.04) / H_IN, "(b) What a test drive sees, and what a new configuration needs", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     ax = fig.add_axes([0.42 / W_IN, 0.30 / H_IN, (W_IN - 0.42 - 0.06) / W_IN, (HB - 0.30 - 0.24) / H_IN])
-    X0, X1, Y1 = 0.0, 1.03, 1.0
+    X0, X1, YB = 0.0, 1.03, 0.42            # torque axis cut: everything the steps need lies below it
     xs = np.linspace(0, k, 600)
     yt = _true_envelope(xs, k, env)
     ok = np.isfinite(yt)
     xz = xs[ok][-1]                                 # true zero-torque speed
     ym = k - xs                                     # model line
-    # shortfall: between the model line and the true envelope (orange, only meaning: falls short)
-    poly = np.r_[np.c_[xs, ym], np.c_[xs[ok][::-1], yt[ok][::-1]]]
-    ax.add_patch(Polygon(poly, closed=True, fc=S.ORANGE, ec="none", alpha=0.34, zorder=1))
-    # answered by data: the dominated set, union of [0, x_p] x [0, y_p]
+    # (1) covered region: the dominated set, union of [0, x_p] x [0, y_p] over the probe's points
     order = np.argsort(-probe[:, 0])
     stair, ymax = [], 0.0
     for x_p, y_p in probe[order]:
@@ -207,20 +210,25 @@ def run(res, paper):
             stair.append((x_p, y_p))
             ymax = y_p
     for x_p, y_p in stair:
-        ax.add_patch(Rectangle((0, 0), x_p, y_p, fc=S.BLUE, ec="none", alpha=0.10, zorder=1))
+        ax.add_patch(Rectangle((0, 0), x_p, y_p, fc=S.BLUE, ec="none", alpha=0.12, zorder=1))
         ax.add_patch(Rectangle((0, 0), x_p, y_p, fc="none", ec=S.BLUE, lw=S.LW_BOX, zorder=2))
     # envelopes
     ax.plot([0, 1], [1, 0], color=S.INK, lw=S.LW_THEORY, zorder=3)
     ax.plot([0, k], [k, 0], color=S.TEAL, lw=S.LW_DATA, ls=(0, (4, 2)), zorder=3)
     ax.plot(np.r_[xs[ok], xz], np.r_[yt[ok], 0], color=S.INK2, lw=S.LW_DATA, zorder=3)
-    # probe points and needed points
+    # probe points; (2) forward need (inside); (3) diagonal need (outside)
     ax.plot(probe[:, 0], probe[:, 1], "o", color=S.BLUE, ms=S.MS, mec="white", mew=0.4, zorder=5, clip_on=False)
-    ax.plot(*surge, "o", ms=7.5, mfc="none", mec=S.INK, mew=0.8, zorder=6, clip_on=False)
-    ax.text(diag[0], diag[1] + 0.003, "?", ha="center", va="center", fontsize=S.LABEL_PT, fontweight="bold",
-            color=S.INK, zorder=7, clip_on=False,
-            bbox=dict(boxstyle="circle,pad=0.12", fc="white", ec=S.INK, lw=0.8))
+    ax.plot(*surge, "o", ms=6.5, mfc="none", mec=S.INK, mew=0.9, zorder=6, clip_on=False)   # probe dot shows inside
+    ax.plot(*diag, "o", ms=6.5, mfc="white", mec=S.INK, mew=0.9, zorder=6, clip_on=False)
+    # (4) the gap at the needed speed: the model's torque headroom there vs the true limit (none: the wheel cannot
+    # even reach this speed unloaded, the true curve meets zero torque at xz < diag speed). Orange = shortfall.
+    y_mod = k - diag[0]
+    y_true = 0.0 if diag[0] >= xz else float(np.interp(diag[0], xs[ok], yt[ok]))
+    bx_ = diag[0] + 0.022
+    ax.plot([bx_, bx_], [y_true, y_mod], color=S.ORANGE, lw=2.0, solid_capstyle="butt", zorder=4, clip_on=False)
+    for yy in (y_true, y_mod):
+        ax.plot([bx_ - 0.008, bx_ + 0.008], [yy, yy], color=S.ORANGE, lw=1.0, zorder=4, clip_on=False)
 
-    # direct labels
     T = dict(fontsize=S.LABEL_PT, zorder=8)
 
     def along(x, y, dx, text, color, off, **kw):
@@ -231,27 +239,31 @@ def run(res, paper):
         ax.annotate(text, (x, y), xytext=(0, off), textcoords="offset points", rotation=ang, rotation_mode="anchor",
                     ha="left", va="center", color=color, **T, **kw)
 
+    def callout(x, y, n, to=None):
+        kw = dict(arrowprops=dict(arrowstyle="-", lw=0.4, color=S.INK, shrinkA=0, shrinkB=3)) if to else {}
+        ax.annotate(str(n), xy=to or (x, y), xytext=(x, y), ha="center", va="center", fontsize=S.LABEL_PT,
+                    fontweight="bold", color=S.INK, zorder=9, annotation_clip=False,
+                    bbox=dict(boxstyle="circle,pad=0.18", fc="white", ec=S.INK, lw=0.6), **kw)
+
     ax.set_xlim(X0, X1)
-    ax.set_ylim(0, Y1)
-    along(0.40, 1 - 0.40, 0.1, "healthy motor", S.INK, 6)
-    along(0.06, k - 0.06, 0.1, "motor model (straight line)", S.TEAL, -6)
-    # true limit: under its own curve, left (white strip between the curve and the data region)
-    ax.text(0.03, ymax + 0.035, "true limit (knee)", color=S.INK2, ha="left", va="bottom", **T)
-    # data region: what the test drive saw = what is answered by data; the forward leg of any child sits inside
-    ax.text(0.03, ymax - 0.016, "test drive saw this: answered by data", color=S.BLUE, ha="left", va="top", **T)
-    ax.annotate("forward of any child: seen", xy=tuple(surge), xytext=(0.03, 0.035), ha="left", va="center",
-                color=S.INK, **T,
-                arrowprops=dict(arrowstyle="-", lw=0.4, color=S.INK, shrinkA=1, shrinkB=4.5))
-    # undominated need: label in the orange band, leader stays under the motor-model and healthy lines
-    lab = ax.annotate("diagonal of a child:\nnever seen, falls short", xy=tuple(diag), xytext=(0.03, 0.45),
-                      ha="left", va="center", color=S.ORANGE_TX, linespacing=1.05, **T,
-                      arrowprops=dict(arrowstyle="-", lw=0.4, color=S.INK, shrinkA=1, shrinkB=5,
-                                      relpos=(1.0, 0.75)))
+    ax.set_ylim(0, YB)
+    along(0.63, 1 - 0.63, 0.1, "healthy motor", S.INK, 5)
+    along(0.525, k - 0.525, 0.1, "motor model (straight line)", S.TEAL, 5)
+    ax.text(0.03, yt[0] + 0.012, "true limit (knee)", color=S.INK2, ha="left", va="bottom", **T)
+    callout(0.05, ymax / 2, 1)
+    callout(surge[0] - 0.065, 0.045, 2)
+    callout(diag[0] - 0.052, 0.028, 3)
+    callout(0.55, 0.28, 4, to=(bx_ - 0.004, (y_true + y_mod) / 2))
     ax.set_xticks([0, 1])
-    ax.set_yticks([0, 1])
+    ax.set_yticks([0])
     ax.set_xlabel("wheel speed (fraction of no-load speed)", labelpad=1)
     ax.set_ylabel("torque (fraction of stall torque)", labelpad=1)
     ax.tick_params(length=2, pad=1.5)
+    N.set("figconcept.speed.forward", f"{surge[0]:.2f}", src, st)
+    N.set("figconcept.speed.diag", f"{diag[0]:.2f}", src, st)
+    N.set("figconcept.speed.truetop", f"{xz:.2f}", src, st)
+    N.set("figconcept.speed.modeltop", f"{k:.2f}", src, st)
+    N.set("figconcept.speed.probetop", f"{probe[:, 0].max():.2f}", src, st)
     S.check_fonts(fig, S.LABEL_PT)       # IEEE review: every label at >= 7 pt
     S.save(fig, out)
     return N

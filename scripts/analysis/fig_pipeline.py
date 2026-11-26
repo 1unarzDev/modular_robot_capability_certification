@@ -17,7 +17,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 import common as C
 import figstyle as S
 
-W, H = S.W2, 1.42          # numbered plain-language headings (owner request)
+W, H = S.W2, 1.50          # numbered plain-language headings (owner request)
 LEARN_FILL = "#e3edf9"
 FILL = dict(learned=LEARN_FILL, physics=S.TINT, calib=S.SURFACE, data=S.SURFACE, out=S.SURFACE)
 EDGE = dict(learned=S.BLUE, physics=S.INK2, calib=S.BLUE, data=S.GREY, out=S.INK2)
@@ -63,15 +63,15 @@ def draw(path):
     ax = fig.add_axes((0, 0, 1, 1))
     ax.set_xlim(0, W), ax.set_ylim(0, H)
     ax.axis("off")
-    y0, h = 0.36, 0.80
-    gap = 0.14
+    y0, h = 0.36, 0.88
+    gap = 0.12
     specs = [
         (0.92, "data", "Today's robot:\n12-s test drive", ["wheel speeds,", "duty,", "motion sensor"]),
-        (1.36, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
+        (1.32, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
          ["faults, friction, motor", "strength, from the drive"]),
-        (1.42, "physics", "2 Build each candidate\nconfiguration in the\nsimulator (physics)",
-         ["every split and merge, 10", r"directions $\to$ estimate $\hat\rho$, spread $\sigma$"]),
-        (1.28, "calib", "3 Add one calibrated\nsafety margin",
+        (1.30, "physics", "2 Build each candidate\nconfiguration in the\nsimulator (physics)",
+         ["every split and merge,", r"10 directions $\to$ $\hat\rho$, spread $\sigma$"]),
+        (1.26, "calib", "3 Add one calibrated\nsafety margin",
          [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: margin from", "calibration episodes"]),
     ]
     B = []
@@ -85,11 +85,13 @@ def draw(path):
     rows = (("certify", S.BLUE, "certify", r"$\ell\geq\tau$"),
             ("refuse", S.INK2, "refuse", r"$\hat\rho<\tau$"),
             ("probe", S.BLUE, "test first", r"$\hat\rho\geq\tau>\ell$"))
-    ys = [y0 + h - 0.46 - k * 0.125 for k in range(3)]
+    ys = [y0 + h - 0.47 - k * 0.12 for k in range(3)]
     for (g, col, word, cond), yy in zip(rows, ys):
-        mark(ax, x + 0.06, yy, g)
-        ax.text(x + 0.20, yy, word, ha="left", va="center", fontsize=S.LABEL_PT, color=col, zorder=3)
+        mark(ax, x + 0.035, yy, g)
+        ax.text(x + 0.16, yy, word, ha="left", va="center", fontsize=S.LABEL_PT, color=col, zorder=3)
         ax.text(x + vw - 0.05, yy, cond, ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK2, zorder=3)
+    ax.text(x + 0.105, ys[2] - 0.10, "(exploratory; counted as refuse)", ha="left", va="center",
+            fontsize=S.LABEL_PT, color=S.INK2, zorder=3)
     # chain arrows (one meaning: data flow)
     for (ax0, ay, aw, ah), (bx, by, bw, bh) in zip(B[:-1], B[1:]):
         arrow(ax, (ax0 + aw, ay + ah / 2), (bx, by + bh / 2))
@@ -106,7 +108,7 @@ def draw(path):
     ax.text(xm + 0.05, oy + oh / 2 + 0.02, "for merges", ha="left", va="bottom", fontsize=S.LABEL_PT,
             color=S.INK2)
     # test-first loop (decision-EVOI, exploratory): from the "test first" row back into the test drive
-    vx = x + 0.095
+    vx = x + 0.07
     yl = 0.035
     bx0 = B[0][0] + B[0][2] / 2
     ax.plot([vx, vx, bx0], [ys[2] - 0.055, yl, yl], color=S.BLUE, lw=0.8, zorder=4, solid_joinstyle="miter")
@@ -119,7 +121,7 @@ def draw(path):
     yb = y0 + h + 0.10
     ax.plot([gx0, gx0, gx1, gx1], [yb - 0.035, yb, yb, yb - 0.035], color=S.INK, lw=0.6)
     ax.text((gx0 + gx1) / 2, yb + 0.012,
-            r"calibrated end to end on whole episodes:  P(any unsafe commitment in the episode) $\leq\alpha$",
+            r"calibrated end to end on whole episodes:  P(any bound in the episode is too high) $\leq\alpha$",
             ha="center", va="bottom", fontsize=S.LABEL_PT, color=S.INK, bbox=dict(fc=S.SURFACE, ec="none", pad=0.6))
     S.save(fig, path)
 
