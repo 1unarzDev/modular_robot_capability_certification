@@ -251,6 +251,40 @@ Either failing is reported as a failure of the learned method's claim, not tuned
   - Ranges: conf-cal 0–1999 and conf-main 40–3,039 first, unchanged; conf-scale cut to 0–299 per split.
 - **Unit times are estimates.** The H4 / H4b estimate (~35 s per episode) is the least certain.
 
+## Exploratory calibrated table (critic A; 2026-11-26 ~02:35Z; EXPLORATORY)
+- **Source.** The returned exploratory generator `cal` rows of cfcap-baselines-b2/b2r/b2r2 (b2-cheap-cal): 180
+  episodes, 1,243 incapable decisions. No confirmatory campaign was read.
+  - No cheap-baseline test split has returned, so each fold is calibrated on the other (2-fold cross-fit by eid
+    parity).
+  - Script: `scripts/baselines_cal_table.py`. Outputs: `results/baselines/cal_table.csv` (all strata, pooled and per
+    τ, 95 % episode-bootstrap CIs) and `results/baselines/paper/dec_baselines_cal.csv.gz` (decision rows, split cal,
+    route simultaneous).
+- **Certifiers.** `sim_a10` = SimultaneousLower at α = 0.1. `matched_U1` = the paper scorer's matched point
+  (`common.matched_lower`, U* = 1 % on the rel stratum, margin from the other fold).
+- **Certified fraction of capable decisions, pooled τ (95 % CI):**
+
+| method | sim α=0.1, rel | matched 1 %, rel | sim, lone faulted | matched, lone faulted | ep_any_unsafe (sim, rel) |
+|---|---|---|---|---|---|
+| oracle | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 |
+| enum_known (nuisances known) | 0.994 [0.993, 0.996] | 1.000 | 0.963 [0.954, 0.972] | 0.999 | 0.018 |
+| capxfer (Thm 5, re-calibrated) | 0.799 [0.750, 0.837] | 0.844 [0.795, 0.884] | 0.448 [0.405, 0.495] | 0.527 [0.479, 0.578] | 0.000 |
+| physics_gains (ghat_physics) | 0.638 | 0.482 | 0.519 | 0.390 | 0.036 |
+| weakest_member (min_over_members) | 0.389 | 0.288 | 0.519 | 0.390 | 0.036 |
+| model_free (metadata_nf) | 0.394 | 0.363 | 0.000 | 0.000 | 0.036 |
+| rls_interval | 0.381 | 0.453 | 0.272 | 0.308 | 0.018 |
+| detector_gated | 0.130 | 0.079 | 0.297 | 0.199 | 0.030 |
+| copy_parent | 0.003 | 0.106 | 0.002 | 0.102 | 0.000 |
+| nominal | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
+
+- **Reading:**
+  - Every method's ep_any_unsafe at sim α = 0.1 is ≤ 0.036, below α.
+  - At the matched point the realised unsafe rate is 0.2–1.8 % (cross-fit; 1,243 incapable decisions, far below the
+    power rule).
+  - capxfer on lone faulted modules certifies 45 % (sim) to 53 % (matched), below its published 58–75 %. That figure
+    came from a different population (corpus layouts, its own label).
+  - The best trivial / non-learned method on the rel stratum is physics_gains (0.64 sim / 0.48 matched).
+  - Small sample: H7 / H15 remain exploratory evidence only.
+
 ## Full-scale proposal (estimates until the canary lands)
 Generator episodes (`--source gen`). Conformal calibration needs the cal split, so every method runs on cal and on
 test.
