@@ -217,40 +217,44 @@ def grid_row(ax, E, V, cands, x0, y_top, slot_w, c, tags, glyph_h=0.10):
 
 
 def panel_bodies(ax, E, V, x0, y_top, width):
-    c = 0.068
+    """Two labelled groups: children (rows by module count, each row labelled with its count) and, in a right
+    column, today's configuration and the merges (other team's modules dashed). Returns the lowest y used."""
     kinds = {k: E["cands"][k]["kind"] for k in range(len(E["cands"]))}
     size = {k: len(E["cands"][k]["modules"]) for k in kinds}
     kids = [k for k in kinds if kinds[k] == "child"]
     merges = sorted(k for k in kinds if kinds[k] == "merge")
     selfc = [k for k in kinds if kinds[k] == "self"]
     tags = {E["shown_bodies"]["refuse"]: "c1", E["shown_bodies"]["probe"]: "c2"}
-    ax.text(x0, y_top, f"today's configuration + {len(kids)} children + {len(merges)} merges = {len(kinds)}",
-            ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
     sizes = sorted({size[k] for k in kids})
     per_row = max(sum(size[k] == z for k in kids) for z in sizes)
-    maxw = max(dims(E, k, c)[0] for k in kids)
-    slot = min(1.92 / per_row, maxw + 0.06)
-    xs = x0 + 0.12
-    y = y_top - 0.12
+    right_w = 0.66
+    lab_w = 0.47
+    left_w = width - right_w - 0.08
+    slot = (left_w - lab_w) / per_row
+    c = (slot - 0.035) / max(dims(E, k, 1.0)[0] for k in kids)
+    H1 = dict(ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK, fontweight="bold")
+    ax.text(x0, y_top, f"Children (after a split): {len(kids)}", **H1)
+    y = y_top - 0.08
     for z in sizes:
         ks = sorted(k for k in kids if size[k] == z)
-        yb = grid_row(ax, E, V, ks, xs, y, slot, c, tags)
-        ax.text(x0, yb + 0.03, f"{z}", ha="left", va="bottom", fontsize=S.LABEL_PT, color=S.INK2)
-        y = yb - 0.015
+        yb = grid_row(ax, E, V, ks, x0 + lab_w, y, slot, c, tags, glyph_h=0.095)
+        rh = max(dims(E, k, c)[1] for k in ks)
+        ax.text(x0, yb + rh / 2, f"{z} module{'s' if z > 1 else ''}\n({len(ks)})", ha="left", va="center",
+                fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.0)
+        y = yb - 0.005
     y_kids = y
-    # right column: today's body, then the merges (two per row)
-    xr = xs + per_row * slot + 0.05
-    yb = grid_row(ax, E, V, selfc, xr, y_top - 0.12, dims(E, selfc[0], c)[0], c, tags)
-    ax.text(xr, yb - 0.03, "today's\nconfiguration", ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2,
-            linespacing=1.05)
-    yb -= 0.27
-    ax.text(xr, yb - 0.06, "merges (dashed:\nthe other team)", ha="left", va="top", fontsize=S.LABEL_PT,
-            color=S.INK2, linespacing=1.05)
-    y = yb - 0.30
-    mw = max(dims(E, k, c)[0] for k in merges) + 0.04
+    # right column: today's configuration, then the merges (two per row)
+    xr = x0 + width - right_w
+    ax.text(xr, y_top, "Today's\nconfiguration", **{**H1, "linespacing": 1.0})
+    w0 = dims(E, selfc[0], c)[0]
+    yb = grid_row(ax, E, V, selfc, xr, y_top - 0.24, w0, c, tags, glyph_h=0.0)
+    ax.text(xr, yb - 0.08, f"Merges (with the\nother team): {len(merges)}", **{**H1, "linespacing": 1.0})
+    ax.text(xr, yb - 0.335, "dashed = theirs", ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
+    y = yb - 0.40
+    mw = right_w / 2
     for r in range(0, len(merges), 2):
-        y = grid_row(ax, E, V, merges[r:r + 2], xr, y, mw, c, tags, glyph_h=0.05) - 0.0
-    return min(y_kids, y)
+        y = grid_row(ax, E, V, merges[r:r + 2], xr, y, mw, c, tags, glyph_h=0.06)
+    return min(y_kids, y), c
 
 
 def key_line(ax, E, V, x0, y):
@@ -258,13 +262,13 @@ def key_line(ax, E, V, x0, y):
     n = {v: int((bv == v).sum()) for v in ("certify", "probe", "refuse")}
     c = 0.075
     x = x0
-    for v, word, adv in (("certify", "certified", 0.68), ("probe", "test first", 0.66), ("refuse", "refused", 0.58)):
+    for v, word, adv in (("certify", "certified", 0.55), ("probe", "test first", 0.56), ("refuse", "refused", 0.48)):
         fill = {"certify": CERT_FILL, "refuse": REF_FILL, "probe": S.SURFACE}[v]
         ax.add_patch(Rectangle((x, y - c / 2), c, c, lw=0.5, ec=S.INK2, fc=fill,
                                hatch=PROBE_HATCH if v == "probe" else None))
         if v != "certify":
             mark(ax, x + c + 0.035, y, v, size=7.5)
-        ax.text(x + c + (0.125 if v != "certify" else 0.035), y, f"{word} ({n[v]})", ha="left", va="center",
+        ax.text(x + c + (0.125 if v != "certify" else 0.035), y, word, ha="left", va="center",
                 fontsize=S.LABEL_PT, color=S.INK2)
         x += adv + (0.08 if v != "certify" else 0)
     ax.plot(x + 0.03, y, "o", ms=2.4, mfc=S.ORANGE, mec="none")
@@ -334,50 +338,58 @@ def draw(res, out):
     ax.set_xlim(0, W), ax.set_ylim(0, H)
     ax.axis("off")
     n = len(E["cands"])
-    XA, XB, XC = 0.0, 2.02, 4.76
+    XA, XB, XC = 0.0, 1.88, 4.92            # (c) has its own column; gutter of >= 0.12 in before it
     top = H - 0.02
     tkw = dict(ha="left", va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK, linespacing=1.15)
     secs = E["probe"]["twist_s"]
     nm = len(E["parent"]["modules"])
-    ax.text(XA, top, f"(a) Today's robot: {NUMBER_WORD.get(nm, nm)} docked modules\nrun one {secs:g}-s test drive",
+    ax.text(XA, top, f"(a) Today's robot: {NUMBER_WORD.get(nm, nm)} docked\nmodules run one {secs:g}-s test drive",
             **tkw)
     ax.text(XB, top, f"(b) Every configuration it could become ({n}),\neach with a verdict for one job", **tkw)
-    ax.text(XC, top, "(c) Inside a verdict: lower bound\nvs. what the job needs", **tkw)
-    top2 = top - 0.27                     # below the two-line titles
+    ax.text(XC, top, "(c) Inside one verdict", **tkw)
+    ax.text(XC, top - 0.145, "lower bound vs. what the job needs", ha="left", va="top", fontsize=S.LABEL_PT,
+            color=S.INK2)
+    top2 = top - 0.29                     # below the two-line titles
     # (a)
-    got = panel_render(fig, ax, E, (XA + 0.10, 0.40, 1.30, top2 - 0.40))
+    got = panel_render(fig, ax, E, (XA + 0.04, 0.78, 1.72, top2 - 0.78))
     if got:
         (ix, iy, iw, ih), to_in = got
         probe_arrows(ax, E, to_in)
-        y_foot = 0.14                       # bottom line: clear of the wheel leader
         lab = dict(fontsize=S.LABEL_PT, zorder=7, linespacing=1.05)
         lead = dict(arrowstyle="-", lw=0.4, shrinkA=1, shrinkB=2.0)
         mods = E["parent"]["modules"]
-        mk = max(range(len(mods)), key=lambda k: to_in(f"module{k}")[1])          # topmost module
-        ax.annotate("one module", tuple(to_in(f"module{mk}")), xytext=(XA + 1.93, top2 - 0.06), ha="right",
-                    va="center", color=S.INK, arrowprops={**lead, "color": S.INK2, "relpos": (0, 0.5)}, **lab)
+        mk = max(range(len(mods)), key=lambda k: to_in(f"module{k}")[0])          # rightmost module
+        mx, my = to_in(f"module{mk}")
+        ax.annotate("one module", (mx, my), xytext=(XA + 1.80, my + 0.30), ha="right", va="bottom", color=S.INK,
+                    arrowprops={**lead, "color": S.INK2, "relpos": (0.5, 0)}, **lab)
         fw = {f["wheel"] for f in E["faults"]}
-        wk = max((w for w in range(len(E["parent"]["wheel_pos"])) if w not in fw),
-                 key=lambda w: to_in(f"wheel{w}")[0])                              # rightmost healthy wheel
-        ax.annotate(f"mecanum wheel:\n{E['rollers']} rollers at {E['roller_angle_deg']:g}\u00b0\nlet it drive\nsideways", tuple(to_in(f"wheel{wk}")),
-                    xytext=(XA + 1.93, top2 - 0.30), ha="right", va="top", color=S.INK,
-                    arrowprops={**lead, "color": S.INK2, "relpos": (0, 0.85)}, **lab)
+        wk = min((w for w in range(len(E["parent"]["wheel_pos"])) if w not in fw),
+                 key=lambda w: to_in(f"wheel{w}")[1])                              # lowest (front) healthy wheel
+        wx, wy = to_in(f"wheel{wk}")
+        ax.annotate(f"mecanum wheel:\n{E['rollers']} rollers at {E['roller_angle_deg']:g}\u00b0\nlet it drive\n"
+                    "sideways", (wx, wy), xytext=(wx - 0.17, wy - 0.13), ha="left", va="top", color=S.INK,
+                    arrowprops={**lead, "color": S.INK2, "relpos": (0, 1)}, **lab)   # ~37 deg leader
         f = E["faults"][0]
-        ax.annotate(f"{MODE_WORD[f['mode']]} wheel\n(unknown to\nthe robot)", tuple(to_in(f"wheel{f['wheel']}")),
-                    xytext=(XA + 1.93, 0.55), ha="right", va="top", color=S.ORANGE_TX,
-                    arrowprops={**lead, "color": S.ORANGE_TX, "relpos": (0, 0.85)}, **lab)
-    ax.text(XA, y_foot if got else 0.14, "blue arrows: the test drive\n(forward/back, sideways, turn)", ha="left", va="center",
+        fx, fy = to_in(f"wheel{f['wheel']}")
+        ax.annotate(f"{MODE_WORD[f['mode']]} wheel\n(unknown to\nthe robot)", (fx, fy), xytext=(XA, 0.62),
+                    ha="left", va="top", color=S.ORANGE_TX,
+                    arrowprops={**lead, "color": S.ORANGE_TX, "relpos": (1, 1)}, **lab)
+    ax.text(XA, 0.12, "blue arrows: the test drive\n(forward/back, sideways, turn)", ha="left", va="center",
             fontsize=S.LABEL_PT, color=S.BLUE, linespacing=1.1)
     if V is None:
         ax.text(XB + 1.3, 1.0, "awaiting " + DEC, ha="center", va="center", color=S.ORANGE_TX)
         S.save(fig, out)
         return E, V, srcs, None
     # (b)
-    yb = panel_bodies(ax, E, V, XB, top2, XC - XB - 0.10)
-    counts = key_line(ax, E, V, XB, max(0.07, min(yb - 0.12, 0.30)))
+    bv = V["body"]
+    nb = {v: int((bv == v).sum()) for v in ("certify", "probe", "refuse")}
+    ax.text(XB, top2 + 0.02, f"{nb['certify']} certified \u00b7 {nb['probe']} test first \u00b7 {nb['refuse']} refused",
+            ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK, style="italic")
+    yb, _ = panel_bodies(ax, E, V, XB, top2 - 0.16, XC - XB - 0.14)
+    counts = key_line(ax, E, V, XB, max(0.07, min(yb - 0.10, 0.25)))
     # (c)
     kinds = [k for k in LEG_ORDER if any(l.startswith(k) for l in E["job"]["taus"])]
-    ax.text(XC, top2, f"job: {E['job']['domain']} run (needs {', '.join(PLAIN_LEG[k] for k in kinds)})",
+    ax.text(XC, top2, f"{E['job']['domain']} job: {', '.join(PLAIN_LEG[k] for k in kinds)}",
             ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
     yk = top2 - 0.19
     for i, (ext, lab) in enumerate(((False, "observed by the test drive"), (True, "extrapolated by the motor model"))):
@@ -403,7 +415,7 @@ def draw(res, out):
 
 def probe_arrows(ax, E, to_in):
     """The test drive drawn on the render, in its ground plane: a forward/back and a sideways double arrow crossing
-    on the rear half of the body, and a turn arc around its right side (the render's empty corner). Cell
+    on the rear half of the body, and a turn arc around its rear (the render's empty top-left corner). Cell
     coordinates (i forward, j left) are mapped to inches through the projected module centres."""
     cells = [tuple(c) for c in E["parent_cells"]]
     m = {cells[k]: to_in(f"module{k}") for k in range(len(cells))}
@@ -416,10 +428,10 @@ def probe_arrows(ax, E, to_in):
     kw = dict(arrowstyle="<|-|>,head_length=3.2,head_width=1.8", mutation_scale=1, lw=1.2, color=S.BLUE,
               shrinkA=0, shrinkB=0, zorder=6, path_effects=halo)
     ci, cj = 0.5, jmax / 2                               # rear half: clear of the faulted wheel
-    ax.add_patch(FancyArrowPatch(tuple(P(ci - 0.55, cj)), tuple(P(ci + 0.55, cj)), **kw))    # forward / back
-    ax.add_patch(FancyArrowPatch(tuple(P(ci, cj - 0.55)), tuple(P(ci, cj + 0.55)), **kw))    # sideways
+    ax.add_patch(FancyArrowPatch(tuple(P(ci - 0.5, cj)), tuple(P(ci + 0.5, cj)), **kw))    # forward / back
+    ax.add_patch(FancyArrowPatch(tuple(P(ci, cj - 0.5)), tuple(P(ci, cj + 0.5)), **kw))    # sideways
     gi, gj = imax / 2, jmax / 2
-    ph = np.radians(np.linspace(200, 325, 80))
+    ph = np.radians(np.linspace(120, 235, 80))
     pts = np.array([P(gi + (imax / 2 + 0.75) * np.cos(a), gj + (jmax / 2 + 0.85) * np.sin(a)) for a in ph])
     ax.plot(pts[:-2, 0], pts[:-2, 1], color=S.BLUE, lw=1.2, zorder=6, path_effects=halo)
     ax.add_patch(FancyArrowPatch(tuple(pts[-4]), tuple(pts[-1]), **{**kw, "arrowstyle":
