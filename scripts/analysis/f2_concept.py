@@ -1,4 +1,4 @@
-"""Concept figure (IEEE version), "What a probe sees, and what a new body needs": one wheel's operating plane.
+"""Concept figure (IEEE version), "What a probe sees, and what a new configuration needs": one wheel's operating plane.
 
 Schematic, but every position is computed, not drawn by hand:
   * x = wheel speed / healthy no-load speed, y = load torque / healthy stall torque (Lemma 1, u = a*alpha + b*beta,
@@ -187,7 +187,7 @@ def run(res, paper):
 
     # ---- (b) the operating plane
     HB = H_IN - HA
-    fig.text(0.02 / W_IN, (HB - 0.04) / H_IN, "(b) What a test drive sees, and what a new body needs", ha="left",
+    fig.text(0.02 / W_IN, (HB - 0.04) / H_IN, "(b) What a test drive sees, and what a new configuration needs", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
     ax = fig.add_axes([0.42 / W_IN, 0.30 / H_IN, (W_IN - 0.42 - 0.06) / W_IN, (HB - 0.30 - 0.24) / H_IN])
     X0, X1, Y1 = 0.0, 1.03, 1.0

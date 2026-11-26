@@ -224,7 +224,7 @@ def panel_bodies(ax, E, V, x0, y_top, width):
     merges = sorted(k for k in kinds if kinds[k] == "merge")
     selfc = [k for k in kinds if kinds[k] == "self"]
     tags = {E["shown_bodies"]["refuse"]: "c1", E["shown_bodies"]["probe"]: "c2"}
-    ax.text(x0, y_top, f"today's body + {len(kids)} children (rows: size) + {len(merges)} merges = {len(kinds)}",
+    ax.text(x0, y_top, f"today's configuration + {len(kids)} children + {len(merges)} merges = {len(kinds)}",
             ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2)
     sizes = sorted({size[k] for k in kids})
     per_row = max(sum(size[k] == z for k in kids) for z in sizes)
@@ -241,8 +241,9 @@ def panel_bodies(ax, E, V, x0, y_top, width):
     # right column: today's body, then the merges (two per row)
     xr = xs + per_row * slot + 0.05
     yb = grid_row(ax, E, V, selfc, xr, y_top - 0.12, dims(E, selfc[0], c)[0], c, tags)
-    ax.text(xr + dims(E, selfc[0], c)[0] + 0.05, yb + 0.02, "today's\nbody", ha="left", va="bottom",
-            fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.05)
+    ax.text(xr, yb - 0.03, "today's\nconfiguration", ha="left", va="top", fontsize=S.LABEL_PT, color=S.INK2,
+            linespacing=1.05)
+    yb -= 0.27
     ax.text(xr, yb - 0.06, "merges (dashed:\nthe other team)", ha="left", va="top", fontsize=S.LABEL_PT,
             color=S.INK2, linespacing=1.05)
     y = yb - 0.30
@@ -340,7 +341,7 @@ def draw(res, out):
     nm = len(E["parent"]["modules"])
     ax.text(XA, top, f"(a) Today's robot: {NUMBER_WORD.get(nm, nm)} docked modules\nrun one {secs:g}-s test drive",
             **tkw)
-    ax.text(XB, top, f"(b) Every body it could become ({n}),\neach with a verdict for one job", **tkw)
+    ax.text(XB, top, f"(b) Every configuration it could become ({n}),\neach with a verdict for one job", **tkw)
     ax.text(XC, top, "(c) Inside a verdict: lower bound\nvs. what the job needs", **tkw)
     top2 = top - 0.27                     # below the two-line titles
     # (a)

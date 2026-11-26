@@ -40,7 +40,7 @@ METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
            ("Shape metadata", "metadata_nf", S.GREY, "o", 5.2))     # hollow ring around Copy parent at (0, 0)
 SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
 BLOCKS = (("stratum", "stratum", "Hard cases: more, safer"), ("lone-faulted", "lone", "A faulty module alone"),
-          ("merge", "merge", "Merged bodies"))
+          ("merge", "merge", "Merged configurations"))
 # Direct labels per block. ("off", dx, dy, ha[, lines]): offset in points from the marker, no leader.
 # ("at", x_rate, y_pct, ha[, lines]): text placed in data coordinates with a 0.4 pt leader to the marker.
 # lines: 2 or 3 line layout of the Ours/CapXfer number label (default Ours 1, CapXfer 3).
@@ -273,7 +273,7 @@ def run(res, paper):
         N.num(f"fig4.merge.entries.{plant.lower()}", len(g), "results/" + MERGE, SD)
         N.pct(f"fig4.merge.missrate.{plant.lower()}", nm / len(g), "results/" + MERGE, SD, d=2)
         N.num(f"fig4.merge.pairs.{plant.lower()}", g.groupby(["arm", "eid"]).ngroups, "results/" + MERGE, SD)
-    S.panel(axd[0], "(d) Never-docked merges: bound below truth", x=-0.72)
+    S.panel(axd[0], "(d) Never-docked merges: bound ≤ truth", x=-0.27)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros

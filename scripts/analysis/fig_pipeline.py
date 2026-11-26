@@ -69,7 +69,7 @@ def draw(path):
         (0.92, "data", "Today's robot:\n12-s test drive", ["wheel speeds,", "duty,", "motion sensor"]),
         (1.36, "learned", "1 Estimate each module's\nhidden state\n(learned estimator)",
          ["faults, friction, motor", "strength, from the drive"]),
-        (1.42, "physics", "2 Build each candidate\nbody in the simulator\n(physics)",
+        (1.42, "physics", "2 Build each candidate\nconfiguration in the\nsimulator (physics)",
          ["every split and merge, 10", r"directions $\to$ estimate $\hat\rho$, spread $\sigma$"]),
         (1.28, "calib", "3 Add one calibrated\nsafety margin",
          [r"lower bound $\ell=\hat\rho-\hat q\,\sigma$", r"$\hat q$: margin from", "calibration episodes"]),
@@ -81,11 +81,11 @@ def draw(path):
         x += w + gap
     # verdict box: three outcomes, one per line; "test first" last so the loop leaves from its row
     vw = W - 0.01 - x
-    B.append(box(ax, x, y0, vw, h, "out", "4 Verdict per\nbody and job", []))
+    B.append(box(ax, x, y0, vw, h, "out", "4 Verdict per\nconfiguration\nand job", []))
     rows = (("certify", S.BLUE, "certify", r"$\ell\geq\tau$"),
             ("refuse", S.INK2, "refuse", r"$\hat\rho<\tau$"),
             ("probe", S.BLUE, "test first", r"$\hat\rho\geq\tau>\ell$"))
-    ys = [y0 + h - 0.36 - k * 0.14 for k in range(3)]
+    ys = [y0 + h - 0.46 - k * 0.125 for k in range(3)]
     for (g, col, word, cond), yy in zip(rows, ys):
         mark(ax, x + 0.06, yy, g)
         ax.text(x + 0.20, yy, word, ha="left", va="center", fontsize=S.LABEL_PT, color=col, zorder=3)
