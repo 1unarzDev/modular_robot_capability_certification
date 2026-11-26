@@ -3,6 +3,22 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **03:06Z: FINAL PULL COMPLETE.**
+  - At 03:00Z all queued cfcap jobs were cancelled (67, then 2 stray requeues). Every live box was rsynced twice into `~/.cache/vast-out/<box>/crane/` (23–24/24 OK; one box failed one pass and was retried OK). Coordinator artifacts are under `~/.cache/vast-out/coordinator-artifacts/`.
+  - **Confirmatory campaigns, coordinator job counts:**
+    - cfcap-models-eval2: 6 done.
+    - cfcap-models-eval2b: 13 done, 9 still leased, 1 dead (22 cancelled: A-POWER and cutoff).
+    - cfcap-models-eval2h: 14 done.
+    - cfcap-models-eval2hb: 2 done, 3 leased.
+    - cfcap-models-wheels: 5/5 done.
+    - cfcap-baselines-conf4: 9 done, 17 leased, 3 dead (54 cancelled).
+    - cfcap-stress-conf-gate: 6 done, 9 leased.
+    - cfcap-stress-conf-merge: 18 done, 1 leased; **cfcap-stress-conf-merge2: 1/1 done (C-MERGE u0014 pulled, complete 5/5)**.
+    - cfcap-env: 28/28 done.
+    - cfcap-gen-confirm2: 12/12 done.
+  - Leased jobs that finish before teardown are pulled by the compute session's drain; their completed units up to 03:05Z are already in vast-out.
+  - **Duplicate dirs:** a job pulled from several boxes has several dirs. Use the one whose `manifest.json` status is `complete`.
+  - Credit $9.76 (floor $2). Ops is stopping now; rentals lapse with the override.
 - 02:46Z: pre-final notice posted to stress. The C-MERGE u0014 rerun (merge2 P5.s003) finishes ~03:08Z; the compute session is asked to keep box 62609873 until then and pull it.
 - **02:42Z: models eval2b "all failed" is a false alarm.** The pulled dirs include stale partial copies of preempted attempts; per job, use the copy with status=complete. Details and per-group confirmatory counts are on the models board. C-MAIN st-n6-2 conf rows exist (7 complete conf-main-scale shards). Nothing to resubmit.
 - **02:05Z outlook.** conf4 units run ~4× slower than planned (conf-het-H2: 17/20 units in 38 min).
@@ -198,33 +214,39 @@ All results so far are exploratory and come from simulation.
 ## Rented campaigns (owner: ≤24 interruptible boxes until 2026-11-26 03:00Z, ≤$35, floor $2; ops target ≤ ~$27)
 | Campaign | What | Box-h (est.) | Priority | Done/total (leased, queued) |
 |---|---|---|---|---|
-| cfcap-models-b1 | Training grid: arch × diversity × seeds | 43.2 | 30 | 32/49 (5, 0) |
-| cfcap-models-b1w | models-b1 remainder (2 running) | — | 30 | 1/13 (1, 0) |
-| cfcap-models-b1x | models-b1 remainder, any worker (quoted) | ~13 | 30 | 1/11 (9, 1) |
+| cfcap-models-b1 | Training grid: arch × diversity × seeds | 43.2 | 30 | 36/49 (0, 0) |
+| cfcap-models-b1w | models-b1 remainder (2 running) | — | 30 | 2/13 (0, 0) |
+| cfcap-models-b1x | models-b1 remainder, any worker (quoted) | ~13 | 30 | 11/11 (0, 0) |
 | cfcap-gen-ref2 | Reference splits cal/test/H*, ρ_dec | 4.3 | 30 | 19/19 (0, 0) |
-| cfcap-gen-ref3 | Rerun of 2 lost gen-ref2 shards (H3/H4 plated s000) | 0.4 | 20 | 0/2 (2, 0) |
-| cfcap-baselines-b2r2 | Cheap baselines on generator ids (vram fix of b2r) | 16.6 | 40–53 | 1/37 (1, 35) |
-| cfcap-t2-motor | T2 motor-law arm, 4000 episodes | 7.3 | 55 | 3/9 (6, 0) |
-| cfcap-t2-motor2 | T2 knee severities 1–3, 4000 episodes | 11.0 | 55 | 4/13 (9, 0) |
+| cfcap-gen-ref3 | Rerun of 2 lost gen-ref2 shards (H3/H4 plated s000) | 0.4 | 20 | 2/2 (0, 0) |
+| cfcap-gen-ref4 | Rerun of 3 gen-ref2 shards stranded on an unreachable box | 0.9 | 20 | 3/3 (0, 0) |
+| cfcap-baselines-b2r2 | Cheap baselines on generator ids (vram fix of b2r) | 16.6 | 40–53 | 1/37 (0, 0) |
+| cfcap-t2-motor | T2 motor-law arm, 4000 episodes | 7.3 | 55 | 8/9 (0, 0) |
+| cfcap-t2-motor2 | T2 knee severities 1–3, 4000 episodes | 11.0 | 55 | 13/13 (0, 0) |
 | cfcap-stress-n4 | N4 merge (margins before 01:45Z) | 4.8 | 5 | 20/20 (0, 0) |
-| cfcap-t2-motor4 | T2 motor misfit (v2+clamp+yawc, obs + true faults) | 17.8 | 60 | 2/21 (19, 0) |
-| cfcap-t2-eps | 4000 plated T2 test episodes | 4.0 | — | 8/9 (1, 0) |
-| cfcap-t2-extra | Plateless T2 + 7-condition ablation | 4.5 | 60 | 6/11 (5, 0) |
-| cfcap-baselines-smc-small | SMC particle sweep (stage 1) | 14.1 | 60–62 | 4/31 (1, 26) |
+| cfcap-t2-motor4 | T2 motor misfit (v2+clamp+yawc, obs + true faults) | 17.8 | 60 | 15/21 (5, 0) |
+| cfcap-t2-eps | 4000 plated T2 test episodes | 4.0 | — | 9/9 (0, 0) |
+| cfcap-t2-extra | Plateless T2 + 7-condition ablation | 4.5 | 60 | 11/11 (0, 0) |
+| cfcap-baselines-smc-small | SMC particle sweep (stage 1) | 14.1 | 60–62 | 27/31 (0, 0) |
 | cfcap-gen-scaling16r | H4b 11–16 modules | 0.7 | 65 | 7/7 (0, 0) |
-| cfcap-gen-hetero2 | Module types het/H1/H2 | 0.8 | 66–69 | 4/5 (1, 0) |
-| cfcap-models-hetx | Training on mixed module types (any worker) | 3.7 | 67 | 1/5 (1, 3) |
+| cfcap-gen-hetero2 | Module types het/H1/H2 | 0.8 | 66–69 | 5/5 (0, 0) |
+| cfcap-models-hetx | Training on mixed module types (any worker) | 3.7 | 67 | 5/5 (0, 0) |
 | cfcap-env | HM3D-calibrated env missions | 3.5 | 70–84 | 28/28 (0, 0) |
-| cfcap-gen-confirm2 | Confirmatory conf_* splits (unopened until 01:45Z) | 1.4 | 75–80 | 7/12 (2, 3) |
-| cfcap-baselines-conf2 | Baselines on conf ids (vram fix; unopened until 01:45Z) | 33.3 | 75–81 | 1/86 (0, 85) |
-| cfcap-stress-conf-merge | C-MERGE confirmatory (unopened until 01:45Z) | 7.8 | 75 | 15/19 (3, 1) |
-| cfcap-stress-conf-gate | C-GATE: gate-cal + conf-gate (unopened until 01:45Z) | 17.2 | 75/80 | 2/28 (21, 5) |
-| cfcap-nuis3 | Trimmed nuisance (pair/square × v2/v2+clamp + sweep) | 10.8 | 85 | 1/8 (7, 0) |
-| cfcap-nuis2 | Running remainder (nuis-main.s000, canary, t0-a2) | — | — | 10/29 (2, 1) |
-| cfcap-theory-ride | T0 phase diagram + envelope (spare cores) | 17 CPU-h | 88 | 12/26 (14, 0) |
-| cfcap-decide2 | Decide T1 grid (first to cut) | 30.5 | 90–100 | 1/18 (0, 17) |
+| cfcap-gen-confirm2 | Confirmatory conf_* splits (unopened until 01:45Z) | 1.4 | 75–80 | 12/12 (0, 0) |
+| cfcap-baselines-conf4 | Baselines on conf ids, cheap methods, vram 6 (unopened until 01:45Z) | 27 | 0–4 | 9/85 (17, 1) |
+| cfcap-stress-conf-merge | C-MERGE confirmatory (unopened until 01:45Z) | 7.8 | 75 | 18/19 (1, 0) |
+| cfcap-stress-conf-gate | C-GATE: gate-cal + conf-gate (unopened until 01:45Z) | 17.2 | 75/80 | 6/28 (9, 0) |
+| cfcap-models-eval2h | eval2 het + conf-het, first part | — | 2 | 14/26 (0, 0) |
+| cfcap-models-eval2hb | eval2 het remainder, vram 12 | ~3 | 1 | 2/12 (3, 0) |
+| cfcap-models-eval2 | eval2 main (st-n6-2), first part | — | 1 | 6/52 (0, 0) |
+| cfcap-models-eval2b | eval2 main remainder, vram 12 | ~9 | 1 | 13/46 (9, 0) |
+| cfcap-models-wheels | C-EXPLAIN wheel posteriors (st-n6-2) | 0.7 | 0–1 | 5/5 (0, 0) |
+| cfcap-nuis3 | Trimmed nuisance (pair/square × v2/v2+clamp + sweep) | 10.8 | 85 | 2/8 (0, 0) |
+| cfcap-nuis2 | Running remainder (nuis-main.s000, canary, t0-a2) | — | — | 10/29 (0, 0) |
+| cfcap-theory-ride | T0 phase diagram + envelope (spare cores) | 17 CPU-h | 88 | 24/26 (0, 0) |
+| cfcap-decide2 | Decide T1 grid (first to cut) | 30.5 | 90–100 | 6/18 (0, 0) |
 
-Spend so far (ledger, UTC day): $10.24 at 22:35Z. Superseded/cancelled: gen-pilot*, canary*, baselines-pilot2, b2, theory-cpu, decide, gen-scaling16/hetero/confirm (ebba94b), t2-adv.
+Spend so far (ledger, UTC day): window ≈ $23.6 (credit 33.36 → 9.76) at 03:06Z. Superseded/cancelled: gen-pilot*, canary*, baselines-pilot2, b2, theory-cpu, decide, gen-scaling16/hetero/confirm (ebba94b), t2-adv.
 
 ## Findings to date
 - A2/A3 (T0 oracle, motor law known): 0.02 % of decisions are ambiguous after v2, and the oracle certifies 99.98 %
