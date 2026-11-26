@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **00:54Z (box clock): conf4 is LEASED** (14 running, 71 queued). eval2 main has 16 running, 33 queued, 3 done; eval2h is 11/26 done. Left to run: ~35 box-h of GPU work over 20 boxes, so it finishes around 02:40Z if leasing keeps up. Credit $17.22, burn $3.1/h. (Earlier alerts ran ~20 min ahead of the box clock.)
 - **01:15Z: capacity triage (coordinator).**
   - Cut for the window, to rerun tomorrow on free workers. These are queued jobs only, cancelled; leased jobs finish:
     - cfcap-nuis3 (2), cfcap-baselines-smc-small (4), cfcap-baselines-b2r2 (30), cfcap-theory-ride (1), cfcap-decide2 (9);
