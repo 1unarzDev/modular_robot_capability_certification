@@ -3,6 +3,12 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **02:05Z outlook.** conf4 units run ~4× slower than planned (conf-het-H2: 17/20 units in 38 min).
+  - conf4: 6 done, 8 running, 56 queued. It **will not complete**; conf-cal and conf-main lease first.
+  - eval2b: 4 done, 13 running, 24 queued, so maybe ~50 % by 03:00Z.
+  - conf-gate: 4 done, 6 running. conf-merge2 (u0014) is queued at priority 0.
+  - The digest again names 9 "eligible, live, free" workers (4b4ba2c6cfe5, e5fe72b11cc6, d714a9728200, …) that lease nothing. Those look like free workers without the `rented` inputs.
+  - At 02:55Z ops posts the pre-final notice to stress. At 03:00Z ops cancels the queue, runs a final rsync pull of every box, and posts per-campaign done counts.
 - **01:58Z: eval2b is VRAM-fit-starved.**
   - It has priority 0, but each job needs 12 GB free on one host. conf4's 6 GB jobs (22 running) refill every freed slot before 12 GB accumulates. eval2b: 6 running, 31 queued, 4 done. conf-merge2 (6 GB) is outranked the same way.
   - Pausing conf4 would put it back into canary on resume, so ops lets conf4 drain instead: 42 queued, ETA ~02:30Z. eval2b then speeds up, but **eval2 main will likely be ~60–70 % complete at 03:00Z.**
