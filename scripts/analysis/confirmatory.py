@@ -1180,7 +1180,7 @@ def fmt(x, pct=True):
     return f"{100 * x:.2f} %" if pct else f"{x:.3g}"
 
 
-def report(S, H, out, sha, srcs, mock):
+def report(S, H, out, sha, srcs, mock, header_note=""):
     V = pd.DataFrame(S.rows)
     V["conf_sha"] = sha
     out.mkdir(parents=True, exist_ok=True)
@@ -1190,6 +1190,7 @@ def report(S, H, out, sha, srcs, mock):
     L = [f"# Confirmatory results{' (MOCK DATA - never cite)' if mock else ''}", "",
          f"Scored by `scripts/analysis/confirmatory.py` against `docs/CONFIRMATORY.md` @ `{sha}` on "
          f"{dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%MZ}. Inputs: {', '.join(srcs) or 'none'}.", "",
+         *([header_note, ""] if header_note else []),
          "## Exclusions (§0.1)", ""] + [f"- {x}" for x in S.log] + ["", "## Power checks (§0.4), before any verdict", "",
          "| claim | cell | method | plant | incapable stratum decisions | deff | upper bound at 1 % | powered |",
          "|---|---|---|---|---|---|---|---|"]
@@ -1307,7 +1308,7 @@ def add_trivial(d, S, what):
     return pd.concat([d, t[d.columns.intersection(t.columns)]], ignore_index=True)
 
 
-def run(res, out, mock=False, now=None, truth_fn=None):
+def run(res, out, mock=False, now=None, truth_fn=None, header_note=""):
     now = now or dt.datetime.now(dt.timezone.utc)
     if not mock and not (res / "MOCK.txt").exists() and now < SCORING_OPENS:
         raise SystemExit(f"refusing: the confirmatory scoring window opens {SCORING_OPENS:%Y-%m-%d %H:%MZ} "
@@ -1344,7 +1345,7 @@ def run(res, out, mock=False, now=None, truth_fn=None):
     h12(S)
     p6_overall(S)
     V = report(S, H, out, conf_sha(), s1 + s2 + ([C.rel(ksf)] if ks is not None else []), mock or
-               (res / "MOCK.txt").exists())
+               (res / "MOCK.txt").exists(), header_note)
     return V, H, S
 
 
@@ -1498,17 +1499,18 @@ def main(argv=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--mock", default=None, help="write mock inputs to this dir and score them there")
     ap.add_argument("--bad", action="store_true", help="mock: miscalibrated 'ours'")
+    ap.add_argument("--header-note", default="", help="a line for the CONFIRMATORY_RESULTS.md header (e.g. test count)")
     a = ap.parse_args(argv)
     if a.mock:
         res = write_mock(pathlib.Path(a.mock), good=not a.bad)
         out = pathlib.Path(a.out) if a.out else res / "confirmatory_out"
-        V, H, _ = run(res, out, mock=True)
+        V, H, _ = run(res, out, mock=True, header_note=a.header_note)
     else:
         res = pathlib.Path(a.results)
         out = pathlib.Path(a.out) if a.out else OUT
         if out.resolve() == OUT.resolve() and (res / "MOCK.txt").exists():
             raise SystemExit("refusing: mock inputs would write results/confirmatory/")
-        V, H, _ = run(res, out)
+        V, H, _ = run(res, out, header_note=a.header_note)
     print((out / "CONFIRMATORY_RESULTS.md").read_text())
     return V, H
 

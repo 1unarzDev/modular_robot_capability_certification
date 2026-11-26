@@ -574,3 +574,11 @@ def test_apower_env_ranges(tmp_path):
     ours = V[(V.claim == "C-ENV") & (V.bar == "1 validity") & (V.method == K.OURS) & (V.cell == "ID")].iloc[0]
     exp = d[(d.family == "ID") & (d.method == K.OURS)]
     assert ours.estimate == pytest.approx(((exp.committed == 1) & (exp.failed == 1)).sum() / exp.committed.sum())
+
+
+
+def test_header_note_in_results(tmp_path):
+    res = K.write_mock(tmp_path / "in", n_main=40, n_gate=20, n_pairs=20)
+    K.run(res, tmp_path / "out", mock=True, header_note="Pre-scoring test suite: 133 passed.")
+    md = (tmp_path / "out/CONFIRMATORY_RESULTS.md").read_text()
+    assert md.index("Pre-scoring test suite: 133 passed.") < md.index("## Exclusions")
