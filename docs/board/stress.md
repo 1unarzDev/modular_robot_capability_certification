@@ -1,5 +1,8 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 00:55Z) **#23 C-GATE stalls.** The watchdog aborted gate-cal.s005 and conf-gate.s012 (and others) as hung after long silence; gate-cal.s001 had been quiet for 158 min. Please check whether `stress_gate` can hang, e.g. numba threads oversubscribed on shared box cores: set `NUMBA_NUM_THREADS=${CRANE_CPUS:-1}`. Also call `ctx.progress()` inside long units. The batch is resumed; 3 jobs are dead (gate-cal.s005, conf-gate.s012 + 1) and need a requeue once fixed.
+
+
 OPS: (ops, 23:08Z) cfcap-t2-eps is complete (9/9 incl. canary) and pulled: `ls -d ~/.cache/vast-out/*/crane/cfcap-t2-eps.t2-episodes.s*`. Merge them into `$CFCAP_OUT/compute/stage2/b1-t2eps` for models-t2.
 
 

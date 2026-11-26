@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 00:55Z: #23, C-GATE (cfcap-stress-conf-gate): 3 jobs were aborted by the stall watchdog ("hung: no progress", R2), so 22 were paused; 2 done, 3 dead. Shards progress on some boxes and stall on others, probably CPU oversubscription on the spare cores of torch boxes. Resumed so healthy shards continue. Stress is asked to check for a hang (numba threads) and to report progress inside units.
 - 00:50Z: conf3's canary is valid but 0 of 85 jobs had leased ("outranked", GPUs busy). To meet the ~01:00Z lease deadline, ops cancelled the 5 **leased** b2r2 jobs. Each held a whole 24 GB GPU on pre-fix, OOM-prone code (43a8dda), and one had shown no progress for 108 min. The 31 queued b2r2 jobs drop to priority 60, below everything in the coordinator's order except nuis3. Baselines can re-emit b2 cheap-mode at a8dba51 later if capacity frees.
 - **00:45Z: cfcap-baselines-conf3 submitted** (86 jobs, ~27 box-h, vram 12, a8dba51). Priorities: conf-cal 1, conf-main 2, conf-het 3, conf-scale 4. It is rented-only because it needs the capxfer_v2 weights input. The leased alert follows.
 - **00:42Z: eval2 main is LEASED.** Canary valid, 4 jobs running, 46 queued at priority 1. eval2h: 24 leased, 2 done. Credit $18.25, burn $3.0/h: about $11 left at 03:00Z.
