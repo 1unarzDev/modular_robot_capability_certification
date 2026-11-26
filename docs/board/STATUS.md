@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 00:40Z: the 85 queued cfcap-baselines-conf2 jobs are cancelled, per the coordinator. cfcap-baselines-conf3 (cheap methods, no CUDA graph, any-worker) will be submitted at top priority as soon as baselines posts its OPS line.
 - **00:36Z: eval2 main SUBMITTED** as cfcap-models-eval2: 51 jobs + canary, priority 1, 1117327, using **st-n6-2 instead of st-n6-1** (coordinator decision). The models-eval2 group selects st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1, with st-n6-2 duplicates removed. The b1r2 replica is cancelled; b1r.s000 (st-n6-1) keeps running on its one GPU.
 - **00:28Z: the st-n6-1 retrain was preempted at 8/12** and restarted from 0/12 on another box, because its checkpoint does not move between boxes.
   - The new ETA is ~01:30Z, which leaves eval2 main (51 jobs) about 1.5 h before 03:00Z.
