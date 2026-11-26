@@ -368,3 +368,12 @@ unmeasured: the small SMC campaign plus models eval2.
   (2.2 %); EVOI did better in 458.
   - Honest framing: EVOI certifies slightly fewer of the oracle's own pairs, but loses ≤ 0.4 pt of usefulness while
     saving 7 s of probing.
+
+**N4, merge certificate with INFERRED latents (stress, 11-26 ~01:30Z; pre-written bars; exploratory, 500 pairs/arm):**
+- comp_enum, T1: decision-stratum CF 99.9 % at 0.03 % unsafe (bar ≥ 85 % at ≤ 1 %): MET.
+- Beats copy_parent by +33 pts (bar ≥ 10): MET.
+- T1 per-pair miscoverage, cross-fit: 0.108 / 0.110 vs bar ≤ 0.10: narrowly MISSED (within split variance 0.10–0.12;
+  reported as missed).
+- T2 per-pair miscoverage with the size-aware margin: 0.034 / 0.036 (bar ≤ 0.15): MET. Margins by merge size
+  0.17 / 0.05 / 0.05 / 0.04 / 0.03 for 2–6 modules; frozen in N4_margins.json (460999c) before any conf read.
+- **Merges of modules never assembled together are certifiable with inferred latents (H14 supported).**
