@@ -383,3 +383,49 @@ The research lead reviewed `scripts/analysis/confirmatory.py` (7fe5883) against 
 - **Clarification (01:15Z, before any confirmatory label).** A-SEED exists to stop best-of-seeds selection of *our*
   model. The C-SCALE comparator `blackbox_gnn` has one trained seed (bb-n6-1), so no selection is possible, and it
   is admitted under that tag.
+
+## 11. Amendment A-POWER (01:20Z, owner request; computed from EXPLORATORY variances only, no conf label seen)
+**Purpose.** Spend tonight's capacity on significance where it binds. The cut capacity goes to exploratory tests
+that can change a claim. Every trim keeps a **prefix** of the scheduled range (fresh seeds, no selection). Bars are
+unchanged.
+
+**Power audit (exploratory inputs).**
+- 9.0 incapable stratum decisions per episode (gen-ref2 plated test, 10k episodes).
+- E1 / N3 effect sizes: par s = 3 undominated unsafe ≈ 30 % in T0, T2 ≥ 3-module undominated flips 2.4–2.8 %;
+  robust ≤ 0.4 %.
+- E2 merges: δ_comp 0.11 % [0.03, 0.24] at 500 pairs; size-aware miscov 0.002–0.02.
+- Models' re-analysis: comp 95 % vs direct 86 % coverage.
+- capxfer 58–75 % vs ours ~97 % CF.
+- Design effects assumed ≤ 4.5 (episode) and ≈ 2.2 (building, 5 missions/building, ICC ≈ 0.3).
+- 90 % power, one-sided 0.05, with Holm-level z ≈ 2.7 for the P-bars.
+
+| cell | binding bar | n needed (90 %) | scheduled | **new range** |
+|---|---|---|---|---|
+| C-MAIN | 20k-incapable power rule for E_dec (P1/P2 effects are ≥ 10 pts and need ≪ 500) | 2,223 episodes + deff margin | conf_test 40–3,039 | **conf_test 40–2,439 (2,400)** |
+| Cal rows for C-MAIN baselines (exploratory cal) | matched-U* margin: ≥ 5k incapable cal decisions | ~600 episodes | cal 0–1,999 | **cal 0–999** |
+| C-GATE | P5 / P6′ excess tests at s = 3 (~300 episodes). E_dec validity is underpowered at any feasible n (≈ 2,900/severity), so E_ep ≤ 0.10 decides: ~300 | 300–400 per severity | 2,000 × 4 severities | **3,040–3,639 (600) × s ∈ {0, 1, 2, 3}** |
+| C-MERGE | miscov_pair upper ≤ 0.13; δ_comp upper < 1 % | ≤ 500 pairs | 1,000 per arm | **500 per arm** (pairs 0–499) |
+| C-ENV | P7 paired success ≥ 5 pts (sd ≈ 0.3, Holm) | ~400 missions | ID 0–1,498; E-H 0–749 | **ID 0–599; each E-H 0–299** |
+| C-SCALE | E_ep upper ≤ 0.18 and comp−direct slope | 300 per bin | conf_H4 0–1,499, conf_H4b 0–1,399 | **conf_H4 0–599, conf_H4b 0–599** (≈ 300 per bin) |
+| C-HET | E_ep upper ≤ 0.18; drop ≤ 5 pts | 500 per split | 0–999 each | **0–499 each** |
+| C-EXPLAIN | precision bars on refusals | ≪ C-MAIN | rides on C-MAIN | C-MAIN range |
+
+- If C-MAIN at 2,400 fails the power rule (deff > ~3.6), E_dec is reported UNDERPOWERED as before. No range is
+  extended after scoring.
+- Rows beyond the new ranges that already exist are **dropped by the scorer**, not used. Using them would be
+  optional stopping.
+
+**Ops instruction** (tonight; cancel only queued, not leased, units):
+- **Cancel** queued units whose index range starts beyond the new range in:
+  - cfcap-baselines-conf4: conf-main ≥ 2,440; conf-cal ≥ 1,000; conf-het ≥ 500;
+  - cfcap-models-eval2b / eval2hb: conf-main ≥ 2,440; conf-scale conf_H4 ≥ 600 and conf_H4b ≥ 600; conf-het ≥ 500;
+    conf-env ID ≥ 600 and E-H ≥ 300;
+  - cfcap-stress-conf-gate: episodes ≥ 3,640, every severity;
+  - the C-MERGE conf export: pairs ≥ 500.
+- **Restore with the freed capacity**, in this order (exploratory, same lineage, resubmit-as):
+  1. `cfcap-baselines-smc-small`. It is the only input to the T3 amortized-vs-SMC rule (H4 / claim C3). Without it
+     the word "amortized" cannot be adjudicated.
+  2. `cfcap-decide2` (T1 probing). It takes H3 beyond T0.
+  3. `cfcap-nuis3` (F1 spread curve, Prop. 3 empirical). A figure, not a claim-changer.
+  4. `cfcap-theory-ride` (cheap CPU).
+  5. `cfcap-t2-extra` (ablation; low value).
