@@ -1,0 +1,42 @@
+{
+ "v2": {
+  "q_par": 0.3560545570609557,
+  "q_par_pooled_s012": 0.35558835041964076,
+  "q_pi_pooled": 0.13776437626260551
+ },
+ "v2+clamp": {
+  "q_par": 0.36725902160868684,
+  "q_par_pooled_s012": 0.3560545570609557,
+  "q_pi_pooled": 0.17432513792505255
+ },
+ "_source": {
+  "runs": [
+   "/home/lunarz/.cache/vast-out/vast-torch-62567145/crane/cfcap-stress-conf-gate.gate-cal.s001",
+   "/home/lunarz/.cache/vast-out/vast-torch-62567145/crane/cfcap-stress-conf-gate.gate-cal.s002",
+   "/home/lunarz/.cache/vast-out/vast-torch-62567145/crane/cfcap-stress-conf-gate.gate-cal.s003",
+   "/home/lunarz/.cache/vast-out/vast-torch-62567145/crane/cfcap-stress-conf-gate.gate-cal.s004",
+   "/home/lunarz/.cache/vast-out/vast-torch-62569107/crane/cfcap-stress-conf-gate.gate-cal.s003",
+   "/home/lunarz/.cache/vast-out/vast-torch-62569107/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62574641/crane/cfcap-stress-conf-gate.gate-cal.s000",
+   "/home/lunarz/.cache/vast-out/vast-torch-62578050/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62578754/crane/cfcap-stress-conf-gate.gate-cal.s000",
+   "/home/lunarz/.cache/vast-out/vast-torch-62581388/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62590272/crane/cfcap-stress-conf-gate.gate-cal.s000",
+   "/home/lunarz/.cache/vast-out/vast-torch-62590686/crane/cfcap-stress-conf-gate.gate-cal.s003",
+   "/home/lunarz/.cache/vast-out/vast-torch-62595077/crane/cfcap-stress-conf-gate.gate-cal.s001",
+   "/home/lunarz/.cache/vast-out/vast-torch-62595077/crane/cfcap-stress-conf-gate.gate-cal.s003",
+   "/home/lunarz/.cache/vast-out/vast-torch-62595077/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62596813/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62603596/crane/cfcap-stress-conf-gate.gate-cal.s004",
+   "/home/lunarz/.cache/vast-out/vast-torch-62605159/crane/cfcap-stress-conf-gate.gate-cal.s000",
+   "/home/lunarz/.cache/vast-out/vast-torch-62605159/crane/cfcap-stress-conf-gate.gate-cal.s002",
+   "/home/lunarz/.cache/vast-out/vast-torch-62613334/crane/cfcap-stress-conf-gate.gate-cal.s001",
+   "/home/lunarz/.cache/vast-out/vast-torch-62613334/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62613969/crane/cfcap-stress-conf-gate.gate-cal.s005",
+   "/home/lunarz/.cache/vast-out/vast-torch-62618563/crane/cfcap-stress-conf-gate.gate-cal.s001"
+  ],
+  "episodes": 390,
+  "alpha": 0.1,
+  "note": "exploratory knee cal episodes (stress_gate --split cal --root 92599,97)"
+ }
+}
