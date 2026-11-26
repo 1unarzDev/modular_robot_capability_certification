@@ -27,8 +27,8 @@ SIZES = ("1", "2", "3", "4", "5", "6+")
 # probe set code -> (display name, colour, linestyle, marker, macro key part)
 PROBES = {"v2": ("v2", S.BLUE, "-", "o", "vtwo"),
           "v2+clamp": ("v2 + clamp", S.INK, (0, (3.2, 1.6)), "s", "clamp"),
-          "v2+clamp+yawhi": ("v2 + clamp +\nfast yaw", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
-HTINT = "#dce8f7"   # light blue under the sparse hatching, so dark numbers stay legible
+          "v2+clamp+yawhi": ("+ yaw probe", S.GREY, (0, (1, 1.2)), "^", "clampyaw")}
+HTINT = "#dce8f7"   # light blue under the fine hatching, so dark numbers stay legible
 NWORD = {4: "NFour", 8: "NEight", 16: "NSixteen"}
 
 
@@ -114,11 +114,12 @@ def run(res, paper):
             if ob > 1e-9:
                 ax.add_patch(Rectangle((x0, y0), ob, h, fc=S.BLUE, ec="none", lw=0))
             if x > 1e-9:
-                ax.add_patch(Rectangle((x0 + ob, y0), w * x, h, fc=HTINT, ec=S.BLUE, lw=0, hatch="//"))
+                ax.add_patch(Rectangle((x0 + ob, y0), w * x, h, fc=HTINT, ec=S.BLUE, lw=0, hatch="////////",
+                                       hatch_linewidth=0.4))
             ax.add_patch(Rectangle((x0, y0), w, h, fc="none", ec=S.BLUE, lw=0.5))
             if x >= 0.005:     # observed cells carry no number (solid = 0 % extrapolated)
                 ax.text(j + 0.5, i + 0.5, _cell_txt(x), ha="center", va="center", fontsize=S.LABEL_PT,
-                        color=S.INK, bbox=dict(boxstyle="round,pad=0.12,rounding_size=0.25", fc="white",
+                        color=S.INK, bbox=dict(boxstyle="round,pad=0.22,rounding_size=0.3", fc="white",
                                                ec="none"))
         ax.text(-0.12, i + 0.5, k, ha="right", va="center", fontsize=S.LABEL_PT, color=S.INK)
         # with clamp: one word per row, from the data
@@ -144,7 +145,7 @@ def run(res, paper):
              color=S.INK2)
     kx2 = kx + 1.0
     fig.patches.append(Rectangle((kx2 / W, (ky - 0.045) / H), 0.16 / W, 0.09 / H, fc=HTINT, ec=S.BLUE, lw=0.5,
-                                 hatch="//", transform=fig.transFigure))
+                                 hatch="////////", hatch_linewidth=0.4, transform=fig.transFigure))
     fig.text((kx2 + 0.2) / W, ky / H, "extrapolated via motor law (% of legs)", ha="left", va="center",
              fontsize=S.LABEL_PT, color=S.INK2)
 
@@ -155,10 +156,12 @@ def run(res, paper):
     if len(cov):
         bx.axvspan(7, 10, color=S.TINT, lw=0, zorder=0)
         c78, c910 = cov.get("N 7-8", np.nan), cov.get("N 9-10", np.nan)
-        bx.annotate(f"tested sizes (N 7–10)\nmeasured coverage {c78:.2f} → {c910:.2f}", xy=(10, 37),
-                    xytext=(10.6, 38), ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
-                    linespacing=1.1, bbox=dict(fc="white", ec="none", pad=0.5),
-                    arrowprops=dict(arrowstyle="-", lw=0.4, color=S.INK2, shrinkA=0, shrinkB=0))
+        # callout flush against the band's right edge (the band is the anchor; no leader)
+        bx.text(10.12, 38, f"◂ tested sizes (N 7–10)\nmeasured coverage\n{100 * c78:.0f} % → {100 * c910:.0f} %",
+                ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2, linespacing=1.05,
+                bbox=dict(fc="white", ec="none", pad=0.3))
+    bx.text(2.3, 27, "closed form\n(Prop. 2b)", ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2,
+            linespacing=1.05)
     ends = {}
     for code, (lab, col, ls, mk, _) in PROBES.items():
         d = v[v.probe_set == code].sort_values("N")
@@ -190,7 +193,5 @@ def run(res, paper):
     bx.tick_params(length=2, pad=1.5)
     fig.text(0.02 / W, (by + bh + 0.20) / H, "(b) Extrapolated share grows with parent size", ha="left",
              va="top", fontsize=S.TITLE_PT, fontweight="bold", color=S.INK)
-    fig.text((W - 0.02) / W, (by + bh + 0.20) / H, "closed form (Prop. 2b)", ha="right", va="top",
-             fontsize=S.LABEL_PT, color=S.INK2)
     S.save(fig, out)
     return N

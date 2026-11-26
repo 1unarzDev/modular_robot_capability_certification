@@ -28,29 +28,35 @@ BASES = "baselines/confirmatory/dec_conf_baselines.csv.gz"
 MERGE = "stress/confirmatory/dec_conf_merge.csv.gz"
 B_FIG, SEED_FIG = 1000, 4
 
-# display name, code, colour, marker, marker size (>= 4.5 pt for the three that must separate in grayscale)
-METHODS = (("Ours", "amortized_comp", S.BLUE, "o", 5.0),
-           ("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
+# display name (exactly as Table 1), code, colour, marker, marker size (>= 4.5 pt for the three that must separate in
+# grayscale). Draw order is the reverse of this tuple, so CapXfer is drawn last, on top.
+METHODS = (("CapXfer", "capxfer", S.VIOLET, ">", 4.8),
+           ("Ours", "amortized_comp", S.BLUE, "o", 5.0),
            ("ĝ-physics", "ghat_physics", S.TEAL, "D", 4.5),
-           ("min-over-members", "min_over_members", S.GREY, "<", 4.2),
-           ("detector-gated", "detector_gated", S.GREY, "^", 4.2),
-           ("copy-parent", "copy_parent", S.GREY, "s", 3.8))
-BLOCKS = (("stratum", "stratum", "(a) Stratum"), ("lone-faulted", "lone", "(b) Lone faulted"),
-          ("merge", "merge", "(c) Merges"))
-# Direct labels per block. ("off", dx, dy, ha): offset in points from the marker, no leader.
-# ("at", x_rate, y_pct, ha): text placed in data coordinates with a 0.4 pt leader to the marker.
+           ("Oracle", "oracle", S.INK, "*", 5.5),
+           ("Min over members", "min_over_members", S.GREY, "<", 4.2),
+           ("Detector-gated", "detector_gated", S.GREY, "^", 4.2),
+           ("Copy parent", "copy_parent", S.GREY, "s", 3.8),
+           ("Shape metadata", "metadata_nf", S.GREY, "o", 6.0))     # hollow ring around Copy parent at (0, 0)
+SCORER_ONLY = {"metadata_nf"}   # computed by the scorer (add_trivial), not read from rows: point from cells.csv
+BLOCKS = (("stratum", "stratum", "Stratum"), ("lone-faulted", "lone", "Lone"), ("merge", "merge", "Merges"))
+# Direct labels per block. ("off", dx, dy, ha[, lines]): offset in points from the marker, no leader.
+# ("at", x_rate, y_pct, ha[, lines]): text placed in data coordinates with a 0.4 pt leader to the marker.
+# lines: 2 or 3 line layout of the Ours/CapXfer number label (default Ours 1, CapXfer 3).
 LABEL_AT = {
-    "stratum": {"amortized_comp": ("off", -8, 8, "left"), "capxfer": ("at", 0.17, 42, "center"),
+    "stratum": {"amortized_comp": ("off", -4, 8, "left"), "capxfer": ("at", 0.17, 42, "center"),
                 "ghat_physics": ("at", 0.0088, 64.1, "right"), "min_over_members": ("at", 0.0050, 36.3, "right"),
-                "detector_gated": ("off", 0, 7.5, "center"), "copy_parent": ("off", 5, 0, "left")},
-    "lone-faulted": {"amortized_comp": ("off", -10, 10, "left"), "capxfer": ("at", 0.17, 66, "center"),
-                     "ghat_physics": ("at", 0.045, 37, "center"), "detector_gated": ("off", 0, -10.5, "center"),
-                     "copy_parent": ("off", 5, 0, "left")},
-    "merge": {"amortized_comp": ("off", -24, 8, "left"), "capxfer": ("at", 0.17, 20, "center"),
-              "ghat_physics": ("off", -6, 7, "right"), "min_over_members": ("off", 5, 0, "left"),
-              "detector_gated": ("off", 5, 6, "left"), "copy_parent": ("off", 5, -1, "left")}}
+                "detector_gated": ("off", 0, 7.5, "center"), "copy_parent": ("off", 9, -2.5, "left"),
+                "oracle": ("off", -2.5, 7, "left")},
+    "lone-faulted": {"amortized_comp": ("off", -10, 12, "left"), "capxfer": ("off", 7, 11, "center", 2),
+                     "ghat_physics": ("at", 0.95, 38, "right"), "detector_gated": ("off", 3, -9, "left"),
+                     "copy_parent": ("off", 9, -3, "left"), "oracle": ("off", -2.5, 7, "left")},
+    "merge": {"amortized_comp": ("off", -7, 8, "left"), "capxfer": ("at", 0.95, 19, "right"),
+              "ghat_physics": ("off", -6, 7, "right"), "min_over_members": ("off", 6, 0, "left"),
+              "detector_gated": ("off", 9, 4, "left"), "copy_parent": ("off", 9, -4, "left"),
+              "oracle": ("off", -2.5, 7, "left")}}
 NOLEAD = {("stratum", "ghat_physics"), ("stratum", "min_over_members")}   # 'at' labels set beside the CI, no leader
-TWO_LINE = {"min-over-members": "min-over-\nmembers"}
+TWO_LINE = {"Min over members": "Min over\nmembers"}
 USE = ("claim", "method", "model_tag", "test_plant", "split", "status", "eid", "shard", "cand", "kind", "cand_size",
        "has_fault", "leg", "truth", "lower")
 
@@ -122,6 +128,15 @@ def run(res, paper):
               & (dec.test_plant == "T1") & dec.method.isin(codes)]
     P = {}                                     # (code, block) -> dict(cf, cf_lo, cf_hi, ed, ed_lo, ed_hi, n_ep)
     for code in codes:
+        if code in SCORER_ONLY:
+            for blk, _, _ in BLOCKS:
+                row = cm[(cm.method == code) & (cm.block == blk)].iloc[0]
+                if row.CF_own != 0 or row.E_dec_own != 0:
+                    raise ValueError(f"fig4: {code}/{blk} is no longer (0, 0); it needs a bootstrap CI")
+                # certifies nothing in every episode: every bootstrap replicate is 0, so the CI is [0, 0]
+                P[code, blk] = dict(cf=0.0, cf_lo=0.0, cf_hi=0.0, ed=0.0, ed_lo=0.0, ed_hi=0.0, n_ep=int(row.n_ep),
+                                    n_inc=-1)
+            continue
         ev = dec[dec.method == code].reset_index(drop=True)
         bt = K.Boot(np.sort(ev.eid.unique()), B=B_FIG, seed=SEED_FIG)
         for blk, _, _ in BLOCKS:
@@ -143,27 +158,30 @@ def run(res, paper):
 
     # ---------------------------------------------------------------- figure
     S.apply()
-    W, H = S.W2, 1.92
+    W, H = S.W2, 2.0
     fig = S.plt.figure(figsize=(W, H))
     L, Bm, T = 0.40, 0.33, 0.21
-    pw, gap = 1.17, 0.07
+    pw, gap = 1.30, 0.07
     ph = H - Bm - T
     axs = [fig.add_axes([(L + i * (pw + gap)) / W, Bm / H, pw / W, ph / H]) for i in range(3)]
-    dL = L + 3 * pw + 2 * gap + 0.44
+    dL = L + 3 * pw + 2 * gap + 0.38
     dw = (W - dL - 0.06 - 0.06) / 2
     axd = [fig.add_axes([(dL + i * (dw + 0.06)) / W, Bm / H, dw / W, ph / H]) for i in range(2)]
 
     lead = dict(arrowstyle="-", lw=0.4, color=S.INK2, shrinkA=1.0, shrinkB=S.ARROW_SHRINK)
-    for i, (ax, (blk, bl, title)) in enumerate(zip(axs, BLOCKS)):
+    for i, (ax, (blk, bl, short)) in enumerate(zip(axs, BLOCKS)):
         zero_axis(ax)
-        ax.set_ylim(-6, 110)
+        ax.set_ylim(-14, 114)
         ax.set_yticks([0, 25, 50, 75, 100])
         ax.yaxis.grid(True)
         if i:
             ax.tick_params(labelleft=False)
         else:
             ax.set_ylabel("certified share of capable (%)", labelpad=1.5)
-        S.panel(ax, title)
+        o, c = P["amortized_comp", blk], P["capxfer", blk]
+        verdict = "safer" if o["ed"] < c["ed"] else "not safer"
+        S.panel(ax, f"({'abc'[i]}) {short}: {100 * (o['cf'] - c['cf']):+.0f} pts, {verdict}",
+                x=-0.12 if i == 0 else None)
         g, mm = P["ghat_physics", blk], P["min_over_members", blk]
         same = abs(g["cf"] - mm["cf"]) < 0.005 and abs(g["ed"] - mm["ed"]) < 5e-4   # lone modules: one member
         for name, code, col, mk, ms in METHODS[::-1]:
@@ -174,28 +192,37 @@ def run(res, paper):
             xe = [[x - float(xpos(p["ed_lo"]))], [float(xpos(p["ed_hi"])) - x]]
             ye = [[y - 100 * p["cf_lo"]], [100 * p["cf_hi"] - y]]
             ours = code == "amortized_comp"
+            top = code == "capxfer"
             ax.errorbar([x], [y], xerr=xe, yerr=ye, fmt="none", ecolor=col, elinewidth=0.9 if ours else 0.6,
-                        capsize=0, alpha=0.75, zorder=3)
-            ax.plot([x], [y], marker=mk, ms=ms, color=col, mec="white", mew=0.5, ls="none", zorder=4, clip_on=False)
+                        capsize=0, alpha=0.75, zorder=3 if not top else 6)
+            if code == "metadata_nf":
+                ax.plot([x], [y], marker=mk, ms=ms, mfc="none", mec=col, mew=0.6, ls="none", zorder=4, clip_on=False)
+            else:
+                ax.plot([x], [y], marker=mk, ms=ms, color=col, mec="white", mew=0.7 if top else 0.5, ls="none",
+                        zorder=7 if top else 4, clip_on=False)
             # direct label
             spec = LABEL_AT[blk].get(code)
             if spec is None:
                 continue
             if code in ("amortized_comp", "capxfer"):
-                txt = (f"{name} {100 * p['cf']:.1f} % at {100 * p['ed']:.2f} %" if ours else
-                       f"{name}\n{100 * p['cf']:.1f} % at\n{100 * p['ed']:.2f} %")
+                nl = spec[4] if len(spec) > 4 else (1 if ours else 3)
+                a_, b_ = f"{100 * p['cf']:.1f} %", f"{100 * p['ed']:.2f} %"
+                txt = {1: f"{name} {a_} at {b_}", 2: f"{name}\n{a_} at {b_}", 3: f"{name}\n{a_} at\n{b_}"}[nl]
                 tc = col
             else:
-                txt = "ĝ-physics ≈\nmin over members" if (same and code == "ghat_physics") else name
+                txt = "ĝ-physics ≈\nMin over members" if (same and code == "ghat_physics") else name
+                if code == "copy_parent":
+                    txt = "Copy parent,\nShape metadata"
                 if spec[0] == "at" and (blk, code) in NOLEAD:
                     txt = TWO_LINE.get(txt, txt)
-                tc = S.INK2
-            kw = dict(fontsize=S.LABEL_PT, color=tc, va="center", linespacing=1.0, zorder=6)
+                tc = S.INK if code == "oracle" else S.INK2
+            kw = dict(fontsize=S.LABEL_PT, color=tc, va="center", linespacing=1.0, zorder=8)
             if spec[0] == "off":
                 ax.annotate(txt, (x, y), xytext=spec[1:3], textcoords="offset points", ha=spec[3], **kw)
             else:
+                lk = None if (blk, code) in NOLEAD else dict(lead, relpos=(0.7, 1.0) if spec[2] < y else (0.5, 0.5))
                 ax.annotate(txt, (x, y), xytext=(spec[1], spec[2]), textcoords="data", ha=spec[3],
-                            arrowprops=None if (blk, code) in NOLEAD else lead, **kw)
+                            arrowprops=lk, **kw)
         if i == 1:
             ax.set_xlabel("unsafe commits at the method's own bound (%, log scale)", labelpad=1.5)
     axs[0].annotate("better", xy=(X0 * 1.1, 80), xytext=(0.0006, 52), textcoords="data", fontsize=S.LABEL_PT,
@@ -213,12 +240,12 @@ def run(res, paper):
                   zorder=2)
         ax.plot(lim, lim, color=S.INK, lw=S.LW_THEORY, ls=(0, (3, 2)), zorder=3)
         miss = g[g.lower > g.truth]
-        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=3.0, mew=1.6,
-                color="white", zorder=4)                                   # halo: misses read in grayscale
-        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=2.6, mew=0.7,
-                color=S.ORANGE, zorder=5)
-        ax.set_xlim(lim)
-        ax.set_ylim(lim)
+        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=4.2, mew=2.4,
+                color="white", zorder=8, clip_on=False)                    # halo: misses read in grayscale
+        ax.plot(miss.truth.clip(*lim), miss.lower.clip(*lim), ls="none", marker="x", ms=3.6, mew=1.0,
+                color=S.ORANGE, zorder=9, clip_on=False)
+        ax.set_xlim(-0.04, lim[1])
+        ax.set_ylim(-0.04, lim[1])
         ax.set_xticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_yticks([0, 0.5, 1.0], ["0", "0.5", "1"])
         ax.set_aspect("auto")
@@ -236,12 +263,12 @@ def run(res, paper):
         N.num(f"fig4.merge.entries.{plant.lower()}", len(g), "results/" + MERGE, SD)
         N.pct(f"fig4.merge.missrate.{plant.lower()}", nm / len(g), "results/" + MERGE, SD, d=2)
         N.num(f"fig4.merge.pairs.{plant.lower()}", g.groupby(["arm", "eid"]).ngroups, "results/" + MERGE, SD)
-    S.panel(axd[0], "(d) Never-docked merges: bound under truth")
+    S.panel(axd[0], "(d) Never-docked: bound under truth", x=-0.27)
     S.save(fig, out)
 
     # ---------------------------------------------------------------- macros
     lab = {"amortized_comp": "ours", "capxfer": "capxfer", "ghat_physics": "ghat", "min_over_members": "minmem",
-           "detector_gated": "detector", "copy_parent": "copy"}
+           "detector_gated": "detector", "copy_parent": "copy", "oracle": "oracle", "metadata_nf": "metadata"}
     for (code, blk), p in P.items():
         bl = dict((b, s) for b, s, _ in BLOCKS)[blk]
         k = f"fig4.{lab[code]}.{bl}"

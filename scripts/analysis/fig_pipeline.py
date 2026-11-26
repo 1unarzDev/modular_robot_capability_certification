@@ -109,7 +109,9 @@ def draw(path):
     vx = x + 0.095                                       # under the '?' of "probe first" (bottom row)
     yl = 0.03
     bx0 = B[0][0] + B[0][2] / 2
-    ax.plot([vx, vx, bx0], [y0, yl, yl], color=S.BLUE, lw=0.8, zorder=1, solid_joinstyle="miter")
+    yq = y0 + h - 0.10 - 2 * 0.155                       # the "probe first" row (last of `rows`)
+    ax.plot([vx, vx, bx0], [yq - 0.055, yl, yl], color=S.BLUE, lw=0.8, zorder=4, solid_joinstyle="miter")
+    ax.plot([vx], [yq - 0.055], "o", ms=2.0, color=S.BLUE, zorder=4)
     arrow(ax, (bx0, yl), (bx0, y0), color=S.BLUE)
     ax.text(vx - 0.06, yl + 0.025, "decision value (EVOI), exploratory: probe again only where it pays",
             ha="right", va="bottom", fontsize=S.LABEL_PT, color=S.BLUE)

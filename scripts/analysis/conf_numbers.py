@@ -182,4 +182,6 @@ def run(res, paper):
             src = "results/confirmatory/posthoc_p1p2/ownbound_common.csv"
             _p(N, k + ".cf", r.CF_own, src, "posthoc")
             _p(N, k + ".edec", r.E_dec_own, src, "posthoc", small=True)
+            N.num(k + ".nuns", int(round(r.E_dec_own * r.n_incapable)), src, "posthoc")
+            N.num(k + ".ninc", int(r.n_incapable), src, "posthoc")
     return N
