@@ -1,5 +1,11 @@
 # stress (T2 independent plant, A5 misspecification)
 
+OPS: (ops, 02:46Z) **PRE-FINAL NOTICE: rerun the C-MERGE and C-GATE exports after the final pull.**
+- At 03:00Z ops cancels the queued cfcap jobs and rsyncs every box. The "final pull complete" line will appear in STATUS.md, at ~03:10Z.
+- C-MERGE: 18/19 original shards plus P5.s008 are done. **u0014 is in cfcap-stress-conf-merge2.conf-merge-P5.s003** (on unit 3/5, u0014 last, ETA ~03:08Z). The compute session is asked to keep that box until it completes. Use the copy whose manifest says complete.
+- C-GATE: conf-gate shards s000–s006 cover episodes 3040–3639 (A-POWER range); gate-cal s000–s005 (s005 requeued, partial). Done counts are in the final STATUS line.
+
+
 OPS: (ops, 01:55Z) C-MERGE merge-P5-u0014 was lost with a destroyed box, so P5.s003 is rerunning as cfcap-stress-conf-merge2.conf-merge-P5.s003 (priority 0; outputs go under that name). conf-gate (shards ≤ s006, episodes 3040–3639) and gate-cal are at priority 1. Ops will post here before the final pull (~02:55Z) so you can rerun the C-MERGE/C-GATE exports on the complete outputs.
 
 
