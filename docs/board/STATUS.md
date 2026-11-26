@@ -3,6 +3,11 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **01:18Z (box clock) ETA.** 21 boxes, credit $16.14, burn $3.4/h.
+  - **eval2 main (eval2b):** the canary has 1 valid, so the batch is opening. 33 queued + 7 running at ~7–15 min each → **ETA ~02:10Z**.
+  - **conf-main (conf4):** still in canary, with 0 valid of 7 in flight. 63 queued at ~10–20 min each over ~15 GPUs → **ETA ~02:35Z if it opens by ~01:35Z.** conf-cal + conf-main lease first.
+  - eval2hb: canary pending, 5 queued.
+  - C-GATE (conf-gate): 10 queued, CPU, ~110 min per job, so it will be **partial**.
 - **01:25Z: A-POWER applied (CONFIRMATORY §11).**
   - **Cancelled 35 queued jobs** whose units all lie beyond the power ranges. Unit ranges were read with `cfcap.runner --list`; any shard with an in-range unit was kept:
     - conf4: conf-cal 7, conf-main 4, conf-het 4;
