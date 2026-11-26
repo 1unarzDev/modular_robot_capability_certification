@@ -177,7 +177,8 @@ def headline_from_eval2(e2, status, calib_out=None):
         sim_lo, q_sim = lowers(cal, [df for _, df in evs], direct, "simultaneous")
         mar_lo, q_marg = lowers(cal, [df for _, df in evs], direct, "marginal")
         calib[tag] = dict(alpha=ALPHA, q_sim=float(q_sim), q_marg=float(q_marg))
-        sfx = "" if seed == "1" else f"_s{seed}"
+        head = "1" if arch in ("bb", "bbh") else "2"                     # A-SEED: st headline = seed 2
+        sfx = "" if seed == head else f"_s{seed}"
         if arch == "bb":
             dec += dec_rows(f"blackbox_gnn{sfx}", "simultaneous", "none", evs, sim_lo, direct, sec_d, status)
             continue
@@ -212,11 +213,20 @@ CLAIM_OF = {"conf_test": "C-MAIN", "conf_H4": "C-SCALE", "conf_H4b": "C-SCALE", 
 CAL_OF = {"C-MAIN": "cal", "C-SCALE": "cal", "C-HET": "het_cal"}
 # (claim, method) -> (model tag, quantile column prefix: "" direct, "c" compositional, "b" type-blind compositional)
 CONF_METHODS = {
-    ("C-MAIN", "amortized_comp"): ("st-n6-1", "c"),
-    ("C-SCALE", "amortized_comp"): ("st-n6-1", "c"), ("C-SCALE", "st_direct"): ("st-n6-1", ""),
+    ("C-MAIN", "amortized_comp"): ("st-n6-2", "c"),
+    ("C-SCALE", "amortized_comp"): ("st-n6-2", "c"), ("C-SCALE", "st_direct"): ("st-n6-2", ""),
     ("C-SCALE", "blackbox_gnn"): ("bb-n6-1", ""),
     ("C-HET", "amortized_comp"): ("sth-het-1", "c"), ("C-HET", "amortized_comp_blind"): ("sth-het-1", "b"),
     ("C-HET", "st_direct"): ("sth-het-1", ""), ("C-HET", "blackbox_gnn"): ("bbh-het-1", ""),
+}
+
+
+# CONFIRMATORY A-SEED (§10): the confirmatory model is st-n6-2; st-n6-1, if it lands, is a descriptive
+# seed-variation column only (its own file, outside the dec_* glob, never a bar)
+CONF_MODEL = "st-n6-2"
+SEEDVAR_METHODS = {
+    ("C-MAIN", "amortized_comp"): ("st-n6-1", "c"),
+    ("C-SCALE", "amortized_comp"): ("st-n6-1", "c"), ("C-SCALE", "st_direct"): ("st-n6-1", ""),
 }
 
 
@@ -225,7 +235,7 @@ def _qfn(prefix):
                        np.maximum(df[prefix + "q50"] - df[prefix + "q05"], 1e-3).to_numpy(float))
 
 
-def confirmatory_wheels(roots, out_path, model="st-n6-1"):
+def confirmatory_wheels(roots, out_path, model=CONF_MODEL):
     """C-EXPLAIN input (CONFIRMATORY §6b): per-wheel mode posteriors of `model` on conf_test 40-3039, from the
     models_eval2 wheel sidecars, as one npz next to dec_conf_models: eid, asm_role (0 parent, 1.. merge partners),
     wheel (index within its assembly, 4 k + corner), ep_wheel (index over the episode's assemblies in role order, the
@@ -251,7 +261,7 @@ def confirmatory_wheels(roots, out_path, model="st-n6-1"):
     return out_path
 
 
-def confirmatory_rows(e2, now=None, allow_early=False):
+def confirmatory_rows(e2, now=None, allow_early=False, methods=None):
     """dec_conf_models rows: per (claim, method) the T1-cal (exploratory) rows and the conf_* rows with lower
     (simultaneous) and lower_marg (marginal), fixed-T1-reference rho_dec truth, claim, shard, parent_n, variant."""
     import datetime as dt
@@ -259,7 +269,7 @@ def confirmatory_rows(e2, now=None, allow_early=False):
     if not allow_early and now < dt.datetime(2026, 11, 26, 1, 45, tzinfo=dt.timezone.utc):
         raise SystemExit(f"confirmatory labels stay closed until {CONF_OPEN} (now {now:%Y-%m-%dT%H:%MZ})")
     out = []
-    for (claim, method), (tag, pre) in CONF_METHODS.items():
+    for (claim, method), (tag, pre) in (methods or CONF_METHODS).items():
         by = e2.get(tag)
         cal_split = CAL_OF[claim]
         if not by or cal_split not in by:
@@ -387,7 +397,7 @@ def main():
                     help="also copy each train run's manifest.json + weights.pt to DIR/<arch>-<div>-<seed>/ (stage-2 input)")
     ap.add_argument("--confirmatory", action="store_true",
                     help="write results/models/confirmatory/dec_conf_models.csv.gz (refused before 2026-11-26 01:45Z)")
-    ap.add_argument("--env-model", default="st-n6-1")
+    ap.add_argument("--env-model", default=CONF_MODEL)
     ap.add_argument("--env-truth", nargs="*", default=[],
                     help="pulled env_missions run dirs (exploratory test family) for the envcal constant q_env")
     ap.add_argument("--env-out", default=str(ROOT / "results/models"), help="env/ and confirmatory/ go under it")
@@ -458,7 +468,8 @@ def main():
                                         heldout=int(split in ("H3", "H4") or n > d_info["max_n"]), status=a.status,
                                         split=split, metric="det_1pct", value=det["det_all"]))
         # decision rows: headline diversity, seed 1
-        if cfg["div"] == a.headline and cfg["seed"] == 1 and cfg["arch"] in ("st", "bb"):
+        if cfg["div"] == a.headline and ((cfg["arch"] == "st" and cfg["seed"] == 2) or
+                                         (cfg["arch"] == "bb" and cfg["seed"] == 1)):     # A-SEED: st seed 2
             if bb:
                 dec += dec_rows("blackbox_gnn", "simultaneous", "none", evs, sim_lo, direct, sec_direct, a.status)
             else:
@@ -508,6 +519,11 @@ def main():
         print(f"confirmatory rows {sum(len(r) for r in rows)} -> {f}")
         w = confirmatory_wheels(a.roots, f.parent / "wheels_conf_models.npz")
         print(f"confirmatory wheels -> {w}")
+        sv = confirmatory_rows(e2, allow_early=a.allow_early, methods=SEEDVAR_METHODS)
+        if sv:                              # descriptive seed variation (A-SEED): not a dec_* file, never scored
+            sv = [r.assign(method=r.method + "_seedvar", seedvar=1) for r in sv]
+            pd.concat(sv).to_csv(f.parent / "seedvar_conf_models.csv.gz", index=False)
+            print(f"seed-variation rows {sum(len(r) for r in sv)} -> {f.parent / 'seedvar_conf_models.csv.gz'}")
         e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}
     else:                                   # never look at confirmatory rows in the exploratory export
         e2 = {k: {s_: v for s_, v in d.items() if not s_.startswith("conf_")} for k, d in e2.items()}

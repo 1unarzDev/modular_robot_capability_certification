@@ -194,6 +194,14 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
     - conf-ID uses missions 0–1498; 1499 is excluded.
   - Disclosure: while checking unit ids I constructed one conf building mission, `make_mission("conf-ID", 1499)`
     (geometry only; no simulation, no labels).
+- **A-SEED (CONFIRMATORY §10, 2f6b0e9).** Every confirmatory model row uses **st-n6-2**: C-MAIN, C-SCALE, C-ENV
+  and C-EXPLAIN (wheels npz). C-HET keeps its het models.
+  - Every constant is fitted for st-n6-2 on the exploratory cal split: `calib_st-n6-2.json` (q_sim, q_marg, q_comp)
+    and C-ENV q_comp / q_env.
+  - The exploratory headline `amortized_*` rows are st-n6-2 as well.
+  - st-n6-1, if it lands, is selected and composed but goes only to
+    `results/models/confirmatory/seedvar_conf_models.csv.gz` (methods `*_seedvar`). That file is outside the `dec_*`
+    glob and never a bar.
 - **Confirmatory labels stay closed until 2026-11-26 01:45Z.** `models_export.py` and `models_scaling.py` drop
   `conf_*` splits. `models_export.py --confirmatory` refuses to run before then.
   - After 01:45Z it writes `results/models/confirmatory/dec_conf_models.csv.gz` with the §5a columns plus `claim`,

@@ -67,7 +67,7 @@ def boot(s, B=1000, seed=0):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("roots", nargs="+")
-    ap.add_argument("--tags", default="st-n6-1,bb-n6-1")
+    ap.add_argument("--tags", default="st-n6-2,bb-n6-1")
     ap.add_argument("--status", default="exploratory")
     ap.add_argument("--B", type=int, default=1000)
     ap.add_argument("--out", default=str(ROOT / "results/models/paper/scaling.csv"))

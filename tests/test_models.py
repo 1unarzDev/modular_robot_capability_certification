@@ -203,7 +203,7 @@ def test_export_and_summarize(tmp_path):
     import sys
     from cfcap.models import train as TR
     rng = np.random.default_rng(0)
-    for shard in (0, 1):                                           # grid b1: shard 0 = st n6 s1, 1 = bb n6 s1
+    for shard in (16, 1):                                          # grid b1: 16 = st n6 s2 (A-SEED headline), 1 = bb n6 s1
         d = tmp_path / f"run{shard}"
         (d / "units").mkdir(parents=True)
         (d / "manifest.json").write_text(json.dumps(dict(task="train", shard=shard, task_argv=["--grid", "b1"])))
@@ -211,7 +211,7 @@ def test_export_and_summarize(tmp_path):
             np.savez(d / "units" / f"eval-{s}.npz", **_fake_eval(rng))
             (d / "units" / f"eval-{s}.json").write_text(json.dumps(dict(unit=f"eval-{s}",
                                                                         meta=dict(infer_ms_per_episode=3.0))))
-    assert TR.grid("b1")[0] == dict(arch="st", div="n6", seed=1) and TR.grid("b1")[1]["arch"] == "bb"
+    assert TR.grid("b1")[16] == dict(arch="st", div="n6", seed=2) and TR.grid("b1")[1]["arch"] == "bb"
     out = tmp_path / "paper"
     r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(out)],
                        capture_output=True, text=True)
@@ -250,7 +250,7 @@ def test_export_eval2_end_to_end(tmp_path):
         z = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
         u = f"{split}-0000000-0000030"
         np.savez(d / "units" / f"{u}.npz", **z)
-        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1,bb-n6-1", hardware="X"))))
+        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-2,bb-n6-1", hardware="X"))))
     out, cal = tmp_path / "paper", tmp_path / "calib"
     r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(out), "--calib-out",
                         str(cal)], capture_output=True, text=True)
@@ -260,7 +260,7 @@ def test_export_eval2_end_to_end(tmp_path):
     assert np.allclose(dec[dec.method == "amortized_comp"].seconds, 0.9, atol=1e-5)
     lat = pd.read_csv(out / "latency_models.csv")
     assert (lat[lat.method == "amortized_comp"].sec_per_decision > 0.5).all()
-    c = json.loads((cal / "calib_st-n6-1.json").read_text())
+    c = json.loads((cal / "calib_st-n6-2.json").read_text())
     assert {"q_sim", "q_marg", "q_comp", "alpha"} <= set(c)
 
 
@@ -279,9 +279,9 @@ def test_scaling_curve(tmp_path):
         f.update(model=np.zeros(k, int), parent_n=np.full(k, n, np.int32), sec_direct=np.full(k, 0.01, np.float32),
                  sec_comp=np.full(k, 1.0, np.float32), sec_gen=np.zeros(k, np.float32))
         np.savez(d / "units" / f"{split}-0000000-0000030.npz", **f)
-        (d / "units" / f"{split}-0000000-0000030.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1"))))
+        (d / "units" / f"{split}-0000000-0000030.json").write_text(json.dumps(dict(meta=dict(models="st-n6-2"))))
     out = tmp_path / "scaling.csv"
-    r = subprocess.run([sys.executable, "scripts/models_scaling.py", str(tmp_path), "--tags", "st-n6-1", "--B", "20",
+    r = subprocess.run([sys.executable, "scripts/models_scaling.py", str(tmp_path), "--tags", "st-n6-2", "--B", "20",
                         "--out", str(out)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     s = pd.read_csv(out)
@@ -306,12 +306,14 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
                  sec_gen=np.zeros(k, np.float32), shard=np.ones(k, np.int64))
         for q in ("q05", "q25", "q50", "q75", "q95"):
             f["b" + q] = f["c" + q]
+        f2 = dict(f, model=np.ones(k, int))                       # st-n6-1: descriptive seed variation only
+        f = {kk: np.concatenate([f[kk], f2[kk]]) for kk in f}
         u = f"{split}-0000000-0000030"
         np.savez(d / "units" / f"{u}.npz", **f)
-        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-1"))))
+        (d / "units" / f"{u}.json").write_text(json.dumps(dict(meta=dict(models="st-n6-2,st-n6-1"))))
         (d / "wheels").mkdir(exist_ok=True)
         ne = 30
-        np.savez(d / "wheels" / f"{u}.npz", split=np.array(split), model=np.array("st-n6-1"),
+        np.savez(d / "wheels" / f"{u}.npz", split=np.array(split), model=np.array("st-n6-2"),
                  eid=np.repeat(np.arange(eid0, eid0 + ne), 8), asm_role=np.zeros(8 * ne, int),
                  wheel=np.tile(np.arange(8), ne), ep_wheel=np.tile(np.arange(8), ne),
                  p=np.full((8 * ne, 4), 0.25, np.float32), g_mean=np.ones(8 * ne, np.float32))
@@ -330,6 +332,10 @@ def test_confirmatory_export_guard_and_columns(tmp_path):
     main = c[(c.claim == "C-MAIN") & (c.split != "cal")]
     assert main.eid.min() >= 40 and (main.status == "confirmatory").all()
     assert (c[c.split == "cal"].status == "exploratory").all()
+    assert c.variant.str.startswith("st-n6-2").all() or (c.method == "blackbox_gnn").any()
+    assert not c.variant.str.startswith("st-n6-1").any()
+    sv = pd.read_csv(tmp_path / "seedvar_conf_models.csv.gz")
+    assert sv.variant.str.startswith("st-n6-1").all() and sv.method.str.endswith("_seedvar").all()
     w = np.load(tmp_path / "wheels_conf_models.npz")
     assert w["p"].shape[1] == 4 and w["eid"].min() >= 40 and "mode" not in w.files
     p = pd.read_csv(tmp_path / "p" / "latency_models.csv") if (tmp_path / "p" / "latency_models.csv").exists() else None
@@ -353,7 +359,7 @@ def test_env_lower_export(tmp_path):
     (d / "units" / "env-test-0000000-0000004.json").write_text(json.dumps(dict(meta={})))
     cal = tmp_path / "calib"
     cal.mkdir()
-    (cal / "calib_st-n6-1.json").write_text(json.dumps(dict(alpha=0.1, q_sim=1.0, q_marg=0.8, q_comp=2.0)))
+    (cal / "calib_st-n6-2.json").write_text(json.dumps(dict(alpha=0.1, q_sim=1.0, q_marg=0.8, q_comp=2.0)))
     r = subprocess.run([sys.executable, "scripts/models_export.py", str(tmp_path), "--out", str(tmp_path / "p"),
                         "--calib-out", str(cal), "--env-out", str(tmp_path / "m")], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr

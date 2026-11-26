@@ -28,20 +28,20 @@ QCOLS = ("q05", "q25", "q50", "q75", "q95")
 
 def add_args(p):
     p.add_argument("--runs", required=False, default=None, help="directory of pulled train runs (or an input name)")
-    p.add_argument("--select", default="st-n6-1,st-n6-2,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1")
+    p.add_argument("--select", default="st-n6-2,st-n6-1,st-n6-3,bb-n6-1,ds-n6-1,stl-n6-1")
     p.add_argument("--splits", default="cal:2000,test:2000,H3:500,H4:500")
     p.add_argument("--per-unit", type=int, default=100)
     p.add_argument("--compose-S", type=int, default=16)
     p.add_argument("--compose-every", type=int, default=1)
-    p.add_argument("--compose-select", default="st-n6-1", help="models that also run the compositional route")
+    p.add_argument("--compose-select", default="st-n6-2", help="models that also run the compositional route")
     p.add_argument("--plate", default="plated")
     p.add_argument("--reserve-shard0", action="store_true",
                    help="shard 0 gets no units (the confirmatory scorer excludes shard 0, the canary's)")
-    p.add_argument("--wheels-model", default="st-n6-1",
+    p.add_argument("--wheels-model", default="st-n6-2",
                    help="model whose per-wheel mode posteriors go to OUT/wheels/<unit>.npz (C-EXPLAIN)")
     p.add_argument("--env-families", default="",
                    help="C-ENV missions, family:n or family:lo:hi (e.g. test:600,E-H1:300,conf-ID:0:1500)")
-    p.add_argument("--env-model", default="st-n6-1")
+    p.add_argument("--env-model", default="st-n6-2")
     p.add_argument("--env-S", type=int, default=12)
     p.add_argument("--blind-splits", default="het_cal,het_test,H1,H2,conf_het_test,conf_H1,conf_H2",
                    help="splits where the compositional route also runs type-blind (module type withheld)")
