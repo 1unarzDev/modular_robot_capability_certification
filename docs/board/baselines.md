@@ -230,6 +230,17 @@ Either failing is reported as a failure of the learned method's claim, not tuned
 
   The optional SMC conf plan is dropped (coordinator: descriptive; smc_small covers T3). `raw` is models';
   `dominance_pi` is theory's.
+- **Incident #22 (00:31Z).** CUDA-graph OOM on conf-cal. Fixed in a8dba51:
+  - every T1 call (likelihood, candidate capability, generator probes and labels, capxfer bands) runs through a
+    fallback chain compile → graph → eager, and any failure, OOM included, moves to the next engine;
+  - batches are smaller: 2¹⁴ wheels per likelihood batch, 2¹⁵ per capability or label run;
+  - `--engine`, `--chunk-wheels` and `--cap-max-wheels` are task flags;
+  - one local conf-cal unit (2 episodes, the 8 conf3 methods, graph engine) ran in 22 s at 1.3 GB peak VRAM with no
+    fallback triggered.
+- **conf3** (research-lead rescue): `jobs_baselines_conf.json` = cfcap-baselines-conf3, 86 jobs, 27 box-h, ~$4.9.
+  - Methods: capxfer, detector_gated, ghat_physics, copy_parent, min_over_members, rls_interval (run, not exported),
+    nominal, oracle. enum_known and nuisance_smc are out of the confirmatory path; credible_lower comes from models.
+  - Ranges: conf-cal 0–1999 and conf-main 40–3,039 first, unchanged; conf-scale cut to 0–299 per split.
 - **Unit times are estimates.** The H4 / H4b estimate (~35 s per episode) is the least certain.
 
 ## Full-scale proposal (estimates until the canary lands)
