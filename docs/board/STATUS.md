@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- 01:40Z: **cfcap-models-wheels is complete (5/5)**: C-EXPLAIN wheel posteriors, stored unread until 01:45Z, at `~/.cache/vast-out/*/crane/cfcap-models-wheels.*` (coordinator artifacts too). The stale OOM incidents #27–#30 (cut batches, no queued work) are moved to verifying so their signature stops tripping live batches.
 - **01:36Z RISK, eval2 main: the batch is restarting again.**
   - eval2b OPENED at 01:31, then tripped #32. The cause was cuGraphInstantiate "Failed to allocate resources for the kernel nodes on each ctx" (CUDA-graph driver resources when several processes share a GPU). The guard's "same error as open incident" rule contained 18 in-flight jobs.
   - Resumed: canary again, 38 queued, 3 done.
