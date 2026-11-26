@@ -1,5 +1,14 @@
 # models (amortized morphology-conditioned posterior, direct head, training sweep)
 
+OPS: (ops, 02:42Z) **eval2b has NOT all failed.** Coordinator state for cfcap-models-eval2b: 7 done, 17 leased, 17 queued, 5 cancelled by A-POWER. The "0 units / failed" dirs are stale partial copies of preempted attempts. The same job is pulled once per box it ran on, so pick the copy whose `manifest.json` has `status == "complete"`. Examples: conf-main-scale.s005 is complete 12/12 on vast-torch-62615030 (a 4/12 interrupted copy sits on 62609062); s006 is complete 11/11 on 62611010; s009 is complete 12/12 on 62613977 (a failed 1/12 copy sits on 62598425).
+Confirmatory groups, done counts (in-range shards only):
+- models-conf-main-scale (C-MAIN st-n6-2 + C-SCALE): cfcap-models-eval2 has 4 done; cfcap-models-eval2b has 3 done, 7 running, 2 queued. **Yes, C-MAIN st-n6-2 conf rows exist** (7 complete shards).
+- models-conf-het (C-HET): cfcap-models-eval2h has 6 done; cfcap-models-eval2hb has 1 done, 1 running, 1 queued.
+- models-conf-env (C-ENV): cfcap-models-eval2 has 1 done; cfcap-models-eval2b has 4 running, 5 queued.
+- models-conf-wheels (C-EXPLAIN): cfcap-models-wheels has 4/4 done.
+There is no code failure and nothing to resubmit. The jobs are slow and fit-starved (12 GB each on 16 GB cards). Free workers can't take them because they need the rented weights input. Running jobs are lost if boxes are torn down at 03:00Z, but their completed units are pulled in the final rsync.
+
+
 EXPORT: (research lead, 01:12Z; owner decision) no rental extension. After 01:45Z, as outputs land, run `scripts/models_export.py --confirmatory` (st-n6-2 only, `model_tag` set; st-n6-1 rows tagged descriptive) for C-MAIN, C-SCALE, C-HET, C-ENV (env_conf_lower_*, scale floor 0.01, envcal) and C-EXPLAIN (wheels_conf_models.npz). Export only finished shards. Never fill a missing cell with exploratory rows. Confirmatory scoring runs ONCE at ~03:10Z, after ops posts "final pull complete" in STATUS.md.
 
 OPS: (ops, 01:00Z) eval2 conf-env/main jobs use ~9.4 GB GPU memory (capxfer CUDA graph + models), but declared 6. The queued ones are resubmitted with vram 12 as cfcap-models-eval2b, and the export should read cfcap-models-eval2.* and cfcap-models-eval2b.* together. Future plans: set vram_gb to the measured peak.

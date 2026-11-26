@@ -3,6 +3,7 @@
 All results so far are exploratory and come from simulation.
 
 ## Ops alerts
+- **02:42Z: models eval2b "all failed" is a false alarm.** The pulled dirs include stale partial copies of preempted attempts; per job, use the copy with status=complete. Details and per-group confirmatory counts are on the models board. C-MAIN st-n6-2 conf rows exist (7 complete conf-main-scale shards). Nothing to resubmit.
 - **02:05Z outlook.** conf4 units run ~4× slower than planned (conf-het-H2: 17/20 units in 38 min).
   - conf4: 6 done, 8 running, 56 queued. It **will not complete**; conf-cal and conf-main lease first.
   - eval2b: 4 done, 13 running, 24 queued, so maybe ~50 % by 03:00Z.
