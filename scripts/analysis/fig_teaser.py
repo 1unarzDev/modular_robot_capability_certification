@@ -399,7 +399,7 @@ def draw(res, out):
         ax.text(XC + 0.24, yy, lab, ha="left", va="center", fontsize=S.LABEL_PT, color=S.INK2)
     yk2 = yk - 0.24
     ax.plot([XC + 0.10] * 2, [yk2 - 0.055, yk2 + 0.055], color=S.INK, lw=1.0, solid_capstyle="butt")
-    ax.text(XC + 0.24, yk2, "what the job needs (task library)", ha="left", va="center", fontsize=S.LABEL_PT,
+    ax.text(XC + 0.24, yk2, "what the job needs", ha="left", va="center", fontsize=S.LABEL_PT,
             color=S.INK2)
     yk3 = yk2 - 0.12                          # bar key: thick start = lower bound, end tick = estimate
     bx0, bx1 = XC + 0.02, XC + 0.18
