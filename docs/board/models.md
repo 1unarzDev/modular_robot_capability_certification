@@ -284,6 +284,19 @@ batched; their `comp_seconds` covers composition only, on 100 episodes. So stage
   - (b) matched-compute SMC: baselines runs SMC at a wall budget equal to `sec_comp`.
   - (c) capxfer on the same eids: baselines' capxfer_cert.
 
+## Confirmatory export after the FINAL PULL (written 03:15–03:17Z)
+`$PY scripts/models_export.py ~/.cache/vast-out --calib-out results/models/calib --confirmatory` was run from 03:06Z,
+with complete-copy selection, st-n6-2 and model_tag.
+- `results/models/confirmatory/dec_conf_models.csv.gz`, 03:15Z (128 MB, not committed). Confirmatory episodes:
+  - C-MAIN: conf_test, 1,050 episodes (the scorer applies 40–2,439);
+  - C-SCALE: conf_H4, 525 episodes; conf_H4b, none;
+  - C-HET: conf_het_test, conf_H1 and conf_H2, 500 each.
+  - Cal sources: C-MAIN and C-SCALE use the st-n6-2 train-run eval-cal fallback; C-HET uses eval2 het_cal.
+- `wheels_conf_models.npz`, 03:15Z: conf_test 40–3039, st-n6-2.
+- `env_conf_lower_{amortized_comp,raw,amortized_comp_envcal,credible_lower}.csv.gz`, 03:17Z. Only conf-ID missions
+  500–599 fall inside A-POWER; the complete units were 500–999, and there are no conf-E-H units. q_comp = 1.618 and
+  q_env = 1.813 (299 exploratory ID missions).
+
 ## Tomorrow (free-worker list, for a complete confirmatory rescore)
 1. Rerun the st-n6-2 stage-2 **models-eval2 `cal` job** (generator cal 0–1999, compositional route for every
    episode). It replaces tonight's train-run eval-cal fallback (300 episodes, 100 composed; q_comp 1.618). The fallback
